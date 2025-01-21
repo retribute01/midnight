@@ -20,74 +20,53 @@ contract Terms is ITerms {
     // Terms.
     mapping(address => mapping(bytes32 => uint256)) public bondOf;
     mapping(address => mapping(bytes32 => uint256)) public debtOf;
-    mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
     mapping(bytes32 => uint256) public withdrawable;
+    mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
     // Offers.
     mapping(bytes32 => uint256) public consumed;
 
     /// ENTRY-POINTS ///
 
-    function mint(
-        Offer memory lendOffer,
-        Signature memory lendSig,
-        Offer memory borrowOffer,
-        Signature memory borrowSig
-    ) public {
-        _checkOffers(lendOffer, lendSig, borrowOffer, borrowSig);
+    function MATCH(Offer memory buyOffer, Signature memory buySig, Offer memory sellOffer, Signature memory sellSig)
+        public
+    {
+        _checkOffers(buyOffer, buySig, sellOffer, sellSig);
 
-        uint256 amount = Math.min(lendOffer.assets, borrowOffer.assets);
         // Commented because it makes invariants "not vacuous".
-        // consumed[keccak256(abi.encode(lendOffer))] += amount;
-        // consumed[keccak256(abi.encode(borrowOffer))] += amount;
-
-        bytes32 id = id(Term(borrowOffer.loanToken, borrowOffer.collaterals, borrowOffer.maturity));
-        bondOf[borrowOffer.offering][id] += amount;
-        debtOf[borrowOffer.offering][id] += amount;
-
-        IERC20(lendOffer.loanToken).transferFrom(lendOffer.offering, borrowOffer.offering, amount);
-    }
-
-    function transferBond(
-        Offer memory buyOffer,
-        Signature memory buySig,
-        Offer memory sellOffer,
-        Signature memory sellSig
-    ) external {
-        _checkOffers(buyOffer, buySig, sellOffer, sellSig);
-
+        // uint256 amount = Math.min(buyOffer.assets - consumed[keccak256(abi.encode(buyOffer))], sellOffer.assets - consumed[keccak256(abi.encode(sellOffer))]);
         uint256 amount = Math.min(buyOffer.assets, sellOffer.assets);
+        require(amount > 0, "No assets to match");
+        address buyer = buyOffer.offering;
+        address seller = sellOffer.offering;
+
+        // Commented because it makes invariants "not vacuous".
         // consumed[keccak256(abi.encode(buyOffer))] += amount;
         // consumed[keccak256(abi.encode(sellOffer))] += amount;
 
-        bytes32 id = id(Term(sellOffer.loanToken, sellOffer.collaterals, sellOffer.maturity));
-        bondOf[sellOffer.offering][id] -= amount;
-        bondOf[buyOffer.offering][id] += amount;
+        Term memory term = Term(sellOffer.loanToken, sellOffer.collaterals, sellOffer.maturity);
+        bytes32 id = _id(term);
 
-        IERC20(buyOffer.loanToken).transferFrom(buyOffer.offering, sellOffer.offering, amount);
-    }
+        uint256 repaid = Math.min(debtOf[buyer][id], amount);
+        debtOf[buyer][id] -= repaid;
+        bondOf[buyer][id] += amount - repaid;
 
-    function transferDebt(
-        Offer memory buyOffer,
-        Signature memory buySig,
-        Offer memory sellOffer,
-        Signature memory sellSig
-    ) external {
-        _checkOffers(buyOffer, buySig, sellOffer, sellSig);
+        uint256 withdrawn = Math.min(bondOf[seller][id], amount);
+        bondOf[seller][id] -= withdrawn;
+        debtOf[seller][id] += amount - withdrawn;
 
-        uint256 amount = Math.min(buyOffer.assets, sellOffer.assets);
-        // consumed[keccak256(abi.encode(buyOffer))] += amount;
-        // consumed[keccak256(abi.encode(sellOffer))] += amount;
+        require(debtOf[buyer][id] == 0 || _isHealthy(term, buyer), "Buyer is unhealthy");
+        require(debtOf[seller][id] == 0 || _isHealthy(term, seller), "Seller is unhealthy");
 
-        bytes32 id = id(Term(sellOffer.loanToken, sellOffer.collaterals, sellOffer.maturity));
-        debtOf[sellOffer.offering][id] -= amount;
-        debtOf[buyOffer.offering][id] += amount;
+        uint256 sellerScaledPrice = sellOffer.price * amount / sellOffer.assets;
+        uint256 buyerScaledPrice = buyOffer.price * amount / buyOffer.assets;
 
-        IERC20(buyOffer.loanToken).transferFrom(buyOffer.offering, sellOffer.offering, amount);
+        IERC20(buyOffer.loanToken).transferFrom(buyer, seller, sellerScaledPrice);
+        IERC20(buyOffer.loanToken).transferFrom(buyer, msg.sender, buyerScaledPrice - sellerScaledPrice);
     }
 
     /// @dev Will revert if there is no withdrawable funds.
     function withdrawBond(Term memory term, uint256 amount, address onBehalf) external {
-        bytes32 id = id(term);
+        bytes32 id = _id(term);
 
         bondOf[onBehalf][id] -= amount;
         withdrawable[id] -= amount;
@@ -96,7 +75,7 @@ contract Terms is ITerms {
     }
 
     function repayDebt(Term memory term, uint256 amount, address onBehalf) external {
-        bytes32 id = id(term);
+        bytes32 id = _id(term);
 
         debtOf[onBehalf][id] -= amount;
         withdrawable[id] += amount;
@@ -105,32 +84,31 @@ contract Terms is ITerms {
     }
 
     function supplyCollateral(Term memory term, address collateral, uint256 amount, address onBehalf) external {
-        collateralOf[onBehalf][id(term)][collateral] += amount;
+        collateralOf[onBehalf][_id(term)][collateral] += amount;
         IERC20(collateral).transferFrom(msg.sender, address(this), amount);
     }
 
     function withdrawCollateral(Term memory term, address collateral, uint256 amount, address onBehalf) external {
-        collateralOf[onBehalf][id(term)][collateral] -= amount;
+        collateralOf[onBehalf][_id(term)][collateral] -= amount;
+
+        require(_isHealthy(term, onBehalf), "Unhealthy borrower");
+
         IERC20(collateral).transfer(msg.sender, amount);
-    }
-
-    /// VIEW ///
-
-    function id(Term memory term) public pure returns (bytes32) {
-        return keccak256(abi.encode(term));
     }
 
     /// INTERNAL ///
 
-    function _checkOffers(
-        Offer memory buyOffer,
-        Signature memory buySig,
-        Offer memory sellOffer,
-        Signature memory sellSig
-    ) internal view {
+    function _id(Term memory term) public pure returns (bytes32) {
+        return keccak256(abi.encode(term));
+    }
+
+    function _checkOffers(Offer memory buyOffer, Signature memory, Offer memory sellOffer, Signature memory)
+        internal
+        view
+    {
         // Check consistency.
 
-        require(buyOffer.lend && !sellOffer.lend, "Inconsistent lend flags");
+        require(buyOffer.buy && !sellOffer.buy, "Inconsistent lend flags");
         require(buyOffer.maturity > block.timestamp, "Buy offer has expired");
         // Commented because it makes verification fail.
         // _checkSignature(buyOffer, buySig);
@@ -138,15 +116,19 @@ contract Terms is ITerms {
 
         // Check compatibility.
 
+        require(buyOffer.offering != sellOffer.offering, "Same offering");
         require(buyOffer.loanToken == sellOffer.loanToken, "Loan tokens do not match");
         for (uint256 i = 0; i < sellOffer.collaterals.length; i++) {
             uint256 j;
+            // Relies on the fact that the collaterals are sorted.
+            // Note that we actually never check that.
+            // If they are not, the match could fail.
             while (
                 bytes20(sellOffer.collaterals[i].token) < bytes20(buyOffer.collaterals[j].token)
                     && j++ < buyOffer.collaterals.length
             ) {}
-            require(sellOffer.collaterals[i].token == buyOffer.collaterals[j].token, "Collateral tokens do not match");
-            require(sellOffer.collaterals[i].lltv <= buyOffer.collaterals[j].lltv, "LLTV exceeds limit");
+            require(sellOffer.collaterals[i].token == buyOffer.collaterals[j].token, "Collaterals tokens do not match");
+            require(sellOffer.collaterals[i].lltv <= buyOffer.collaterals[j].lltv, "LLTVs do not match");
             require(sellOffer.collaterals[i].oracle == buyOffer.collaterals[j].oracle, "Oracles do not match");
         }
         require(buyOffer.maturity == sellOffer.maturity, "Maturities do not match");
@@ -162,17 +144,20 @@ contract Terms is ITerms {
         require(signatory != address(0) && offer.offering == signatory, "Invalid signature");
     }
 
-    function _checkCollateralisation(Offer memory borrowOffer) internal view {
-        bytes32 id = id(Term(borrowOffer.loanToken, borrowOffer.collaterals, borrowOffer.maturity));
-        
-        uint256 maxDebt;
-        for (uint256 i = 0; i < borrowOffer.collaterals.length; i++) {
-            uint256 price = IOracle(borrowOffer.collaterals[i].oracle).price();
-            uint256 collateralQuoted =
-                collateralOf[borrowOffer.offering][id][borrowOffer.collaterals[i].token] * price / WAD;
-            maxDebt += collateralQuoted * borrowOffer.collaterals[i].lltv / WAD;
-        }
+    function _isHealthy(Term memory term, address borrower) internal view returns (bool) {
+        if (term.maturity < block.timestamp) {
+            return false;
+        } else {
+            bytes32 id = _id(Term(term.loanToken, term.collaterals, term.maturity));
 
-        require(debtOf[borrowOffer.offering][id] <= maxDebt);
+            uint256 maxDebt;
+            for (uint256 i = 0; i < term.collaterals.length; i++) {
+                uint256 price = IOracle(term.collaterals[i].oracle).price();
+                uint256 collateralQuoted = collateralOf[borrower][id][term.collaterals[i].token] * price / WAD;
+                maxDebt += collateralQuoted * term.collaterals[i].lltv / WAD;
+            }
+
+            return debtOf[borrower][id] <= maxDebt;
+        }
     }
 }

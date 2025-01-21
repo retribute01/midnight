@@ -4,9 +4,12 @@
 
 methods {
     function withdrawable(bytes32 id) external returns uint256 envfree;
-    
-    function _.transferFrom(address, address, uint256) external => HAVOC_ECF;
-    function _.transfer(address, uint256) external => HAVOC_ECF;
+    function balanceOf(address, address) external returns uint256 envfree;
+    function id(Terms.Term) external returns bytes32 envfree;
+
+    function _.transfer(address, uint256) external => DISPATCHER(true);
+    function _.transferFrom(address, address, uint256) external => DISPATCHER(true);
+    function _.balanceOf(address) external => DISPATCHER(true);
 }
 
 /// HOOKS ///
@@ -38,24 +41,16 @@ invariant sanitySumBond(bytes32 id)
     
 invariant sanitySumDebt(bytes32 id)
     sumDebtOf[id] >= 0;
-    
 
-rule satisfyMint(env e, calldataarg args) {
-    mint(e, args);
-    satisfy true;
-}
-
-rule satisfyTransferDebt(env e, calldataarg args) {
-    transferDebt(e, args);
-    satisfy true;
-}
-
-rule satisfyTransferBond(env e, calldataarg args) {
-    transferBond(e, args);
+rule satisfyMatch(env e, calldataarg args) {
+    MATCH(e, args);
     satisfy true;
 }
 
 /// INVARIANTS ///
 
-invariant sums(bytes32 id)
+strong invariant sums(bytes32 id)
     sumBondOf[id] == sumDebtOf[id] + withdrawable(id);
+
+// invariant balances(TermsHelpers.Term term)
+//     balanceOf(term.loanToken, currentContract) >= withdrawable(id(term));
