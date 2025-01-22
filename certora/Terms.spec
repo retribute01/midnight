@@ -7,9 +7,9 @@ methods {
     function balanceOf(address, address) external returns uint256 envfree;
     function id(Terms.Term) external returns bytes32 envfree;
 
-    function _.transfer(address, uint256) external => DISPATCHER(true);
-    function _.transferFrom(address, address, uint256) external => DISPATCHER(true);
-    function _.balanceOf(address) external => DISPATCHER(true);
+    // function _.transfer(address, uint256) external => DISPATCHER(true);
+    // function _.transferFrom(address, address, uint256) external => DISPATCHER(true);
+    // function _.balanceOf(address) external => DISPATCHER(true);
 }
 
 /// HOOKS ///
