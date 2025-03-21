@@ -238,7 +238,7 @@ contract Terms is ITerms {
         require(buyOffer.loanToken == sellOffer.loanToken, "Loan tokens do not match");
         for (uint256 i = 0; i < sellOffer.collaterals.length; i++) {
             uint256 j;
-            // relies on the fact that the collaterals are sorted.
+            // Relies on the fact that the collaterals are sorted.
             // Note that we actually never check that.
             // If they are not, the match could fail.
             while (
