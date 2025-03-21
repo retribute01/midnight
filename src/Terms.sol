@@ -2,20 +2,22 @@
 pragma solidity 0.8.28;
 
 import "./libraries/Math.sol";
+import {MathLib, WAD} from "./libraries/MathLib.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/ITerms.sol";
 
 contract Terms is ITerms {
+    using MathLib for uint256;
+
     /// CONSTANTS ///
 
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
     bytes32 public constant OFFER_TYPEHASH = keccak256(
         "Offer(bool lend,address offering,uint256 assets,address loanToken,Collateral[] collaterals,uint256 maturity,uint256 price)"
     );
-    uint256 public constant WAD = 1 ether;
 
-    uint256 public constant ORACLE_PRICE_SCALE = 1 ether;
+    uint256 public constant ORACLE_PRICE_SCALE = 1e36;
 
     /// STORAGE ///
 
@@ -136,9 +138,9 @@ contract Terms is ITerms {
         for (uint256 i = 0; i < term.collaterals.length; i++) {
             uint256 price = IOracle(term.collaterals[i].oracle).price();
             uint256 collateralQuoted =
-                collateralOf[borrower][id][term.collaterals[i].token] * price / ORACLE_PRICE_SCALE;
+                collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(price, ORACLE_PRICE_SCALE);
             totalCollateralQuoted += collateralQuoted;
-            maxDebt += collateralQuoted * term.collaterals[i].lltv / WAD;
+            maxDebt += collateralQuoted.wMulDown(term.collaterals[i].lltv);
         }
 
         // Check that position not healthy.
@@ -187,13 +189,12 @@ contract Terms is ITerms {
     {
         require(exactlyOneZero(s.seizedAssets, s.repaidAmount), "INCONSISTENT_INPUT");
         uint256 collateralPrice = IOracle(c.oracle).price();
-        uint256 seizedAssetsQuoted = s.seizedAssets * collateralPrice / ORACLE_PRICE_SCALE;
-        if (s.repaidAmount > 0) {
-            s.seizedAssets = (s.repaidAmount * lif / WAD) * ORACLE_PRICE_SCALE / collateralPrice;
-            seizedAssetsQuoted = s.seizedAssets * collateralPrice / ORACLE_PRICE_SCALE;
+        uint256 seizedAssetsQuoted = s.seizedAssets.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
+        if (s.seizedAssets > 0) {
+            s.repaidAmount = seizedAssetsQuoted.wDivUp(lif);
         } else {
-            // TODO: fix rouding
-            s.repaidAmount = seizedAssetsQuoted * WAD * ORACLE_PRICE_SCALE / lif;
+            s.seizedAssets = s.repaidAmount.wMulDown(lif).mulDivUp(ORACLE_PRICE_SCALE, collateralPrice);
+            seizedAssetsQuoted = s.seizedAssets.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
         }
         IERC20(c.token).transfer(liquidator, s.seizedAssets);
         return (s.repaidAmount, s.seizedAssets, seizedAssetsQuoted);
@@ -237,7 +238,7 @@ contract Terms is ITerms {
         require(buyOffer.loanToken == sellOffer.loanToken, "Loan tokens do not match");
         for (uint256 i = 0; i < sellOffer.collaterals.length; i++) {
             uint256 j;
-            // Relies on the fact that the collaterals are sorted.
+            // relies on the fact that the collaterals are sorted.
             // Note that we actually never check that.
             // If they are not, the match could fail.
             while (
@@ -271,8 +272,8 @@ contract Terms is ITerms {
             for (uint256 i = 0; i < term.collaterals.length; i++) {
                 uint256 price = IOracle(term.collaterals[i].oracle).price();
                 uint256 collateralQuoted =
-                    collateralOf[borrower][id][term.collaterals[i].token] * price / ORACLE_PRICE_SCALE;
-                maxDebt += collateralQuoted * term.collaterals[i].lltv / WAD;
+                    collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(price, ORACLE_PRICE_SCALE);
+                maxDebt += collateralQuoted.wMulDown(term.collaterals[i].lltv);
             }
 
             return debtOf[borrower][id] <= maxDebt;
