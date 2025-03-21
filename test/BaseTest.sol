@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "../lib/forge-std/src/Test.sol";
-
+import {ERC20} from "./helpers/ERC20.sol";
 import "../src/Terms.sol";
 
 abstract contract BaseTest is Test {
@@ -20,5 +20,22 @@ abstract contract BaseTest is Test {
         Signature memory sig;
         (sig.v, sig.r, sig.s) = vm.sign(sk, digest);
         return sig;
+    }
+
+    function sortTokens(ERC20[] memory arr) internal pure returns (ERC20[] memory) {
+        uint256 length = arr.length;
+        for (uint256 i = 1; i < length; i++) {
+            bytes20 key = bytes20((address(arr[i])));
+            uint256 j = i - 1;
+            while ((int256(j) >= 0) && (bytes20(address(arr[j])) > key)) {
+                arr[j + 1] = arr[j];
+                if (j == 0) {
+                    break;
+                }
+                j--;
+            }
+            arr[j + (bytes20(address(arr[j])) > key ? 0 : 1)] = ERC20(address(key));
+        }
+        return arr;
     }
 }

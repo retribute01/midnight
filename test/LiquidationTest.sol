@@ -4,38 +4,18 @@ pragma solidity ^0.8.0;
 import "./BaseTest.sol";
 
 import {console} from "../lib/forge-std/src/Test.sol";
-import {ERC20} from "./helpers/ERC20.sol";
+
 import {Oracle} from "./helpers/Oracle.sol";
 
 contract LiquidationTest is BaseTest {
     ERC20 private loanToken;
-    ERC20 private collateralToken;
-    Oracle private oracle;
     uint256 private borrowerSK;
     address private borrower;
     uint256 private lenderSK;
     address private lender;
     address liquidator;
-    uint256 liquidatorSK;
     Term[] private liquidationTerms;
     Seizure[] private s;
-
-    function sortTokens(ERC20[] memory arr) internal pure returns (ERC20[] memory) {
-        uint256 length = arr.length;
-        for (uint256 i = 1; i < length; i++) {
-            bytes20 key = bytes20((address(arr[i])));
-            uint256 j = i - 1;
-            while ((int256(j) >= 0) && (bytes20(address(arr[j])) > key)) {
-                arr[j + 1] = arr[j];
-                if (j == 0) {
-                    break;
-                }
-                j--;
-            }
-            arr[j + (bytes20(address(arr[j])) > key ? 0 : 1)] = ERC20(address(key));
-        }
-        return arr;
-    }
 
     function genTerm(uint256 n) internal returns (Term memory) {
         Collateral[] memory cs = new Collateral[](n);
@@ -49,12 +29,10 @@ contract LiquidationTest is BaseTest {
 
         for (uint256 i = 0; i < n; i++) {
             ERC20 c = tokens[i];
-            if (i < n - 1) {
-                require(bytes20(address(tokens[i])) < bytes20(address(tokens[i + 1])));
-            }
             Oracle o = new Oracle();
             c.transfer(borrower, 1 ether);
             cs[i] = Collateral({token: address(tokens[i]), lltv: 0.75e18, oracle: address(o)});
+
             vm.startPrank(borrower);
             c.approve(address(terms), type(uint256).max);
             vm.stopPrank();
@@ -65,13 +43,13 @@ contract LiquidationTest is BaseTest {
         loanToken.transfer(lender, 1000);
 
         vm.startPrank(borrower);
-
         uint256 remaining = 840;
         uint256 dealt;
         for (uint256 i = 1; i < n; i++) {
             dealt += remaining / (n - 1);
             terms.supplyCollateral(t, cs[i].token, remaining / (n - 1), borrower);
         }
+        // The collateral in position 0 is used to make the position liquidatable.
         terms.supplyCollateral(t, cs[0].token, remaining + 500, borrower);
         vm.stopPrank();
 
@@ -92,6 +70,7 @@ contract LiquidationTest is BaseTest {
             maturity: block.timestamp + 100,
             price: 990
         });
+
         Offer memory borrowOffer = Offer({
             buy: false,
             offering: borrower,
@@ -112,7 +91,7 @@ contract LiquidationTest is BaseTest {
         super.setUp();
         (borrower, borrowerSK) = makeAddrAndKey("borrower");
         (lender, lenderSK) = makeAddrAndKey("lender");
-        (liquidator, liquidatorSK) = makeAddrAndKey("liquidator");
+        liquidator = makeAddr("liquidator");
 
         loanToken = new ERC20("loan", "loan", 1 ether);
         loanToken.transfer(lender, 99);
@@ -166,43 +145,43 @@ contract LiquidationTest is BaseTest {
         vm.stopPrank();
     }
 
-    function testLiquidation1() public {
+    function testLiquidation1Collat() public {
         execLiquidation(1);
     }
 
-    function testLiquidation2() public {
+    function testLiquidation2Collats() public {
         execLiquidation(2);
     }
 
-    function testLiquidation3() public {
+    function testLiquidation3Collats() public {
         execLiquidation(3);
     }
 
-    function testLiquidation4() public {
+    function testLiquidation4Collats() public {
         execLiquidation(4);
     }
 
-    function testLiquidation5() public {
+    function testLiquidation5Collats() public {
         execLiquidation(5);
     }
 
-    function testLiquidation6() public {
+    function testLiquidation6Collats() public {
         execLiquidation(6);
     }
 
-    function testLiquidation7() public {
+    function testLiquidation7Collats() public {
         execLiquidation(7);
     }
 
-    function testLiquidation8() public {
+    function testLiquidation8Collats() public {
         execLiquidation(8);
     }
 
-    function testLiquidation9() public {
+    function testLiquidation9Collats() public {
         execLiquidation(9);
     }
 
-    function testLiquidation10() public {
+    function testLiquidation10Collats() public {
         execLiquidation(10);
     }
 }

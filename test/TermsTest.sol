@@ -4,7 +4,6 @@ pragma solidity ^0.8.0;
 import "./BaseTest.sol";
 import {console} from "../lib/forge-std/src/Test.sol";
 
-import {ERC20} from "./helpers/ERC20.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 
 contract TermsTest is BaseTest {
