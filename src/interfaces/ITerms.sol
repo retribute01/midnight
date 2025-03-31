@@ -24,6 +24,11 @@ struct Offer {
     uint256 price;
 }
 
+struct Market {
+    uint256 totalAssets;
+    uint256 totalShares;
+}
+
 struct Signature {
     uint8 v;
     bytes32 r;

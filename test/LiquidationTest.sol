@@ -13,7 +13,7 @@ contract LiquidationTest is BaseTest {
     address private borrower;
     uint256 private lenderSK;
     address private lender;
-    address liquidator;
+    address private liquidator;
     Term[] private liquidationTerms;
     Seizure[][] private s;
 
@@ -32,7 +32,6 @@ contract LiquidationTest is BaseTest {
             Oracle o = new Oracle();
             c.transfer(borrower, 1 ether);
             cs[i] = Collateral({token: address(tokens[i]), lltv: 0.75e18, oracle: address(o)});
-
             vm.startPrank(borrower);
             c.approve(address(terms), type(uint256).max);
             vm.stopPrank();
@@ -113,32 +112,31 @@ contract LiquidationTest is BaseTest {
                 s[i][k] = Seizure({collateralIndex: k, repaidAmount: 0, seizedAssets: 93});
             }
         }
+
+        vm.warp(block.timestamp + 50);
     }
 
     function execLiquidation(uint256 k, uint256 n) public {
         loanToken.transfer(liquidator, 1000);
         Term memory t = liquidationTerms[n - 1];
-        vm.warp(block.timestamp + 50);
         Oracle(t.collaterals[0].oracle).setPrice(0.25e36);
 
         vm.prank(liquidator);
-        uint256 gasBefore = gasleft();
+        uint256 gasBefore;
+        uint256 gasUsed;
         if (n < 10) {
+            gasBefore = gasleft();
             terms.liquidate(t, s[0], borrower, "0x0");
+            gasUsed = gasBefore - gasleft();
         } else {
+            gasBefore = gasleft();
             terms.liquidate(t, s[k - 1], borrower, "0x0");
+            gasUsed = gasBefore - gasleft();
         }
-        uint256 gasUsed = gasBefore - gasleft();
 
         Oracle(t.collaterals[0].oracle).setPrice(1e36);
         emit log_named_uint("Gas used", gasUsed);
 
-        bytes32 idT = keccak256(abi.encode(t));
-        // assertEq(terms.debtOf(borrower, idT), 900);
-        //assertEq(terms.withdrawable(idT), 100);
-
-        //assertEq(loanToken.balanceOf(address(terms)), 100);
-        //assertEq(loanToken.balanceOf(liquidator), 400);
         assertEq(ERC20(t.collaterals[0].token).balanceOf(liquidator), 460);
         vm.prank(borrower);
         loanToken.transfer(address(0), loanToken.balanceOf(borrower));
