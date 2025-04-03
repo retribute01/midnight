@@ -136,24 +136,26 @@ contract Terms is ITerms {
         uint256 totalRepaid;
         bool allCollateralsAtZero = true;
         for (uint256 i = 0; i < term.collaterals.length; i++) {
-            uint256 collateralPrice = IOracle(term.collaterals[i].oracle).price();
+            if (seizures[i].seizedAssets + seizures[i].repaidAmount > 0) {
+                require(seizures[i].repaidAmount * seizures[i].seizedAssets == 0, "INCONSISTENT_INPUT");
 
-            require(seizures[i].repaidAmount * seizures[i].seizedAssets == 0, "INCONSISTENT_INPUT");
+                uint256 collateralPrice = IOracle(term.collaterals[i].oracle).price();
+                if (seizures[i].seizedAssets > 0) {
+                    seizures[i].repaidAmount = seizures[i].seizedAssets.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE)
+                        .wDivUp(liquidationIncentiveFactor);
+                } else if (seizures[i].repaidAmount > 0) {
+                    seizures[i].seizedAssets = seizures[i].repaidAmount.wMulDown(liquidationIncentiveFactor).mulDivUp(
+                        ORACLE_PRICE_SCALE, collateralPrice
+                    );
+                }
 
-            if (seizures[i].seizedAssets > 0) {
-                seizures[i].repaidAmount = seizures[i].seizedAssets.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE)
-                    .wDivUp(liquidationIncentiveFactor);
-            } else {
-                seizures[i].seizedAssets = seizures[i].repaidAmount.wMulDown(liquidationIncentiveFactor).mulDivUp(
-                    ORACLE_PRICE_SCALE, collateralPrice
-                );
+                totalRepaid += seizures[i].repaidAmount;
+                collateralOf[borrower][id][term.collaterals[i].token] -= seizures[i].seizedAssets;
+
+                IERC20(term.collaterals[i].token).transfer(msg.sender, seizures[i].seizedAssets);
             }
 
-            totalRepaid += seizures[i].repaidAmount;
-            collateralOf[borrower][id][term.collaterals[i].token] -= seizures[i].seizedAssets;
             allCollateralsAtZero = allCollateralsAtZero && collateralOf[borrower][id][term.collaterals[i].token] == 0;
-
-            IERC20(term.collaterals[i].token).transfer(msg.sender, seizures[i].seizedAssets);
         }
 
         debtOf[borrower][id] -= totalRepaid;
