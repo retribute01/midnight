@@ -126,7 +126,7 @@ contract Terms is ITerms {
         external
         returns (Seizure[] memory)
     {
-        require(seizures.length == term.collaterals.length, "Cannot seize more assets than the supplied collaterals");
+        require(seizures.length == term.collaterals.length, "Cannot seize more nor less assets than the bond's collaterals");
         require(!_isHealthy(term, borrower), "Healthy borrower");
 
         bytes32 id = _id(term);
