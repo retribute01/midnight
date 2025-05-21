@@ -192,7 +192,6 @@ contract Terms is ITerms {
             uint256 badDebt = UtilsLib.min(debtOf[borrower][id], originalDebt - repayableDebt);
             debtOf[borrower][id] -= badDebt;
             totalAssets[id] -= badDebt;
-            console.log("debt after bad debt realization ", debtOf[borrower][id]);
         }
 
         withdrawable[id] += totalRepaid;
