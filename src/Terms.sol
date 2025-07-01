@@ -38,8 +38,9 @@ contract Terms is ITerms {
     function take(Term memory term, uint256 amount, address onBehalf, Offer memory offer, Signature memory sig)
         public
     {
-        _checkOffer(term, offer);
+        require(term.maturity >= block.timestamp, "maturity");
         _checkSignature(offer, sig);
+        _checkOffer(term, offer);
 
         (address buyer, address seller) = offer.buy ? (offer.offering, onBehalf) : (onBehalf, offer.offering);
 

@@ -56,6 +56,15 @@ contract TermsTest is BaseTest {
         terms.supplyCollateral(term, address(collateralToken), 134, borrower);
     }
 
+    function testTakePostMaturity(uint256 maturity) public {
+        maturity = bound(maturity, 0, block.timestamp - 1);
+        Term memory _term = Term(address(loanToken), collaterals, maturity);
+        Offer memory offer;
+        Signature memory sig;
+        vm.expectRevert("maturity");
+        terms.take(_term, 100, lender, offer, sig);
+    }
+
     function testLend() public {
         Offer memory borrowOffer = Offer({
             buy: false,
