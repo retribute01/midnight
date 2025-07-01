@@ -28,8 +28,10 @@ contract Terms is ITerms {
     mapping(bytes32 => uint256) public totalAssets;
     mapping(bytes32 => uint256) public totalShares;
     mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
+
     // Offers.
-    mapping(bytes => uint256) public consumed;
+    // users -> nonce -> consumed. Multiple offers can have the same nonce.
+    mapping(address => mapping(uint256 => uint256)) public consumed;
 
     /// ENTRY-POINTS ///
 
@@ -43,7 +45,8 @@ contract Terms is ITerms {
 
         (address buyer, address seller) = offer.buy ? (offer.offering, onBehalf) : (onBehalf, offer.offering);
 
-        consumed[abi.encode(offer)] += amount;
+        require(amount <= offer.assets - consumed[offer.offering][offer.nonce], "consumed");
+        consumed[offer.offering][offer.nonce] += amount;
 
         bytes32 id = _id(term);
 

@@ -64,7 +64,8 @@ contract TermsTest is BaseTest {
             loanToken: address(loanToken),
             collaterals: collaterals,
             maturity: block.timestamp + 100,
-            price: 99
+            price: 99,
+            nonce: 0
         });
         Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
         terms.take(term, 100, lender, borrowOffer, borrowSig);
@@ -74,6 +75,7 @@ contract TermsTest is BaseTest {
 
         assertEq(loanToken.balanceOf(borrower), 100, "borrower balance");
         assertEq(loanToken.balanceOf(lender), 0, "lender balance");
+        assertEq(terms.consumed(borrower, 0), 100, "borrower nonce");
     }
 
     function testBorrow() public {
@@ -84,7 +86,8 @@ contract TermsTest is BaseTest {
             loanToken: address(loanToken),
             collaterals: collaterals,
             maturity: block.timestamp + 100,
-            price: 99
+            price: 99,
+            nonce: 0
         });
         Signature memory lendSig = _signOffer(lendOffer, lenderSK);
         terms.take(term, 100, borrower, lendOffer, lendSig);
@@ -94,6 +97,7 @@ contract TermsTest is BaseTest {
 
         assertEq(loanToken.balanceOf(borrower), 100, "borrower balance");
         assertEq(loanToken.balanceOf(lender), 0, "lender balance");
+        assertEq(terms.consumed(lender, 0), 100, "lender nonce");
     }
 
     function testMatch() public {
@@ -104,7 +108,8 @@ contract TermsTest is BaseTest {
             loanToken: address(loanToken),
             collaterals: collaterals,
             maturity: block.timestamp + 100,
-            price: 99
+            price: 99,
+            nonce: 0
         });
         Signature memory lendSig = _signOffer(lendOffer, lenderSK);
         Offer memory borrowOffer = Offer({
@@ -114,7 +119,8 @@ contract TermsTest is BaseTest {
             loanToken: address(loanToken),
             collaterals: collaterals,
             maturity: block.timestamp + 100,
-            price: 99
+            price: 99,
+            nonce: 0
         });
         Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
 
@@ -124,6 +130,8 @@ contract TermsTest is BaseTest {
         assertEq(terms.bondSharesOf(address(this), id), 0, "bond shares");
         assertEq(terms.debtOf(address(this), id), 0, "debt");
         assertEq(loanToken.balanceOf(address(this)), 100, "balance");
+        assertEq(terms.consumed(lender, 0), 100, "lender nonce");
+        assertEq(terms.consumed(borrower, 0), 100, "borrower nonce");
     }
 
     function testRepay() public {
@@ -179,5 +187,39 @@ contract TermsTest is BaseTest {
         assertEq(terms.withdrawable(id), 87);
         assertEq(terms.bondOf(lender, id), 87);
         assertEq(terms.totalAssets(id), 87);
+    }
+
+    function testNonces() public {
+        deal(address(collateralToken), address(this), 500);
+        terms.supplyCollateral(term, address(collateralToken), 500, address(this));
+
+        Offer memory offer1 = Offer({
+            buy: true,
+            offering: lender,
+            assets: 100,
+            loanToken: address(loanToken),
+            collaterals: collaterals,
+            maturity: block.timestamp + 100,
+            price: 99,
+            nonce: 0
+        });
+        Signature memory sig1 = _signOffer(offer1, lenderSK);
+        Offer memory offer2 = Offer({
+            buy: false,
+            offering: borrower,
+            assets: 100,
+            loanToken: address(loanToken),
+            collaterals: collaterals,
+            maturity: block.timestamp + 100,
+            price: 99,
+            nonce: 0
+        });
+        Signature memory sig2 = _signOffer(offer2, borrowerSK);
+
+        terms.take(term, 100, address(this), offer1, sig1);
+        assertEq(terms.consumed(lender, 0), 100, "lender nonce");
+
+        // vm.expectRevert("consumed");
+        terms.take(term, 100, address(this), offer2, sig2);
     }
 }

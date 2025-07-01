@@ -22,6 +22,7 @@ struct Offer {
     Collateral[] collaterals;
     uint256 maturity;
     uint256 price;
+    uint256 nonce;
 }
 
 struct Signature {
