@@ -70,9 +70,7 @@ contract LiquidationTest is BaseTest {
             nonce: gasleft()
         });
 
-        Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
-
-        terms.take(term, 1000, lender, borrowOffer, borrowSig);
+        terms.take(term, 1000, lender, borrowOffer, sig(borrowOffer, borrowerSK));
     }
 
     function setUp() public override {
