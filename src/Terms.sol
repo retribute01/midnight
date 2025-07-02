@@ -208,7 +208,7 @@ contract Terms is ITerms {
             // Relies on the fact that the collaterals are sorted.
             // Note that we actually never check that.
             // If they are not, the matching could fail.
-            for (; superset[j].token != subset[i].token; j++) {}
+            while (superset[j].token != subset[i].token) j++;
             require(superset[j].lltv >= subset[i].lltv, "LLTVs do not match");
             require(subset[i].oracle == superset[j].oracle, "Oracles do not match");
             j++;
