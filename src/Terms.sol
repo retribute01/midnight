@@ -68,8 +68,8 @@ contract Terms is ITerms {
         totalAssets[id] += bought;
         totalAssets[id] -= withdrawn;
 
-        require(debtOf[buyer][id] == 0 || _isHealthy(term, buyer), "Buyer is unhealthy");
-        require(debtOf[seller][id] == 0 || _isHealthy(term, seller), "Seller is unhealthy");
+        require(_isHealthy(term, buyer), "Buyer is unhealthy");
+        require(_isHealthy(term, seller), "Seller is unhealthy");
 
         uint256 scaledPrice = offer.price * amount / offer.assets;
         IERC20(offer.loanToken).transferFrom(buyer, seller, scaledPrice);
@@ -229,11 +229,11 @@ contract Terms is ITerms {
     }
 
     function _isHealthy(Term memory term, address borrower) internal view returns (bool) {
-        if (term.maturity < block.timestamp) {
-            return false;
+        bytes32 id = _id(term);
+        uint256 debt = debtOf[borrower][id];
+        if (debt == 0) {
+            return true;
         } else {
-            bytes32 id = _id(term);
-
             uint256 maxDebt;
             for (uint256 i = 0; i < term.collaterals.length; i++) {
                 uint256 price = IOracle(term.collaterals[i].oracle).price();
@@ -242,7 +242,7 @@ contract Terms is ITerms {
                 maxDebt += collateralQuoted.wMulDown(term.collaterals[i].lltv);
             }
 
-            return debtOf[borrower][id] <= maxDebt;
+            return debt <= maxDebt;
         }
     }
 }
