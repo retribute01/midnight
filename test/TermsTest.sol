@@ -9,6 +9,7 @@ import {Oracle} from "./helpers/Oracle.sol";
 contract TermsTest is BaseTest {
     ERC20 private loanToken;
     ERC20 private collateralToken;
+    ERC20 private secondCollateralToken;
     Oracle private oracle;
     uint256 private borrowerSK;
     address private borrower;
@@ -16,6 +17,8 @@ contract TermsTest is BaseTest {
     address private lender;
     address private liquidator = makeAddr("liquidator");
     Term private term;
+    Offer private lendOffer;
+    Offer private borrowOffer;
 
     bytes32 private id;
     Collateral[] private collaterals;
@@ -28,21 +31,46 @@ contract TermsTest is BaseTest {
 
         loanToken = new ERC20("loan", "loan");
         collateralToken = new ERC20("collat", "collat");
+        secondCollateralToken = new ERC20("collat2", "collat2");
 
         deal(address(loanToken), address(this), 100);
         deal(address(loanToken), address(lender), 99);
         deal(address(loanToken), address(borrower), 1);
-        deal(address(collateralToken), address(this), 134);
+        deal(address(collateralToken), address(this), type(uint256).max);
         oracle = new Oracle();
 
-        collaterals = new Collateral[](1);
+        collaterals = new Collateral[](2);
         collaterals[0] = Collateral({token: address(collateralToken), lltv: 0.75e18, oracle: address(oracle)});
+        collaterals[1] = Collateral({token: address(secondCollateralToken), lltv: 0.75e18, oracle: address(oracle)});
 
-        seizures = new Seizure[](1);
+        seizures = new Seizure[](2);
         seizures[0] = Seizure({repaidAmount: 0, seizedAssets: 134});
+        seizures[1] = Seizure({repaidAmount: 0, seizedAssets: 0});
 
         term = Term(address(loanToken), collaterals, block.timestamp + 100);
         id = keccak256(abi.encode(term));
+
+        lendOffer = Offer({
+            buy: true,
+            offering: lender,
+            assets: 100,
+            loanToken: address(loanToken),
+            collaterals: collaterals,
+            maturity: block.timestamp + 100,
+            price: 99,
+            nonce: 0
+        });
+
+        borrowOffer = Offer({
+            buy: false,
+            offering: borrower,
+            assets: 100,
+            loanToken: address(loanToken),
+            collaterals: collaterals,
+            maturity: block.timestamp + 100,
+            price: 99,
+            nonce: 0
+        });
 
         vm.prank(lender);
         loanToken.approve(address(terms), type(uint256).max);
@@ -67,73 +95,34 @@ contract TermsTest is BaseTest {
     }
 
     function testLend() public {
-        Offer memory borrowOffer = Offer({
-            buy: false,
-            offering: borrower,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
-        terms.take(term, 100, lender, borrowOffer, borrowSig);
+        terms.take(term, 100, lender, borrowOffer, sig(borrowOffer, borrowerSK));
 
         assertEq(terms.bondSharesOf(lender, id), 100, "lender bond shares");
         assertEq(terms.debtOf(borrower, id), 100, "borrower debt");
-
         assertEq(loanToken.balanceOf(borrower), 100, "borrower balance");
         assertEq(loanToken.balanceOf(lender), 0, "lender balance");
+        assertEq(terms.consumed(borrower, 0), 100, "borrower nonce");
     }
 
     function testBorrow() public {
-        Offer memory lendOffer = Offer({
-            buy: true,
-            offering: lender,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory lendSig = _signOffer(lendOffer, lenderSK);
-        terms.take(term, 100, borrower, lendOffer, lendSig);
+        terms.take(term, 100, borrower, lendOffer, sig(lendOffer, lenderSK));
 
         assertEq(terms.bondSharesOf(lender, id), 100, "bond shares");
         assertEq(terms.debtOf(borrower, id), 100, "lender debt");
-
         assertEq(loanToken.balanceOf(borrower), 100, "borrower balance");
         assertEq(loanToken.balanceOf(lender), 0, "lender balance");
+        assertEq(terms.consumed(lender, 0), 100, "lender nonce");
     }
 
     function testMatch() public {
-        Offer memory lendOffer = Offer({
-            buy: true,
-            offering: lender,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory lendSig = _signOffer(lendOffer, lenderSK);
-        Offer memory borrowOffer = Offer({
-            buy: false,
-            offering: borrower,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
-
-        terms.take(term, 100, address(this), borrowOffer, borrowSig);
-        terms.take(term, 100, address(this), lendOffer, lendSig);
+        terms.take(term, 100, address(this), borrowOffer, sig(borrowOffer, borrowerSK));
+        terms.take(term, 100, address(this), lendOffer, sig(lendOffer, lenderSK));
 
         assertEq(terms.bondSharesOf(address(this), id), 0, "bond shares");
         assertEq(terms.debtOf(address(this), id), 0, "debt");
         assertEq(loanToken.balanceOf(address(this)), 100, "balance");
+        assertEq(terms.consumed(lender, 0), 100, "lender nonce");
+        assertEq(terms.consumed(borrower, 0), 100, "borrower nonce");
     }
 
     function testRepay() public {
@@ -146,7 +135,6 @@ contract TermsTest is BaseTest {
 
         assertEq(terms.debtOf(borrower, id), 0);
         assertEq(terms.withdrawable(id), 100);
-
         assertEq(loanToken.balanceOf(address(terms)), 100);
         assertEq(loanToken.balanceOf(borrower), 0);
     }
@@ -159,7 +147,6 @@ contract TermsTest is BaseTest {
 
         assertEq(terms.bondSharesOf(lender, id), 0);
         assertEq(terms.withdrawable(id), 0);
-
         assertEq(loanToken.balanceOf(address(terms)), 0);
         assertEq(loanToken.balanceOf(lender), 100);
     }
@@ -171,7 +158,6 @@ contract TermsTest is BaseTest {
         terms.withdrawCollateral(term, address(collateralToken), 134, borrower);
 
         assertEq(terms.collateralOf(borrower, id, address(collateralToken)), 0);
-
         assertEq(collateralToken.balanceOf(address(terms)), 0);
         assertEq(collateralToken.balanceOf(borrower), 134);
     }
@@ -192,128 +178,81 @@ contract TermsTest is BaseTest {
     }
 
     function testConsumed() public {
-        Offer memory lendOffer = Offer({
-            buy: true,
-            offering: lender,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory lendSig = _signOffer(lendOffer, lenderSK);
-
-        terms.take(term, 100, borrower, lendOffer, lendSig);
+        terms.take(term, 100, borrower, lendOffer, sig(lendOffer, lenderSK));
 
         vm.expectRevert("consumed");
-        terms.take(term, 100, borrower, lendOffer, lendSig);
+        terms.take(term, 100, borrower, lendOffer, sig(lendOffer, lenderSK));
+    }
+
+    function testPartialFill() public {
+        terms.take(term, 50, borrower, lendOffer, sig(lendOffer, lenderSK));
+
+        assertEq(terms.consumed(lender, 0), 50);
+
+        vm.expectRevert("consumed");
+        terms.take(term, 51, borrower, lendOffer, sig(lendOffer, lenderSK));
+
+        terms.take(term, 50, borrower, lendOffer, sig(lendOffer, lenderSK));
+
+        assertEq(terms.consumed(lender, 0), 100);
+    }
+
+    function testOCO() public {
+        Offer memory lendOffer2 = lendOffer;
+        lendOffer2.maturity = block.timestamp + 200;
+        Term memory term2 = term;
+        term2.maturity = block.timestamp + 200;
+
+        terms.take(term, 70, borrower, lendOffer, sig(lendOffer, lenderSK));
+
+        vm.expectRevert("consumed");
+        terms.take(term2, 31, borrower, lendOffer2, sig(lendOffer2, lenderSK));
+
+        terms.supplyCollateral(term2, address(collateralToken), 134, borrower);
+
+        terms.take(term2, 30, borrower, lendOffer2, sig(lendOffer2, lenderSK));
+        assertEq(terms.consumed(lender, 0), 100);
     }
 
     function testTakeLendOfferCollateralMissing() public {
-        collaterals[0].token = address(0);
-
-        Offer memory lendOffer = Offer({
-            buy: true,
-            offering: lender,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory lendSig = _signOffer(lendOffer, lenderSK);
+        lendOffer.collaterals[0].token = address(0);
 
         vm.expectRevert(stdError.indexOOBError);
-        terms.take(term, 100, borrower, lendOffer, lendSig);
+        terms.take(term, 100, borrower, lendOffer, sig(lendOffer, lenderSK));
     }
 
     function testTakeLendOfferLLTVMismatch() public {
-        collaterals[0].lltv = 0.5e18;
-
-        Offer memory lendOffer = Offer({
-            buy: true,
-            offering: lender,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory lendSig = _signOffer(lendOffer, lenderSK);
+        lendOffer.collaterals[0].lltv = 0.5e18;
 
         vm.expectRevert("LLTVs do not match");
-        terms.take(term, 100, borrower, lendOffer, lendSig);
+        terms.take(term, 100, borrower, lendOffer, sig(lendOffer, lenderSK));
     }
 
     function testTakeLendOfferOraclesMismatch() public {
-        collaterals[0].oracle = address(0);
-
-        Offer memory lendOffer = Offer({
-            buy: true,
-            offering: lender,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory lendSig = _signOffer(lendOffer, lenderSK);
+        lendOffer.collaterals[0].oracle = address(0);
 
         vm.expectRevert("Oracles do not match");
-        terms.take(term, 100, borrower, lendOffer, lendSig);
+        terms.take(term, 100, borrower, lendOffer, sig(lendOffer, lenderSK));
     }
 
     function testTakeBorrowOfferTooMuchCollaterals() public {
-        collaterals[0].token = address(0);
-
-        Offer memory borrowOffer = Offer({
-            buy: false,
-            offering: borrower,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
+        borrowOffer.collaterals[0].token = address(0);
 
         vm.expectRevert(stdError.indexOOBError);
-        terms.take(term, 100, lender, borrowOffer, borrowSig);
+        terms.take(term, 100, lender, borrowOffer, sig(borrowOffer, borrowerSK));
     }
 
     function testTakeBorrowOfferLLTVMismatch() public {
-        collaterals[0].lltv = 0.99e18;
-
-        Offer memory borrowOffer = Offer({
-            buy: false,
-            offering: borrower,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
+        borrowOffer.collaterals[0].lltv = 0.99e18;
 
         vm.expectRevert("LLTVs do not match");
-        terms.take(term, 100, lender, borrowOffer, borrowSig);
+        terms.take(term, 100, lender, borrowOffer, sig(borrowOffer, borrowerSK));
     }
 
     function testTakeBorrowOfferOraclesMismatch() public {
-        collaterals[0].oracle = address(0);
-
-        Offer memory borrowOffer = Offer({
-            buy: false,
-            offering: borrower,
-            assets: 100,
-            loanToken: address(loanToken),
-            collaterals: collaterals,
-            maturity: block.timestamp + 100,
-            price: 99
-        });
-        Signature memory borrowSig = _signOffer(borrowOffer, borrowerSK);
+        borrowOffer.collaterals[0].oracle = address(0);
 
         vm.expectRevert("Oracles do not match");
-        terms.take(term, 100, lender, borrowOffer, borrowSig);
+        terms.take(term, 100, lender, borrowOffer, sig(borrowOffer, borrowerSK));
     }
 }
