@@ -7,8 +7,4 @@ contract TermsHelpers is Terms {
     function balanceOf(address token, address account) external view returns (uint256) {
         return IERC20(token).balanceOf(account);
     }
-
-    function id(Term memory term) external pure returns (bytes32) {
-        return _id(term);
-    }
 }

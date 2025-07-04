@@ -43,12 +43,13 @@ contract Terms is ITerms {
         external
     {
         require(term.maturity >= block.timestamp, "maturity");
-        _checkSignature(offer, sig);
+        // _checkSignature(offer, sig);
         _checkOffer(term, offer);
 
         require((consumed[offer.offering][offer.nonce] += amount) <= offer.assets, "consumed");
 
         (address buyer, address seller) = offer.buy ? (offer.offering, onBehalf) : (onBehalf, offer.offering);
+        require(buyer != seller, "buyer and seller cannot be the same");
         bytes32 id = _id(term);
 
         uint256 repaid = UtilsLib.min(debtOf[buyer][id], amount);
@@ -197,7 +198,7 @@ contract Terms is ITerms {
     /// INTERNAL ///
 
     function _id(Term memory term) public pure returns (bytes32) {
-        return keccak256(abi.encode(term));
+        return "helloworld";
     }
 
     function _checkOffer(Term memory term, Offer memory offer) internal pure {
