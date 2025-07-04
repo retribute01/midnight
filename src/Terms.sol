@@ -22,20 +22,23 @@ contract Terms is ITerms {
 
     /// STORAGE ///
 
-    // Terms.
     mapping(address => mapping(bytes32 => uint256)) public bondSharesOf;
     mapping(address => mapping(bytes32 => uint256)) public debtOf;
     mapping(bytes32 => uint256) public withdrawable;
     mapping(bytes32 => uint256) public totalBonds;
     mapping(bytes32 => uint256) public totalShares;
     mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
-    // Offers.
-    mapping(bytes => uint256) public consumed;
+
+    /// @dev Multiple offers can have the same nonce. This allows to implement easy and efficient batch-cancelling and
+    /// OCO (One-Cancels-the-Other) orders. Note that OCO orders work better if all offers have the same amount,
+    /// otherwise one might not be takable anymore while an other one at the same nonce is still takeable.
+    mapping(address user => mapping(uint256 nonce => uint256)) public consumed;
 
     /// ENTRY-POINTS ///
 
     /// @dev Same function used to buy and sell.
-    /// @dev If one wants to make to offers without taking a position, they can batch take them and not have a position at the end.
+    /// @dev If one wants to match two offers without taking a position, they can batch take them and not have a
+    /// position at the end.
     function take(Term memory term, uint256 assets, address onBehalf, Offer memory offer, Signature memory sig)
         public
     {
@@ -46,8 +49,7 @@ contract Terms is ITerms {
         uint256 timeToMaturity = term.maturity - block.timestamp;
         uint256 bonds = assets * (1e18 + timeToMaturity * offer.rate) / 1e18;
 
-        consumed[abi.encode(offer)] += assets;
-        require(consumed[abi.encode(offer)] <= offer.assets, "consumed");
+        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
         (address buyer, address seller) = offer.buy ? (offer.offering, onBehalf) : (onBehalf, offer.offering);
         bytes32 id = _id(term);
@@ -117,7 +119,8 @@ contract Terms is ITerms {
     /// @notice Execute the given collection of `seizures` on the given `term` of the given `borrower`.
     /// @dev On each seizure either `repaidAmounts` or `seizedAssets` should be equal to zero.
     /// @param term The term of the bond.
-    /// @param seizures An array of amounts of debt to repay or assets to seize with the index of the collateral in the term's collateral assets.
+    /// @param seizures An array of amounts of debt to repay or assets to seize with the index of the collateral in the
+    /// term's collateral assets.
     /// @param borrower The debtor of the loan.
     /// @param data Arbitrary data to pass to the callback. Pass empty data if not needed.
     /// @return A collection of the actual amounts of debt repaid or asset seized with the collateral index.
@@ -173,7 +176,8 @@ contract Terms is ITerms {
 
         // Realize bad debt
         if (repayableDebt < originalDebt) {
-            // Because roundings are not aligned the effective bad debt is either the remaining debt or the original debt minus the theoretical repayable debt.
+            // Because roundings are not aligned the effective bad debt is either the remaining debt or the original
+            // debt minus the theoretical repayable debt.
             uint256 badDebt = UtilsLib.min(debtOf[borrower][id], originalDebt - repayableDebt);
             debtOf[borrower][id] -= badDebt;
             totalBonds[id] -= badDebt;
