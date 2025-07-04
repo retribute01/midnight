@@ -1,4 +1,5 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: BUSL-1.1
+// Copyright (c) 2025 Morpho Association
 pragma solidity 0.8.28;
 
 import "./libraries/UtilsLib.sol";
