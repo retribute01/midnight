@@ -218,6 +218,30 @@ contract TakeTest is BaseTest {
         assertEq(terms.consumed(lender, 0), 100);
     }
 
+    function testTakeBorrowCallback() public {
+        (address otherBorrower, uint256 otherBorrowerSK) = makeAddrAndKey("otherBorrower");
+        borrowOffer.callbackAddress = address(new BorrowCallback());
+        borrowOffer.callbackData = abi.encode(address(collateralToken1), 135);
+        borrowOffer.offering = address(otherBorrower);
+        deal(address(collateralToken1), borrowOffer.callbackAddress, 135);
+        assertEq(terms.collateralOf(otherBorrower, id, address(collateralToken1)), 0);
+
+        terms.take(term, 100, lender, borrowOffer, sig(borrowOffer, otherBorrowerSK));
+        assertEq(terms.collateralOf(otherBorrower, id, address(collateralToken1)), 135);
+    }
+
+    function testTakeLendCallback() public {
+        (address otherLender, uint256 otherLenderSK) = makeAddrAndKey("otherLender");
+        vm.prank(otherLender);
+        loanToken.approve(address(terms), 100);
+        lendOffer.callbackAddress = address(new LendCallback());
+        lendOffer.callbackData = abi.encode(address(loanToken), 100);
+        lendOffer.offering = address(otherLender);
+        deal(address(loanToken), lendOffer.callbackAddress, 100);
+
+        terms.take(term, 100, borrower, lendOffer, sig(lendOffer, otherLenderSK));
+    }
+
     function testTakeMaturityPassed() public {
         vm.warp(block.timestamp + 101);
         vm.expectRevert("maturity");
@@ -302,4 +326,22 @@ contract TakeTest is BaseTest {
         vm.expectRevert("Invalid signature");
         terms.take(term, 100, borrower, lendOffer, Signature(0, 0, 0));
     }
+}
+
+contract BorrowCallback is ICallbacks {
+    function onTake(Term memory term, address borrower, uint256, bytes memory data) external {
+        (address collateralToken, uint256 amount) = abi.decode(data, (address, uint256));
+        ERC20(collateralToken).approve(msg.sender, amount);
+        Terms(msg.sender).supplyCollateral(term, collateralToken, amount, borrower);
+    }
+
+    function onLiquidate(Seizure[] memory seizures, address borrower, address liquidator, bytes memory data) external {}
+}
+
+contract LendCallback is ICallbacks {
+    function onTake(Term memory term, address offering, uint256 assets, bytes memory) external {
+        ERC20(term.loanToken).transfer(offering, assets);
+    }
+
+    function onLiquidate(Seizure[] memory seizures, address borrower, address liquidator, bytes memory data) external {}
 }

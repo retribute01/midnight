@@ -7,7 +7,7 @@ import "./libraries/MathLib.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/ITerms.sol";
-import "./interfaces/IMorphoLiquidationCallback.sol";
+import "./interfaces/ICallbacks.sol";
 
 contract Terms is ITerms {
     using MathLib for uint256;
@@ -71,11 +71,16 @@ contract Terms is ITerms {
             totalShares[id] -= withdrawnShares;
             totalBonds[id] += bought;
             totalBonds[id] -= withdrawn;
-
-            require(_isHealthy(term, seller), "Seller is unhealthy");
         }
 
+        if (offer.buy && offer.callbackAddress != address(0)) {
+            ICallbacks(offer.callbackAddress).onTake(term, offer.offering, assets, offer.callbackData);
+        }
         IERC20(offer.loanToken).transferFrom(buyer, seller, assets);
+        if (!offer.buy && offer.callbackAddress != address(0)) {
+            ICallbacks(offer.callbackAddress).onTake(term, offer.offering, assets, offer.callbackData);
+        }
+        require(_isHealthy(term, seller), "Seller is unhealthy");
     }
 
     /// @dev Will revert if there is no withdrawable funds.
@@ -187,7 +192,7 @@ contract Terms is ITerms {
 
         withdrawable[id] += totalRepaid;
 
-        if (data.length > 0) IMorphoLiquidationCallback(msg.sender).onLiquidate(seizures, borrower, msg.sender, data);
+        if (data.length > 0) ICallbacks(msg.sender).onLiquidate(seizures, borrower, msg.sender, data);
 
         IERC20(term.loanToken).transferFrom(msg.sender, address(this), totalRepaid);
 

@@ -95,7 +95,9 @@ abstract contract BaseTest is Test {
             collaterals: term.collaterals,
             maturity: term.maturity,
             rate: 0,
-            nonce: 0
+            nonce: 0,
+            callbackAddress: address(0),
+            callbackData: ""
         });
 
         // take `bonds` because the rate is 0.
