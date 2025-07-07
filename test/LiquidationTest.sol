@@ -105,7 +105,9 @@ contract LiquidationTest is BaseTest {
             assets: 1000,
             loanToken: address(loanToken),
             collaterals: cs,
-            maturity: block.timestamp + 100,
+            bondMaturity: block.timestamp + 100,
+            offerStart: block.timestamp,
+            offerExpiry: block.timestamp + 200,
             rate: 0.01e18 / 100,
             nonce: gasleft()
         });

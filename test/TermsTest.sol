@@ -56,7 +56,9 @@ contract TermsTest is BaseTest {
             assets: 100,
             loanToken: address(loanToken),
             collaterals: collaterals,
-            maturity: block.timestamp + 100,
+            bondMaturity: block.timestamp + 100,
+            offerStart: block.timestamp,
+            offerExpiry: block.timestamp + 200,
             rate: 0.01e18 / 100,
             nonce: 0
         });
@@ -67,7 +69,9 @@ contract TermsTest is BaseTest {
             assets: 100,
             loanToken: address(loanToken),
             collaterals: collaterals,
-            maturity: block.timestamp + 100,
+            bondMaturity: block.timestamp + 100,
+            offerStart: block.timestamp,
+            offerExpiry: block.timestamp + 200,
             rate: 0.01e18 / 100,
             nonce: 0
         });
@@ -85,13 +89,23 @@ contract TermsTest is BaseTest {
         terms.supplyCollateral(term, address(collateralToken), 135, borrower);
     }
 
+    function testTakeOfferNotStarted() public {
+        lendOffer.offerStart = block.timestamp + 1;
+        vm.expectRevert("offer not started");
+        terms.take(term, 100, lender, lendOffer, sig(lendOffer, lenderSK));
+    }
+
+    function testTakeOfferExpired() public {
+        lendOffer.offerExpiry = block.timestamp - 1;
+        vm.expectRevert("offer expired");
+        terms.take(term, 100, lender, lendOffer, sig(lendOffer, lenderSK));
+    }
+
     function testTakePostMaturity(uint256 maturity) public {
         maturity = bound(maturity, 0, block.timestamp - 1);
         Term memory _term = Term(address(loanToken), collaterals, maturity);
-        Offer memory offer;
-        Signature memory sig;
-        vm.expectRevert("maturity");
-        terms.take(_term, 100, lender, offer, sig);
+        vm.expectRevert("bond maturity");
+        terms.take(_term, 100, lender, borrowOffer, sig(borrowOffer, borrowerSK));
     }
 
     function testLend() public {
@@ -201,7 +215,7 @@ contract TermsTest is BaseTest {
 
     function testOCO() public {
         Offer memory lendOffer2 = lendOffer;
-        lendOffer2.maturity = block.timestamp + 200;
+        lendOffer2.bondMaturity = block.timestamp + 200;
         Term memory term2 = term;
         term2.maturity = block.timestamp + 200;
 
