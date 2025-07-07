@@ -69,7 +69,7 @@ contract Terms is ITerms {
 
             totalShares[id] += boughtShares;
             totalShares[id] -= withdrawnShares;
-            totalBonds[id] += bonds;
+            totalBonds[id] += bought;
             totalBonds[id] -= withdrawn;
 
             require(_isHealthy(term, seller), "Seller is unhealthy");
