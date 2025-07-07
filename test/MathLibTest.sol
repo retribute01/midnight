@@ -42,7 +42,7 @@ contract MathLibTest is Test {
 
     function testMulDivUpOverflow(uint256 x, uint256 y, uint256 d) public {
         d = bound(d, 1, type(uint256).max);
-        x = bound(x, 1, type(uint256).max);
+        x = bound(x, 2, type(uint256).max);
         y = bound(y, (type(uint256).max - (d - 1)) / x + 1, type(uint256).max);
 
         vm.expectRevert(stdError.arithmeticError);
