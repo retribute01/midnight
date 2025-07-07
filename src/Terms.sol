@@ -40,9 +40,15 @@ contract Terms is ITerms {
     /// @dev Same function used to buy and sell.
     /// @dev If one wants to match two offers without taking a position, they can batch take them and not have a
     /// position at the end.
-    function take(Term memory term, uint256 assets, address onBehalf, Offer memory offer, Signature memory sig)
-        public
-    {
+    function take(
+        Term memory term,
+        uint256 assets,
+        address onBehalf,
+        Offer memory offer,
+        Signature memory sig,
+        address callbackAddress,
+        bytes calldata callbackData
+    ) public {
         require(term.maturity >= block.timestamp, "maturity");
         _checkSignature(offer, sig);
         _checkOffer(term, offer);
@@ -52,6 +58,11 @@ contract Terms is ITerms {
         require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
         (address buyer, address seller) = offer.buy ? (offer.offering, onBehalf) : (onBehalf, offer.offering);
+        (address buyerCallbackAddress, bytes memory buyerCallbackData) =
+            offer.buy ? (offer.callbackAddress, callbackData) : (callbackAddress, callbackData);
+        (address sellerCallbackAddress, bytes memory sellerCallbackData) =
+            offer.buy ? (callbackAddress, callbackData) : (offer.callbackAddress, offer.callbackData);
+
         bytes32 id = _id(term);
 
         {
@@ -73,13 +84,16 @@ contract Terms is ITerms {
             totalBonds[id] -= withdrawn;
         }
 
-        if (offer.buy && offer.callbackAddress != address(0)) {
-            ICallbacks(offer.callbackAddress).onTake(term, offer.offering, assets, offer.callbackData);
+        if (buyerCallbackAddress != address(0)) {
+            ICallbacks(buyerCallbackAddress).onTake(term, buyer, assets, buyerCallbackData);
         }
+
         IERC20(offer.loanToken).transferFrom(buyer, seller, assets);
-        if (!offer.buy && offer.callbackAddress != address(0)) {
-            ICallbacks(offer.callbackAddress).onTake(term, offer.offering, assets, offer.callbackData);
+
+        if (sellerCallbackAddress != address(0)) {
+            ICallbacks(sellerCallbackAddress).onTake(term, seller, assets, sellerCallbackData);
         }
+
         require(_isHealthy(term, seller), "Seller is unhealthy");
     }
 
