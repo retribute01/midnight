@@ -29,7 +29,7 @@ contract LiquidationTest is BaseTest {
             term.collaterals.push(collaterals[i]);
         }
 
-        id = keccak256(abi.encode(term));
+        id = toId(term);
     }
 
     function testLiquidateWrongSeizuresLength() public {
