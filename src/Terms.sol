@@ -5,7 +5,6 @@ pragma solidity 0.8.28;
 import "./libraries/UtilsLib.sol";
 import "./libraries/SafeTransferLib.sol";
 import "./libraries/MathLib.sol";
-
 import "./interfaces/IERC20.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/ITerms.sol";
@@ -18,9 +17,10 @@ contract Terms is ITerms {
 
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
     bytes32 public constant OFFER_TYPEHASH = keccak256(
-        "Offer(bool lend,address offering,uint256 assets,address loanToken,Collateral[] collaterals,uint256 maturity,uint256 rate)"
+        "Offer(bool lend,address offering,uint256 assets,address loanToken,Collateral[] collaterals,uint256 maturity,uint256 rate,uint256 nonce)"
     );
     uint256 public constant ORACLE_PRICE_SCALE = 1e36;
+    uint256 public constant LIQUIDATION_INCENTIVE_FACTOR = 1.15e18;
 
     /// STORAGE ///
 
@@ -48,33 +48,33 @@ contract Terms is ITerms {
         _checkSignature(offer, sig);
         _checkOffer(term, offer);
 
-        uint256 timeToMaturity = term.maturity - block.timestamp;
-        uint256 bonds = assets * (1e18 + timeToMaturity * offer.rate) / 1e18;
+        uint256 bonds = assets * (1e18 + (term.maturity - block.timestamp) * offer.rate) / 1e18;
 
         require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
         (address buyer, address seller) = offer.buy ? (offer.offering, onBehalf) : (onBehalf, offer.offering);
         bytes32 id = _id(term);
 
-        uint256 repaid = UtilsLib.min(debtOf[buyer][id], bonds);
-        uint256 bought = bonds - repaid;
-        uint256 boughtShares = bought.mulDivDown(totalShares[id] + 1, totalBonds[id] + 1);
-        uint256 withdrawn =
-            UtilsLib.min(bondSharesOf[seller][id].mulDivDown(totalBonds[id] + 1, totalShares[id] + 1), bonds);
-        uint256 withdrawnShares = withdrawn.mulDivUp(totalShares[id] + 1, totalBonds[id] + 1);
+        {
+            uint256 repaid = UtilsLib.min(debtOf[buyer][id], bonds);
+            uint256 bought = bonds - repaid;
+            uint256 boughtShares = bought.mulDivDown(totalShares[id] + 1, totalBonds[id] + 1);
+            uint256 withdrawn =
+                UtilsLib.min(bondSharesOf[seller][id].mulDivDown(totalBonds[id] + 1, totalShares[id] + 1), bonds);
+            uint256 withdrawnShares = withdrawn.mulDivUp(totalShares[id] + 1, totalBonds[id] + 1);
 
-        debtOf[buyer][id] -= repaid;
-        bondSharesOf[buyer][id] += boughtShares;
-        bondSharesOf[seller][id] -= withdrawnShares;
-        debtOf[seller][id] += bonds - withdrawn;
+            debtOf[buyer][id] -= repaid;
+            bondSharesOf[buyer][id] += boughtShares;
+            bondSharesOf[seller][id] -= withdrawnShares;
+            debtOf[seller][id] += bonds - withdrawn;
 
-        totalShares[id] += boughtShares;
-        totalShares[id] -= withdrawnShares;
-        totalBonds[id] += bought;
-        totalBonds[id] -= withdrawn;
+            totalShares[id] += boughtShares;
+            totalShares[id] -= withdrawnShares;
+            totalBonds[id] += bought;
+            totalBonds[id] -= withdrawn;
 
-        require(_isHealthy(term, buyer), "Buyer is unhealthy");
-        require(_isHealthy(term, seller), "Seller is unhealthy");
+            require(_isHealthy(term, seller), "Seller is unhealthy");
+        }
 
         SafeTransferLib.safeTransferFrom(offer.loanToken, buyer, seller, assets);
     }
@@ -118,6 +118,11 @@ contract Terms is ITerms {
         SafeTransferLib.safeTransfer(collateral, msg.sender, assets);
     }
 
+    struct Vars {
+        uint256 maxDebt;
+        uint256 repayableDebt;
+    }
+
     /// @notice Execute the given collection of `seizures` on the given `term` of the given `borrower`.
     /// @dev On each seizure either `repaidAmounts` or `seizedAssets` should be equal to zero.
     /// @param term The term of the bond.
@@ -132,20 +137,17 @@ contract Terms is ITerms {
     {
         require(seizures.length == term.collaterals.length, "should have all collats");
 
+        Vars memory vars;
         bytes32 id = _id(term);
-        uint256 liquidationIncentiveFactor = 1.15e18;
-
-        uint256 maxDebt;
-        uint256 repayableDebt;
 
         for (uint256 i = 0; i < term.collaterals.length; i++) {
             uint256 price = IOracle(term.collaterals[i].oracle).price();
             uint256 collateralQuoted =
                 collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(price, ORACLE_PRICE_SCALE);
-            maxDebt += collateralQuoted.wMulDown(term.collaterals[i].lltv);
-            repayableDebt += collateralQuoted.wDivUp(liquidationIncentiveFactor);
+            vars.maxDebt += collateralQuoted.mulDivDown(term.collaterals[i].lltv, 1e18);
+            vars.repayableDebt += collateralQuoted.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
         }
-        require(debtOf[borrower][id] >= maxDebt, "position is healthy");
+        require(debtOf[borrower][id] > vars.maxDebt, "position is healthy");
 
         uint256 totalRepaid;
 
@@ -158,12 +160,11 @@ contract Terms is ITerms {
                 uint256 collateralPrice = IOracle(term.collaterals[i].oracle).price();
 
                 if (seizures[i].seizedAssets > 0) {
-                    seizures[i].repaidBonds = seizures[i].seizedAssets.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE)
-                        .wDivUp(liquidationIncentiveFactor);
+                    seizures[i].repaidBonds = seizures[i].seizedAssets.mulDivUp(collateralPrice, ORACLE_PRICE_SCALE)
+                        .mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
                 } else {
-                    seizures[i].seizedAssets = seizures[i].repaidBonds.wMulDown(liquidationIncentiveFactor).mulDivDown(
-                        ORACLE_PRICE_SCALE, collateralPrice
-                    );
+                    seizures[i].seizedAssets = seizures[i].repaidBonds.mulDivDown(LIQUIDATION_INCENTIVE_FACTOR, 1e18)
+                        .mulDivDown(ORACLE_PRICE_SCALE, collateralPrice);
                 }
 
                 totalRepaid += seizures[i].repaidBonds;
@@ -177,10 +178,10 @@ contract Terms is ITerms {
         debtOf[borrower][id] -= totalRepaid;
 
         // Realize bad debt
-        if (repayableDebt < originalDebt) {
+        if (vars.repayableDebt < originalDebt) {
             // Because roundings are not aligned the effective bad debt is either the remaining debt or the original
             // debt minus the theoretical repayable debt.
-            uint256 badDebt = UtilsLib.min(debtOf[borrower][id], originalDebt - repayableDebt);
+            uint256 badDebt = UtilsLib.min(debtOf[borrower][id], originalDebt - vars.repayableDebt);
             debtOf[borrower][id] -= badDebt;
             totalBonds[id] -= badDebt;
         }
@@ -194,13 +195,9 @@ contract Terms is ITerms {
         return seizures;
     }
 
-    function bondOf(address owner, bytes32 id) public view returns (uint256) {
-        return bondSharesOf[owner][id].mulDivDown(totalBonds[id] + 1, totalShares[id] + 1);
-    }
-
     /// INTERNAL ///
 
-    function _id(Term memory term) public pure returns (bytes32) {
+    function _id(Term memory term) internal pure returns (bytes32) {
         return keccak256(abi.encode(term));
     }
 
@@ -243,7 +240,7 @@ contract Terms is ITerms {
                 uint256 price = IOracle(term.collaterals[i].oracle).price();
                 uint256 collateralQuoted =
                     collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(price, ORACLE_PRICE_SCALE);
-                maxDebt += collateralQuoted.wMulDown(term.collaterals[i].lltv);
+                maxDebt += collateralQuoted.mulDivDown(term.collaterals[i].lltv, 1e18);
             }
 
             return debt <= maxDebt;
