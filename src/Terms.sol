@@ -16,7 +16,7 @@ contract Terms is ITerms {
 
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
     bytes32 public constant OFFER_TYPEHASH = keccak256(
-        "Offer(bool lend,address offering,uint256 assets,address loanToken,Collateral[] collaterals,uint256 bondMaturity,uint256 offerStart,uint256 offerExpiry,uint256 rate, uint256 nonce)"
+        "Offer(bool lend,address offering,uint256 assets,address loanToken,Collateral[] collaterals,uint256 maturity,uint256 offerStart,uint256 offerExpiry,uint256 rate, uint256 nonce)"
     );
     uint256 public constant ORACLE_PRICE_SCALE = 1e36;
     uint256 public constant LIQUIDATION_INCENTIVE_FACTOR = 1.15e18;
@@ -204,7 +204,7 @@ contract Terms is ITerms {
 
     function _checkOffer(Term memory term, Offer memory offer) internal pure {
         require(offer.loanToken == term.loanToken, "Loan tokens do not match");
-        require(offer.bondMaturity == term.maturity, "Maturities do not match");
+        require(offer.maturity == term.maturity, "Maturities do not match");
 
         Collateral[] memory subset = offer.buy ? term.collaterals : offer.collaterals;
         Collateral[] memory superset = offer.buy ? offer.collaterals : term.collaterals;
