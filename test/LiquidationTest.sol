@@ -32,9 +32,15 @@ contract LiquidationTest is BaseTest {
         id = toId(term);
     }
 
-    function testLiquidateWrongSeizuresLength() public {
-        vm.expectRevert("should have all collats");
-        terms.liquidate(term, new Seizure[](0), borrower, "");
+    function testLiquidateWrongSeizuresOrder() public {
+        setupBond(term, 100);
+        oracle.setPrice(0);
+        Seizure[] memory seizures = new Seizure[](2);
+        seizures[0] = Seizure({collateralIndex: 1, repaidBonds: 0, seizedAssets: 100});
+        seizures[1] = Seizure({collateralIndex: 0, repaidBonds: 0, seizedAssets: 100});
+
+        vm.expectRevert("not in order");
+        terms.liquidate(term, seizures, borrower, "");
     }
 
     function testLiquidateHealthy() public {
@@ -48,16 +54,15 @@ contract LiquidationTest is BaseTest {
         setupBond(term, 100);
         oracle.setPrice(0);
 
-        terms.liquidate(term, new Seizure[](2), borrower, "");
+        terms.liquidate(term, new Seizure[](0), borrower, "");
     }
 
     function testLiquidateInconsistentInput() public {
         setupBond(term, 100);
         oracle.setPrice(0);
 
-        Seizure[] memory seizures = new Seizure[](2);
-        seizures[0] = Seizure({repaidBonds: 1, seizedAssets: 1});
-        seizures[1] = Seizure({repaidBonds: 0, seizedAssets: 100});
+        Seizure[] memory seizures = new Seizure[](1);
+        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 1, seizedAssets: 1});
 
         vm.expectRevert("INCONSISTENT_INPUT");
         terms.liquidate(term, seizures, borrower, "");
@@ -70,9 +75,8 @@ contract LiquidationTest is BaseTest {
         deal(address(loanToken), address(this), 1);
 
         // Test
-        Seizure[] memory seizures = new Seizure[](2);
-        seizures[0] = Seizure({repaidBonds: 1, seizedAssets: 0});
-        seizures[1] = Seizure({repaidBonds: 0, seizedAssets: 0});
+        Seizure[] memory seizures = new Seizure[](1);
+        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 1, seizedAssets: 0});
         terms.liquidate(term, seizures, borrower, "");
         assertEq(terms.debtOf(borrower, id), 99);
         assertEq(terms.collateralOf(borrower, id, term.collaterals[0].token), 133);
@@ -86,9 +90,8 @@ contract LiquidationTest is BaseTest {
         deal(address(loanToken), address(this), 1);
 
         // Test
-        Seizure[] memory seizures = new Seizure[](2);
-        seizures[0] = Seizure({repaidBonds: 0, seizedAssets: 1});
-        seizures[1] = Seizure({repaidBonds: 0, seizedAssets: 0});
+        Seizure[] memory seizures = new Seizure[](1);
+        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 0, seizedAssets: 1});
         terms.liquidate(term, seizures, borrower, "");
         assertEq(loanToken.balanceOf(address(this)), 0);
         assertEq(terms.debtOf(borrower, id), 99);
@@ -102,9 +105,8 @@ contract LiquidationTest is BaseTest {
         deal(address(loanToken), address(this), 1);
 
         // Test
-        Seizure[] memory seizures = new Seizure[](2);
-        seizures[0] = Seizure({repaidBonds: 1, seizedAssets: 0});
-        seizures[1] = Seizure({repaidBonds: 0, seizedAssets: 0});
+        Seizure[] memory seizures = new Seizure[](1);
+        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 1, seizedAssets: 0});
         terms.liquidate(term, seizures, borrower, "");
         assertEq(terms.collateralOf(borrower, id, term.collaterals[0].token), 132);
         // TODO assert bad debt
@@ -119,16 +121,13 @@ contract LiquidationTest is BaseTest {
         deal(address(loanToken), address(this), 1);
 
         // Test
-        Seizure[] memory seizures = new Seizure[](2);
-        seizures[0] = Seizure({repaidBonds: 1, seizedAssets: 0});
-        seizures[1] = Seizure({repaidBonds: 0, seizedAssets: 0});
+        Seizure[] memory seizures = new Seizure[](1);
+        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 1, seizedAssets: 0});
         terms.liquidate(term, seizures, borrower, data);
 
-        assertEq(recordedSeizures.length, 2, "seizures length");
+        assertEq(recordedSeizures.length, 1, "seizures length");
         assertEq(recordedSeizures[0].repaidBonds, 1, "repaid bonds");
         assertEq(recordedSeizures[0].seizedAssets, 1, "seized assets");
-        assertEq(recordedSeizures[1].repaidBonds, 0, "repaid bonds");
-        assertEq(recordedSeizures[1].seizedAssets, 0, "seized assets");
         assertEq(recordedBorrower, borrower, "borrower");
         assertEq(recordedLiquidator, address(this), "liquidator");
         assertEq(recordedData, data, "data");

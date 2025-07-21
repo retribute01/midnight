@@ -10,13 +10,13 @@ contract LiquidationTest is BaseTest {
 
     /// forge-config: default.isolate = true
     function testLiquidateGas() public {
-        uint numCollaterals = 10;
-        uint lltv = 0.75e18;
+        uint256 numCollaterals = 10;
+        uint256 lltv = 0.75e18;
 
         // Create collaterals
 
         Collateral[] memory collaterals = new Collateral[](numCollaterals);
-        for (uint i = 0; i < collaterals.length; i++) {
+        for (uint256 i = 0; i < collaterals.length; i++) {
             ERC20 collat = new ERC20("collat", "collat");
             collat.approve(address(terms), type(uint256).max);
             collaterals[i] = Collateral({token: address(collat), lltv: lltv, oracle: address(new Oracle())});
@@ -39,10 +39,9 @@ contract LiquidationTest is BaseTest {
             terms.supplyCollateral(term, collaterals[i].token, collateral, borrower);
         }
 
-
         deal(address(loanToken), lender, 1e3 * 1e18);
 
-        uint maxDebt = collateral * numCollaterals * lltv / 1e18;
+        uint256 maxDebt = collateral * numCollaterals * lltv / 1e18;
 
         // Create and take offer
 
@@ -63,18 +62,17 @@ contract LiquidationTest is BaseTest {
         terms.take(term, maxDebt, lender, borrowOffer, sig(borrowOffer, borrowerSK));
 
         // Setup liquidation
-        for (uint i = 0; i < numCollaterals; i++) {
+        for (uint256 i = 0; i < numCollaterals; i++) {
             Oracle(collaterals[i].oracle).setPrice(1e36 - 1);
         }
         deal(address(loanToken), address(this), 1e3 * 1e18);
 
         // Setup seizures
 
-        Seizure[] memory seizures = new Seizure[](collaterals.length);
-        seizures[0] = Seizure({repaidBonds: 0, seizedAssets: 1});
+        Seizure[] memory seizures = new Seizure[](1);
+        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 0, seizedAssets: 1});
 
         terms.liquidate(term, seizures, borrower, "");
         // console.log("g %s", vm.lastCallGas().gasTotalUsed);
     }
-
 }
