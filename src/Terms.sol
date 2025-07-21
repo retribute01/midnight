@@ -139,11 +139,12 @@ contract Terms is ITerms {
     {
         Vars memory vars;
         bytes32 id = _id(term);
+        uint256[] memory prices = new uint256[](term.collaterals.length);
 
         for (uint256 i = 0; i < term.collaterals.length; i++) {
-            uint256 price = IOracle(term.collaterals[i].oracle).price();
+            prices[i] = IOracle(term.collaterals[i].oracle).price();
             uint256 collateralQuoted =
-                collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(price, ORACLE_PRICE_SCALE);
+                collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(prices[i], ORACLE_PRICE_SCALE);
             vars.maxDebt += collateralQuoted.mulDivDown(term.collaterals[i].lltv, 1e18);
             vars.repayableDebt += collateralQuoted.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
         }
@@ -158,15 +159,12 @@ contract Terms is ITerms {
             collateralIndex = seizure.collateralIndex;
             require(UtilsLib.exactlyOneZero(seizure.repaidBonds, seizure.seizedAssets), "INCONSISTENT_INPUT");
 
-            uint256 collateralPrice = IOracle(term.collaterals[seizure.collateralIndex].oracle).price();
-
             if (seizure.seizedAssets > 0) {
-                seizure.repaidBonds = seizure.seizedAssets.mulDivUp(collateralPrice, ORACLE_PRICE_SCALE).mulDivUp(
-                    1e18, LIQUIDATION_INCENTIVE_FACTOR
-                );
+                seizure.repaidBonds = seizure.seizedAssets.mulDivUp(prices[seizure.collateralIndex], ORACLE_PRICE_SCALE)
+                    .mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
             } else {
                 seizure.seizedAssets = seizure.repaidBonds.mulDivDown(LIQUIDATION_INCENTIVE_FACTOR, 1e18).mulDivDown(
-                    ORACLE_PRICE_SCALE, collateralPrice
+                    ORACLE_PRICE_SCALE, prices[seizure.collateralIndex]
                 );
             }
 

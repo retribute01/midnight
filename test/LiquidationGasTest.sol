@@ -73,6 +73,6 @@ contract LiquidationTest is BaseTest {
         seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 0, seizedAssets: 1});
 
         terms.liquidate(term, seizures, borrower, "");
-        // console.log("g %s", vm.lastCallGas().gasTotalUsed);
+        console.log("g %s", vm.lastCallGas().gasTotalUsed);
     }
 }
