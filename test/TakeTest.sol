@@ -232,10 +232,11 @@ contract TakeTest is BaseTest {
 
         terms.take(term, 100, lender, borrowOffer, sig(borrowOffer, otherBorrowerSK), address(0), hex"");
         assertEq(terms.collateralOf(otherBorrower, id, address(collateralToken1)), 135);
+        assertEq(BorrowCallback(borrowOffer.callbackAddress).recordedData(), borrowOffer.callbackData);
     }
 
     function testTakeBorrowBorrowCallback() public {
-        (address otherBorrower, uint256 otherBorrowerSK) = makeAddrAndKey("otherBorrower");
+        (address otherBorrower,) = makeAddrAndKey("otherBorrower");
         address callbackAddress = address(new BorrowCallback());
         deal(address(collateralToken1), callbackAddress, 135);
         assertEq(terms.collateralOf(otherBorrower, id, address(collateralToken1)), 0);
@@ -250,6 +251,7 @@ contract TakeTest is BaseTest {
             abi.encode(address(collateralToken1), 135)
         );
         assertEq(terms.collateralOf(otherBorrower, id, address(collateralToken1)), 135);
+        assertEq(BorrowCallback(callbackAddress).recordedData(), abi.encode(address(collateralToken1), 135));
     }
 
     function testTakeBorrowLendCallback() public {
@@ -262,10 +264,11 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lendOffer.callbackAddress, 100);
 
         terms.take(term, 100, borrower, lendOffer, sig(lendOffer, otherLenderSK), address(0), hex"");
+        assertEq(LendCallback(lendOffer.callbackAddress).recordedData(), lendOffer.callbackData);
     }
 
     function testTakeLendLendCallback() public {
-        (address otherLender, uint256 otherLenderSK) = makeAddrAndKey("otherLender");
+        (address otherLender,) = makeAddrAndKey("otherLender");
         vm.prank(otherLender);
         loanToken.approve(address(terms), 100);
         address callbackAddress = address(new LendCallback());
@@ -280,6 +283,7 @@ contract TakeTest is BaseTest {
             callbackAddress,
             abi.encode(address(loanToken), 100)
         );
+        assertEq(LendCallback(callbackAddress).recordedData(), abi.encode(address(loanToken), 100));
     }
 
     function testTakeMaturityPassed() public {
@@ -371,7 +375,10 @@ contract TakeTest is BaseTest {
 }
 
 contract BorrowCallback is ICallbacks {
+    bytes public recordedData;
+
     function onTake(Term memory term, address borrower, uint256, bytes memory data) external {
+        recordedData = data;
         (address collateralToken, uint256 amount) = abi.decode(data, (address, uint256));
         ERC20(collateralToken).approve(msg.sender, amount);
         Terms(msg.sender).supplyCollateral(term, collateralToken, amount, borrower);
@@ -381,7 +388,10 @@ contract BorrowCallback is ICallbacks {
 }
 
 contract LendCallback is ICallbacks {
-    function onTake(Term memory term, address offering, uint256 assets, bytes memory) external {
+    bytes public recordedData;
+
+    function onTake(Term memory term, address offering, uint256 assets, bytes memory data) external {
+        recordedData = data;
         ERC20(term.loanToken).transfer(offering, assets);
     }
 

@@ -47,7 +47,7 @@ contract Terms is ITerms {
         Offer memory offer,
         Signature memory sig,
         address callbackAddress,
-        bytes calldata callbackData
+        bytes memory callbackData
     ) public {
         require(block.timestamp >= offer.offerStart, "offer not started");
         require(block.timestamp <= offer.offerExpiry, "offer expired");
@@ -67,7 +67,7 @@ contract Terms is ITerms {
             address sellerCallbackAddress,
             bytes memory sellerCallbackData
         ) = offer.buy
-            ? (offer.offering, offer.callbackAddress, callbackData, onBehalf, callbackAddress, callbackData)
+            ? (offer.offering, offer.callbackAddress, offer.callbackData, onBehalf, callbackAddress, callbackData)
             : (onBehalf, callbackAddress, callbackData, offer.offering, offer.callbackAddress, offer.callbackData);
 
         bytes32 id = _id(term);
