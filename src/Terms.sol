@@ -51,7 +51,7 @@ contract Terms is ITerms {
     ) public {
         require(block.timestamp >= offer.offerStart, "offer not started");
         require(block.timestamp <= offer.offerExpiry, "offer expired");
-        require(term.maturity >= block.timestamp, "maturity");
+        require(term.maturity >= block.timestamp, "bond maturity");
         _checkSignature(offer, sig);
         _checkOffer(term, offer);
 
@@ -59,11 +59,16 @@ contract Terms is ITerms {
 
         require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
-        (address buyer, address seller) = offer.buy ? (offer.offering, onBehalf) : (onBehalf, offer.offering);
-        (address buyerCallbackAddress, bytes memory buyerCallbackData) =
-            offer.buy ? (offer.callbackAddress, callbackData) : (callbackAddress, callbackData);
-        (address sellerCallbackAddress, bytes memory sellerCallbackData) =
-            offer.buy ? (callbackAddress, callbackData) : (offer.callbackAddress, offer.callbackData);
+        (
+            address buyer,
+            address buyerCallbackAddress,
+            bytes memory buyerCallbackData,
+            address seller,
+            address sellerCallbackAddress,
+            bytes memory sellerCallbackData
+        ) = offer.buy
+            ? (offer.offering, offer.callbackAddress, callbackData, onBehalf, callbackAddress, callbackData)
+            : (onBehalf, callbackAddress, callbackData, offer.offering, offer.callbackAddress, offer.callbackData);
 
         bytes32 id = _id(term);
 
