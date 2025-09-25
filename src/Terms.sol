@@ -35,6 +35,10 @@ contract Terms is ITerms {
     /// otherwise one might not be takable anymore while an other one at the same nonce is still takeable.
     mapping(address user => mapping(uint256 nonce => uint256)) public consumed;
 
+    /// @dev Cut on interest at each trade.
+    mapping(address loanToken => uint256) public tradingFeePct;
+    mapping(address loanToken => address) public tradingFeeRecipient;
+
     /// ENTRY-POINTS ///
 
     /// @dev Same function used to buy and sell.
@@ -42,7 +46,8 @@ contract Terms is ITerms {
     /// position at the end.
     function take(
         Term memory term,
-        uint256 assets,
+        uint256 buyerAssets,
+        uint256 sellerAssets,
         uint256 bonds,
         address onBehalf,
         Offer memory offer,
@@ -50,7 +55,6 @@ contract Terms is ITerms {
         address callbackAddress,
         bytes memory callbackData
     ) public {
-        require(assets * bonds == 0, "inconsistent input");
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(term.maturity >= block.timestamp, "bond maturity");
@@ -65,10 +69,25 @@ contract Terms is ITerms {
             : offer.startPrice;
 
         // todo check rounding
-        if (assets > 0) bonds = assets.mulDivDown(1e18, price);
-        else assets = bonds.mulDivUp(price, 1e18);
+        if (buyerAssets > 0) {
+            bonds = buyerAssets.mulDivDown(1e18, price);
+            sellerAssets = (1e18 - tradingFeePct[term.loanToken]).mulDivDown(buyerAssets, 1e18)
+                - bonds.mulDivDown(tradingFeePct[term.loanToken], 1e18);
+        } else if (sellerAssets > 0) {
+            bonds = sellerAssets.mulDivDown(1e18, price);
+            buyerAssets = (sellerAssets + bonds.mulDivDown(tradingFeePct[term.loanToken], 1e18)).mulDivDown(
+                1e18, 1e18 - tradingFeePct[term.loanToken]
+            );
+        } else {
+            buyerAssets = bonds.mulDivDown(price, 1e18);
+            sellerAssets = (1e18 - tradingFeePct[term.loanToken]).mulDivDown(buyerAssets, 1e18)
+                - bonds.mulDivDown(tradingFeePct[term.loanToken], 1e18);
+        }
 
-        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
+        require(
+            (consumed[offer.offering][offer.nonce] += (offer.buy ? buyerAssets : sellerAssets)) <= offer.assets,
+            "consumed"
+        );
 
         (
             address buyer,
@@ -103,13 +122,14 @@ contract Terms is ITerms {
         }
 
         if (buyerCallbackAddress != address(0)) {
-            ICallbacks(buyerCallbackAddress).onTake(term, buyer, assets, buyerCallbackData);
+            ICallbacks(buyerCallbackAddress).onTake(term, buyer, buyerAssets, buyerCallbackData);
         }
 
-        SafeTransferLib.safeTransferFrom(offer.loanToken, buyer, seller, assets);
+        SafeTransferLib.safeTransferFrom(offer.loanToken, buyer, tradingFeeRecipient[offer.loanToken],buyerAssets - sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.loanToken, buyer, seller, sellerAssets);
 
         if (sellerCallbackAddress != address(0)) {
-            ICallbacks(sellerCallbackAddress).onTake(term, seller, assets, sellerCallbackData);
+            ICallbacks(sellerCallbackAddress).onTake(term, seller, sellerAssets, sellerCallbackData);
         }
 
         require(_isHealthy(term, seller), "Seller is unhealthy");

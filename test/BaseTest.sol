@@ -104,6 +104,6 @@ abstract contract BaseTest is Test {
         });
 
         // take `bonds` assets because the rate is 0.
-        terms.take(term, bonds, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        terms.take(term, bonds, 0, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
     }
 }
