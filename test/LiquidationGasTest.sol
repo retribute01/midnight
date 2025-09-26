@@ -11,6 +11,7 @@ contract LiquidationTest is BaseTest {
     /// forge-config: default.isolate = true
     function testLiquidateGas() public {
         uint256 numCollaterals = 10;
+        uint256 numSeizures = 10;
         uint256 lltv = 0.75e18;
 
         // Create collaterals
@@ -56,10 +57,12 @@ contract LiquidationTest is BaseTest {
             offerExpiry: block.timestamp + 100,
             maturity: block.timestamp + 100,
             rate: 0,
-            nonce: 0
+            nonce: 0,
+            callbackAddress: address(0),
+            callbackData: ""
         });
 
-        terms.take(term, maxDebt, lender, borrowOffer, sig(borrowOffer, borrowerSK));
+        terms.take(term, maxDebt, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
 
         // Setup liquidation
         for (uint256 i = 0; i < numCollaterals; i++) {
@@ -69,8 +72,10 @@ contract LiquidationTest is BaseTest {
 
         // Setup seizures
 
-        Seizure[] memory seizures = new Seizure[](1);
-        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 0, seizedAssets: 1});
+        Seizure[] memory seizures = new Seizure[](numSeizures);
+        for (uint256 i = 0; i < numSeizures; i++) {
+            seizures[i] = Seizure({collateralIndex: i, repaidBonds: 0, seizedAssets: 1});
+        }
 
         terms.liquidate(term, seizures, borrower, "");
         console.log("g %s", vm.lastCallGas().gasTotalUsed);
