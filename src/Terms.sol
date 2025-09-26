@@ -207,7 +207,6 @@ contract Terms is ITerms {
         // Realize bad debt
         uint256 badDebt;
 
-        if (totalRepaid > originalDebt) totalRepaid = originalDebt;
         if (repayableDebt < originalDebt) {
             // Because roundings are not aligned the effective bad debt is either the remaining debt or the original
             // debt minus the theoretical repayable debt.
