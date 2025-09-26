@@ -44,13 +44,13 @@ contract Terms is ITerms {
         Term memory term,
         uint256 assets,
         uint256 bonds,
-        address onBehalf,
+        address taker,
         Offer memory offer,
         Signature memory sig,
-        address callbackAddress,
-        bytes memory callbackData
+        address takerCallbackAddress,
+        bytes memory takerCallbackData
     ) public {
-        require(assets * bonds == 0, "inconsistent input");
+        require(assets == 0 || bonds == 0, "inconsistent input");
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(term.maturity >= block.timestamp, "bond maturity");
@@ -58,17 +58,6 @@ contract Terms is ITerms {
         require(offer.maturity == term.maturity, "Maturities do not match");
         require(signatureIsValid(offer, sig), "Invalid signature");
         _checkCollateralInclusion(term, offer);
-
-        uint256 denominator = offer.expiry - offer.start;
-        uint256 price = denominator > 0
-            ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / denominator
-            : offer.startPrice;
-
-        // todo check rounding
-        if (assets > 0) bonds = assets.mulDivDown(1e18, price);
-        else assets = bonds.mulDivUp(price, 1e18);
-
-        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
         (
             address buyer,
@@ -78,8 +67,18 @@ contract Terms is ITerms {
             address sellerCallbackAddress,
             bytes memory sellerCallbackData
         ) = offer.buy
-            ? (offer.offering, offer.callbackAddress, offer.callbackData, onBehalf, callbackAddress, callbackData)
-            : (onBehalf, callbackAddress, callbackData, offer.offering, offer.callbackAddress, offer.callbackData);
+            ? (offer.offering, offer.callbackAddress, offer.callbackData, taker, takerCallbackAddress, takerCallbackData)
+            : (taker, takerCallbackAddress, takerCallbackData, offer.offering, offer.callbackAddress, offer.callbackData);
+
+        uint256 offerDuration = offer.expiry - offer.start;
+        uint256 price = offerDuration > 0
+            ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / offerDuration
+            : offer.startPrice;
+
+        if (assets > 0) bonds = taker == buyer ? assets.mulDivDown(1e18, price) : assets.mulDivUp(1e18, price);
+        else assets = taker == buyer ? bonds.mulDivUp(price, 1e18) : bonds.mulDivDown(price, 1e18);
+
+        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
         bytes32 id = _id(term);
 
