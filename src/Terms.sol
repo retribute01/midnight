@@ -16,7 +16,7 @@ contract Terms is ITerms {
 
     bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
     bytes32 public constant OFFER_TYPEHASH = keccak256(
-        "Offer(bool lend,address offering,uint256 assets,address loanToken,Collateral[] collaterals,uint256 maturity,uint256 offerStart,uint256 offerExpiry,uint256 rate,uint256 nonce)"
+        "Offer(bool lend,address offering,uint256 assets,address loanToken,Collateral[] collaterals,uint256 maturity,uint256 start,uint256 expiry,uint256 startPrice,uint256 expiryPrice,uint256 nonce)"
     );
     uint256 public constant ORACLE_PRICE_SCALE = 1e36;
     uint256 public constant LIQUIDATION_INCENTIVE_FACTOR = 1.15e18;
@@ -43,21 +43,21 @@ contract Terms is ITerms {
     function take(
         Term memory term,
         uint256 assets,
-        address onBehalf,
+        uint256 bonds,
+        address taker,
         Offer memory offer,
         Signature memory sig,
-        address callbackAddress,
-        bytes memory callbackData
+        address takerCallbackAddress,
+        bytes memory takerCallbackData
     ) public {
-        require(block.timestamp >= offer.offerStart, "offer not started");
-        require(block.timestamp <= offer.offerExpiry, "offer expired");
+        require(assets == 0 || bonds == 0, "inconsistent input");
+        require(block.timestamp >= offer.start, "offer not started");
+        require(block.timestamp <= offer.expiry, "offer expired");
         require(term.maturity >= block.timestamp, "bond maturity");
-        _checkSignature(offer, sig);
-        _checkOffer(term, offer);
-
-        uint256 bonds = assets * (1e18 + (term.maturity - block.timestamp) * offer.rate) / 1e18;
-
-        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
+        require(offer.loanToken == term.loanToken, "Loan tokens do not match");
+        require(offer.maturity == term.maturity, "Maturities do not match");
+        require(signatureIsValid(offer, sig), "Invalid signature");
+        _checkCollateralInclusion(term, offer);
 
         (
             address buyer,
@@ -67,8 +67,18 @@ contract Terms is ITerms {
             address sellerCallbackAddress,
             bytes memory sellerCallbackData
         ) = offer.buy
-            ? (offer.offering, offer.callbackAddress, offer.callbackData, onBehalf, callbackAddress, callbackData)
-            : (onBehalf, callbackAddress, callbackData, offer.offering, offer.callbackAddress, offer.callbackData);
+            ? (offer.offering, offer.callbackAddress, offer.callbackData, taker, takerCallbackAddress, takerCallbackData)
+            : (taker, takerCallbackAddress, takerCallbackData, offer.offering, offer.callbackAddress, offer.callbackData);
+
+        uint256 offerDuration = offer.expiry - offer.start;
+        uint256 price = offerDuration > 0
+            ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / offerDuration
+            : offer.startPrice;
+
+        if (assets > 0) bonds = assets.mulDivDown(1e18, price);
+        else assets = bonds.mulDivDown(price, 1e18);
+
+        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
         bytes32 id = _id(term);
 
@@ -228,10 +238,7 @@ contract Terms is ITerms {
         return keccak256(abi.encode(term));
     }
 
-    function _checkOffer(Term memory term, Offer memory offer) internal pure {
-        require(offer.loanToken == term.loanToken, "Loan tokens do not match");
-        require(offer.maturity == term.maturity, "Maturities do not match");
-
+    function _checkCollateralInclusion(Term memory term, Offer memory offer) internal pure {
         Collateral[] memory subset = offer.buy ? term.collaterals : offer.collaterals;
         Collateral[] memory superset = offer.buy ? offer.collaterals : term.collaterals;
 
@@ -247,13 +254,12 @@ contract Terms is ITerms {
         }
     }
 
-    function _checkSignature(Offer memory offer, Signature memory signature) internal view {
+    function signatureIsValid(Offer memory offer, Signature memory signature) internal view returns (bool) {
         bytes32 hashStruct = keccak256(abi.encode(OFFER_TYPEHASH, offer));
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, block.chainid, address(this)));
         bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, hashStruct));
         address signatory = ecrecover(digest, signature.v, signature.r, signature.s);
-
-        require(signatory != address(0) && offer.offering == signatory, "Invalid signature");
+        return signatory != address(0) && offer.offering == signatory;
     }
 
     function _isHealthy(Term memory term, address borrower) internal view returns (bool) {
