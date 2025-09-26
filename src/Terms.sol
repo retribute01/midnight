@@ -75,8 +75,8 @@ contract Terms is ITerms {
             ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / offerDuration
             : offer.startPrice;
 
-        if (assets > 0) bonds = taker == buyer ? assets.mulDivDown(1e18, price) : assets.mulDivUp(1e18, price);
-        else assets = taker == buyer ? bonds.mulDivUp(price, 1e18) : bonds.mulDivDown(price, 1e18);
+        if (assets > 0) bonds = assets.mulDivDown(1e18, price);
+        else assets = bonds.mulDivDown(price, 1e18);
 
         require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
