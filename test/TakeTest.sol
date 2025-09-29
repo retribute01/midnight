@@ -81,7 +81,7 @@ contract TakeTest is BaseTest {
 
         assertEq(morphoV2.sharesOf(lender, id), 101, "lender obligation shares");
         assertEq(morphoV2.debtOf(borrower, id), 101, "borrower debt");
-        assertEq(morphoV2.totalObligations(id), 101, "total obligations");
+        assertEq(morphoV2.totalUnits(id), 101, "total obligations");
         assertEq(morphoV2.totalShares(id), 101, "total shares");
         assertEq(loanToken.balanceOf(borrower), 100, "borrower balance");
         assertEq(loanToken.balanceOf(lender), 0, "lender balance");
@@ -93,7 +93,7 @@ contract TakeTest is BaseTest {
 
         assertEq(morphoV2.sharesOf(lender, id), 101, "obligation shares");
         assertEq(morphoV2.debtOf(borrower, id), 101, "lender debt");
-        assertEq(morphoV2.totalObligations(id), 101, "total obligations");
+        assertEq(morphoV2.totalUnits(id), 101, "total obligations");
         assertEq(morphoV2.totalShares(id), 101, "total shares");
         assertEq(morphoV2.consumed(lender, 0), 100, "lender nonce");
         assertEq(loanToken.balanceOf(borrower), 100, "borrower balance");
@@ -113,7 +113,7 @@ contract TakeTest is BaseTest {
 
         assertEq(morphoV2.sharesOf(lender, id), 0, "lender obligation shares");
         assertEq(morphoV2.sharesOf(otherLender, id), 101, "other lender obligation shares");
-        assertEq(morphoV2.totalObligations(id), 101, "total obligations");
+        assertEq(morphoV2.totalUnits(id), 101, "total obligations");
         assertEq(morphoV2.totalShares(id), 101, "total shares");
         assertEq(morphoV2.consumed(otherLender, 0), 99, "other lender nonce");
         assertEq(loanToken.balanceOf(lender), 99, "lender balance");
@@ -128,7 +128,7 @@ contract TakeTest is BaseTest {
 
         assertEq(morphoV2.sharesOf(lender, id), 0, "lender obligation shares");
         assertEq(morphoV2.sharesOf(borrower, id), 0, "borrower obligation shares");
-        assertEq(morphoV2.totalObligations(id), 0, "total obligations");
+        assertEq(morphoV2.totalUnits(id), 0, "total obligations");
         assertEq(morphoV2.totalShares(id), 0, "total shares");
         assertEq(morphoV2.consumed(borrower, 1), 99, "borrower nonce");
         assertEq(loanToken.balanceOf(lender), 99, "lender balance");
@@ -151,7 +151,7 @@ contract TakeTest is BaseTest {
         assertEq(morphoV2.sharesOf(otherBorrower, id), 0, "other borrower obligation shares");
         assertEq(morphoV2.debtOf(borrower, id), 0, "borrower debt");
         assertEq(morphoV2.debtOf(otherBorrower, id), 101, "other borrower debt");
-        assertEq(morphoV2.totalObligations(id), 101, "total obligations");
+        assertEq(morphoV2.totalUnits(id), 101, "total obligations");
         assertEq(morphoV2.totalShares(id), 101, "total shares");
         assertEq(morphoV2.consumed(otherBorrower, 0), 100, "other borrower nonce");
         assertEq(loanToken.balanceOf(borrower), 0, "borrower balance");
@@ -169,7 +169,7 @@ contract TakeTest is BaseTest {
         assertEq(morphoV2.sharesOf(borrower, id), 0, "borrower obligation shares");
         assertEq(morphoV2.debtOf(borrower, id), 0, "borrower debt");
         assertEq(morphoV2.debtOf(lender, id), 0, "lender debt");
-        assertEq(morphoV2.totalObligations(id), 0, "total obligations");
+        assertEq(morphoV2.totalUnits(id), 0, "total obligations");
         assertEq(morphoV2.totalShares(id), 0, "total shares");
         assertEq(morphoV2.consumed(lender, 1), 100, "lender nonce");
         assertEq(loanToken.balanceOf(borrower), 0, "borrower balance");

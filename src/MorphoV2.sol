@@ -26,7 +26,7 @@ contract MorphoV2 is IMorphoV2 {
     mapping(address => mapping(bytes32 => uint256)) public sharesOf;
     mapping(address => mapping(bytes32 => uint256)) public debtOf;
     mapping(bytes32 => uint256) public withdrawable;
-    mapping(bytes32 => uint256) public totalObligations;
+    mapping(bytes32 => uint256) public totalUnits;
     mapping(bytes32 => uint256) public totalShares;
     mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
 
@@ -42,15 +42,15 @@ contract MorphoV2 is IMorphoV2 {
     /// position at the end.
     function take(
         Obligation memory obligation,
-        uint256 consideration,
-        uint256 notional,
+        uint256 assets,
+        uint256 obligationUnits,
         address taker,
         Offer memory offer,
         Signature memory sig,
         address takerCallbackAddress,
         bytes memory takerCallbackData
     ) public {
-        require(consideration == 0 || notional == 0, "inconsistent input");
+        require(assets == 0 || obligationUnits == 0, "inconsistent input");
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(obligation.maturity >= block.timestamp, "maturity");
@@ -75,40 +75,40 @@ contract MorphoV2 is IMorphoV2 {
             ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / offerDuration
             : offer.startPrice;
 
-        if (consideration > 0) notional = consideration.mulDivDown(1e18, price);
-        else consideration = notional.mulDivDown(price, 1e18);
+        if (assets > 0) obligationUnits = assets.mulDivDown(1e18, price);
+        else assets = obligationUnits.mulDivDown(price, 1e18);
 
-        require((consumed[offer.offering][offer.nonce] += consideration) <= offer.assets, "consumed");
+        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
 
         bytes32 id = _id(obligation);
 
         {
-            uint256 repaid = UtilsLib.min(debtOf[buyer][id], notional);
-            uint256 bought = notional - repaid;
-            uint256 boughtShares = bought.mulDivDown(totalShares[id] + 1, totalObligations[id] + 1);
+            uint256 repaid = UtilsLib.min(debtOf[buyer][id], obligationUnits);
+            uint256 bought = obligationUnits - repaid;
+            uint256 boughtShares = bought.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
             uint256 withdrawn =
-                UtilsLib.min(sharesOf[seller][id].mulDivDown(totalObligations[id] + 1, totalShares[id] + 1), notional);
-            uint256 withdrawnShares = withdrawn.mulDivUp(totalShares[id] + 1, totalObligations[id] + 1);
+                UtilsLib.min(sharesOf[seller][id].mulDivDown(totalUnits[id] + 1, totalShares[id] + 1), obligationUnits);
+            uint256 withdrawnShares = withdrawn.mulDivUp(totalShares[id] + 1, totalUnits[id] + 1);
 
             debtOf[buyer][id] -= repaid;
             sharesOf[buyer][id] += boughtShares;
             sharesOf[seller][id] -= withdrawnShares;
-            debtOf[seller][id] += notional - withdrawn;
+            debtOf[seller][id] += obligationUnits - withdrawn;
 
             totalShares[id] += boughtShares;
             totalShares[id] -= withdrawnShares;
-            totalObligations[id] += bought;
-            totalObligations[id] -= withdrawn;
+            totalUnits[id] += bought;
+            totalUnits[id] -= withdrawn;
         }
 
         if (buyerCallbackAddress != address(0)) {
-            ICallbacks(buyerCallbackAddress).onTake(obligation, buyer, consideration, buyerCallbackData);
+            ICallbacks(buyerCallbackAddress).onTake(obligation, buyer, assets, buyerCallbackData);
         }
 
-        SafeTransferLib.safeTransferFrom(offer.loanToken, buyer, seller, consideration);
+        SafeTransferLib.safeTransferFrom(offer.loanToken, buyer, seller, assets);
 
         if (sellerCallbackAddress != address(0)) {
-            ICallbacks(sellerCallbackAddress).onTake(obligation, seller, consideration, sellerCallbackData);
+            ICallbacks(sellerCallbackAddress).onTake(obligation, seller, assets, sellerCallbackData);
         }
 
         require(_isHealthy(obligation, seller), "Seller is unhealthy");
@@ -119,14 +119,14 @@ contract MorphoV2 is IMorphoV2 {
         require(UtilsLib.exactlyOneZero(notional, shares), "INCONSISTENT_INPUT");
         bytes32 id = _id(obligation);
 
-        if (notional > 0) shares = notional.mulDivUp(totalShares[id] + 1, totalObligations[id] + 1);
-        else notional = shares.mulDivDown(totalObligations[id] + 1, totalShares[id] + 1);
+        if (notional > 0) shares = notional.mulDivUp(totalShares[id] + 1, totalUnits[id] + 1);
+        else notional = shares.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
 
         sharesOf[onBehalf][id] -= shares;
         withdrawable[id] -= notional;
 
         totalShares[id] -= shares;
-        totalObligations[id] -= notional;
+        totalUnits[id] -= notional;
 
         SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, notional);
     }
@@ -216,7 +216,7 @@ contract MorphoV2 is IMorphoV2 {
             // Because roundings are not aligned the effective bad debt is either the remaining debt or the original
             // debt minus the theoretical repayable debt.
             badDebt = UtilsLib.min(originalDebt - totalRepaid, originalDebt - repayableDebt);
-            totalObligations[id] -= badDebt;
+            totalUnits[id] -= badDebt;
         }
 
         withdrawable[id] += totalRepaid;
