@@ -82,24 +82,22 @@ contract Terms is ITerms {
 
         bytes32 id = _id(term);
 
-        {
-            uint256 repaid = UtilsLib.min(debtOf[buyer][id], bonds);
-            uint256 bought = bonds - repaid;
-            uint256 boughtShares = bought.mulDivDown(totalShares[id] + 1, totalBonds[id] + 1);
-            uint256 withdrawn =
-                UtilsLib.min(bondSharesOf[seller][id].mulDivDown(totalBonds[id] + 1, totalShares[id] + 1), bonds);
-            uint256 withdrawnShares = withdrawn.mulDivUp(totalShares[id] + 1, totalBonds[id] + 1);
+        uint256 repaid = UtilsLib.min(debtOf[buyer][id], bonds);
+        uint256 bought = bonds - repaid;
+        uint256 boughtShares = bought.mulDivDown(totalShares[id] + 1, totalBonds[id] + 1);
+        uint256 withdrawn =
+            UtilsLib.min(bondSharesOf[seller][id].mulDivDown(totalBonds[id] + 1, totalShares[id] + 1), bonds);
+        uint256 withdrawnShares = withdrawn.mulDivUp(totalShares[id] + 1, totalBonds[id] + 1);
 
-            debtOf[buyer][id] -= repaid;
-            bondSharesOf[buyer][id] += boughtShares;
-            bondSharesOf[seller][id] -= withdrawnShares;
-            debtOf[seller][id] += bonds - withdrawn;
+        debtOf[buyer][id] -= repaid;
+        bondSharesOf[buyer][id] += boughtShares;
+        bondSharesOf[seller][id] -= withdrawnShares;
+        debtOf[seller][id] += bonds - withdrawn;
 
-            totalShares[id] += boughtShares;
-            totalShares[id] -= withdrawnShares;
-            totalBonds[id] += bought;
-            totalBonds[id] -= withdrawn;
-        }
+        totalShares[id] += boughtShares;
+        totalShares[id] -= withdrawnShares;
+        totalBonds[id] += bought;
+        totalBonds[id] -= withdrawn;
 
         if (buyerCallbackAddress != address(0)) {
             ICallbacks(buyerCallbackAddress).onTake(term, buyer, assets, buyerCallbackData);
@@ -172,13 +170,10 @@ contract Terms is ITerms {
 
         for (uint256 i = 0; i < term.collaterals.length; i++) {
             prices[i] = IOracle(term.collaterals[i].oracle).price();
-            {
-                address collateralToken = term.collaterals[i].token;
-                uint256 collateralQuoted =
-                    collateralOf[borrower][id][collateralToken].mulDivDown(prices[i], ORACLE_PRICE_SCALE);
-                maxDebt += collateralQuoted.mulDivDown(term.collaterals[i].lltv, 1e18);
-                repayableDebt += collateralQuoted.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
-            }
+            uint256 collateralQuoted =
+                collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(prices[i], ORACLE_PRICE_SCALE);
+            maxDebt += collateralQuoted.mulDivDown(term.collaterals[i].lltv, 1e18);
+            repayableDebt += collateralQuoted.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
         }
 
         uint256 originalDebt = debtOf[borrower][id];
