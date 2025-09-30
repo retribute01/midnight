@@ -115,29 +115,29 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @dev Will revert if there is no withdrawable funds.
-    function withdraw(Obligation memory obligation, uint256 notional, uint256 shares, address onBehalf) external {
-        require(UtilsLib.exactlyOneZero(notional, shares), "INCONSISTENT_INPUT");
+    function withdraw(Obligation memory obligation, uint256 obligationUnits, uint256 shares, address onBehalf) external {
+        require(UtilsLib.exactlyOneZero(obligationUnits, shares), "INCONSISTENT_INPUT");
         bytes32 id = _id(obligation);
 
-        if (notional > 0) shares = notional.mulDivUp(totalShares[id] + 1, totalUnits[id] + 1);
-        else notional = shares.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
+        if (obligationUnits > 0) shares = obligationUnits.mulDivUp(totalShares[id] + 1, totalUnits[id] + 1);
+        else obligationUnits = shares.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
 
         sharesOf[onBehalf][id] -= shares;
-        withdrawable[id] -= notional;
+        withdrawable[id] -= obligationUnits;
 
         totalShares[id] -= shares;
-        totalUnits[id] -= notional;
+        totalUnits[id] -= obligationUnits;
 
-        SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, notional);
+        SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, obligationUnits);
     }
 
-    function repay(Obligation memory obligation, uint256 notional, address onBehalf) external {
+    function repay(Obligation memory obligation, uint256 obligationUnits, address onBehalf) external {
         bytes32 id = _id(obligation);
 
-        debtOf[onBehalf][id] -= notional;
-        withdrawable[id] += notional;
+        debtOf[onBehalf][id] -= obligationUnits;
+        withdrawable[id] += obligationUnits;
 
-        SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), notional);
+        SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), obligationUnits);
     }
 
     function supplyCollateral(Obligation memory obligation, address collateral, uint256 assets, address onBehalf)
