@@ -290,6 +290,13 @@ contract TakeTest is BaseTest {
         assertEq(LendCallback(callbackAddress).recordedData(), abi.encode(address(loanToken), 100));
     }
 
+    function testTakeConsistentPrices() public {
+        lendOffer.expiry = lendOffer.start;
+        terms.take(term, 100, 0, borrower, lendOffer, sig(lendOffer, lenderSK), address(0), hex"");
+
+        assertEq(terms.bondSharesOf(lender, id), 101, "lender bond shares");
+    }
+
     function testTakeMaturityPassed() public {
         vm.warp(block.timestamp + 101);
         vm.expectRevert("bond maturity");
