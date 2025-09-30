@@ -50,6 +50,10 @@ contract MathLibTest is Test {
         this.mulDivUp(x, y, d);
     }
 
+    function testZeroFloorSub(uint256 x, uint256 y) public pure {
+        assertEq(MathLib.zeroFloorSub(x, y), x > y ? x - y : 0);
+    }
+
     function mulDivDown(uint256 x, uint256 y, uint256 d) external pure {
         MathLib.mulDivDown(x, y, d);
     }

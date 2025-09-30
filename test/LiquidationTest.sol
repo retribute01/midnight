@@ -122,33 +122,24 @@ contract LiquidationTest is BaseTest {
         assertEq(recordedData, data, "data");
     }
 
-    // Check that it is not always possible to seize all assets due to roundings.
-    function testTotalRepaidTooHigh() public {
+    // Check that if there is bad debt it is possible to seize all assets.
+    function testLiquidateAllWhenBadDebt() public {
         Oracle oracle2 = new Oracle();
         term.collaterals[1].oracle = address(oracle2);
         id = toId(term);
 
         setupMaxBondWithCollaterals(term, 100, 100);
-        uint256 price = 1e36 * 1e18 / terms.LIQUIDATION_INCENTIVE_FACTOR() * 98 / 100;
+        uint256 price = 1e36 * 1e18 / terms.LIQUIDATION_INCENTIVE_FACTOR() * 95 / 100;
         uint256 price2 = 1e36 * 1e18 / terms.LIQUIDATION_INCENTIVE_FACTOR();
         oracle.setPrice(price);
         oracle2.setPrice(price2);
         deal(address(loanToken), address(this), 100e18);
 
         Seizure[] memory seizures = new Seizure[](2);
-
-        // Seizing all collateral repays too much debt.
         seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 0, seizedAssets: 100});
         seizures[1] = Seizure({collateralIndex: 1, repaidBonds: 0, seizedAssets: 100});
 
-        vm.expectRevert(stdError.arithmeticError);
         terms.liquidate(term, seizures, borrower, "");
-
-        // Repaying all bonds can leave some assets behind
-        seizures[0] = Seizure({collateralIndex: 0, repaidBonds: 75, seizedAssets: 0});
-        seizures[1] = Seizure({collateralIndex: 1, repaidBonds: 75, seizedAssets: 0});
-        terms.liquidate(term, seizures, borrower, "");
-        vm.assertGt(terms.collateralOf(borrower, id, term.collaterals[1].token), 0);
     }
 
     function onLiquidate(Seizure[] memory seizures, address borrower, address liquidator, bytes memory data) public {
