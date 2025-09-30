@@ -115,7 +115,9 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @dev Will revert if there is no withdrawable funds.
-    function withdraw(Obligation memory obligation, uint256 obligationUnits, uint256 shares, address onBehalf) external {
+    function withdraw(Obligation memory obligation, uint256 obligationUnits, uint256 shares, address onBehalf)
+        external
+    {
         require(UtilsLib.exactlyOneZero(obligationUnits, shares), "INCONSISTENT_INPUT");
         bytes32 id = _id(obligation);
 
