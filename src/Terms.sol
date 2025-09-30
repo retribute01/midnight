@@ -173,9 +173,9 @@ contract Terms is ITerms {
             prices[i] = IOracle(term.collaterals[i].oracle).price();
             uint256 collateralAmount = collateralOf[borrower][id][term.collaterals[i].token];
             maxDebt +=
-                collateralAmount.mulDivDown(prices[i], ORACLE_PRICE_SCALE).mulDivDown(term.collaterals[i].lltv, 1e18);
+                collateralAmount.mulDivDown(term.collaterals[i].lltv, 1e18).mulDivDown(prices[i], ORACLE_PRICE_SCALE);
             repayableDebt +=
-                collateralAmount.mulDivUp(prices[i], ORACLE_PRICE_SCALE).mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
+                collateralAmount.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR).mulDivUp(prices[i], ORACLE_PRICE_SCALE);
         }
 
         uint256 originalDebt = debtOf[borrower][id];
@@ -194,12 +194,13 @@ contract Terms is ITerms {
             require(UtilsLib.exactlyOneZero(seizure.repaidBonds, seizure.seizedAssets), "INCONSISTENT_INPUT");
 
             if (seizure.seizedAssets > 0) {
-                seizure.repaidBonds = seizure.seizedAssets.mulDivUp(prices[seizure.collateralIndex], ORACLE_PRICE_SCALE)
-                    .mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
-            } else {
-                seizure.seizedAssets = seizure.repaidBonds.mulDivDown(LIQUIDATION_INCENTIVE_FACTOR, 1e18).mulDivDown(
-                    ORACLE_PRICE_SCALE, prices[seizure.collateralIndex]
+                seizure.repaidBonds = seizure.seizedAssets.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR).mulDivUp(
+                    prices[seizure.collateralIndex], ORACLE_PRICE_SCALE
                 );
+            } else {
+                seizure.seizedAssets = seizure.repaidBonds.mulDivDown(
+                    ORACLE_PRICE_SCALE, prices[seizure.collateralIndex]
+                ).mulDivDown(LIQUIDATION_INCENTIVE_FACTOR, 1e18);
             }
 
             totalRepaid += seizure.repaidBonds;
@@ -263,9 +264,9 @@ contract Terms is ITerms {
             uint256 maxDebt;
             for (uint256 i = 0; i < term.collaterals.length; i++) {
                 uint256 price = IOracle(term.collaterals[i].oracle).price();
-                uint256 collateralQuoted =
-                    collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(price, ORACLE_PRICE_SCALE);
-                maxDebt += collateralQuoted.mulDivDown(term.collaterals[i].lltv, 1e18);
+                maxDebt += collateralOf[borrower][id][term.collaterals[i].token].mulDivDown(
+                    term.collaterals[i].lltv, 1e18
+                ).mulDivDown(price, ORACLE_PRICE_SCALE);
             }
 
             return debt <= maxDebt;
