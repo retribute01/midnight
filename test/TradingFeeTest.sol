@@ -7,7 +7,7 @@ import "./BaseTest.sol";
 contract TradingFeeTest is BaseTest {
     using MathLib for uint256;
 
-    Term internal term;
+    Obligation internal obligation;
     bytes32 internal id;
     Offer internal lendOffer;
     Offer internal borrowOffer;
@@ -26,13 +26,13 @@ contract TradingFeeTest is BaseTest {
         collaterals[1] = Collateral({token: address(collateralToken2), lltv: 0.75e18, oracle: address(oracle)});
         collaterals = sortCollaterals(collaterals);
 
-        term.loanToken = address(loanToken);
-        term.maturity = block.timestamp + 100;
+        obligation.loanToken = address(loanToken);
+        obligation.maturity = block.timestamp + 100;
         for (uint256 i = 0; i < collaterals.length; i++) {
-            term.collaterals.push(collaterals[i]);
+            obligation.collaterals.push(collaterals[i]);
         }
 
-        id = keccak256(abi.encode(term));
+        id = keccak256(abi.encode(obligation));
 
         lendOffer.buy = true;
         lendOffer.offering = lender;
@@ -63,16 +63,16 @@ contract TradingFeeTest is BaseTest {
             borrowOffer.collaterals.push(collaterals[i]);
         }
 
-        terms.supplyCollateral(term, address(collateralToken1), 200 ether, borrower);
+        morphoV2.supplyCollateral(obligation, address(collateralToken1), 200 ether, borrower);
 
         // Set up trading fee for tests
-        terms.setTradingFee(address(loanToken), 0.05e18); // 5%
-        terms.setTradingFeeRecipient(address(loanToken), feeRecipient);
+        morphoV2.setTradingFee(address(loanToken), 0.05e18); // 5%
+        morphoV2.setTradingFeeRecipient(address(loanToken), feeRecipient);
     }
 
     function testTradingFeeSetup() public view {
-        assertEq(terms.tradingFee(address(loanToken)), 0.05e18, "trading fee percentage");
-        assertEq(terms.tradingFeeRecipient(address(loanToken)), feeRecipient, "fee recipient");
+        assertEq(morphoV2.tradingFee(address(loanToken)), 0.05e18, "trading fee percentage");
+        assertEq(morphoV2.tradingFeeRecipient(address(loanToken)), feeRecipient, "fee recipient");
     }
 
     function testBuyerAssetsWithFee() public {
@@ -84,17 +84,19 @@ contract TradingFeeTest is BaseTest {
         borrowOffer.expiryPrice = price;
 
         // other formula to arrive to the same result.
-        uint256 expectedBonds = buyerAssets * 1e18 / price;
-        uint256 expectedFee = (expectedBonds - buyerAssets).mulDivDown(fee, 1e18);
+        uint256 expectedUnits = buyerAssets * 1e18 / price;
+        uint256 expectedFee = (expectedUnits - buyerAssets).mulDivDown(fee, 1e18);
         uint256 expectedSellerAssets = buyerAssets - expectedFee;
 
         uint256 feeRecipientBalanceBefore = loanToken.balanceOf(feeRecipient);
         uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
         uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
-        terms.take(term, buyerAssets, 0, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        morphoV2.take(
+            obligation, buyerAssets, 0, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex""
+        );
 
-        assertEq(terms.bondSharesOf(lender, id), expectedBonds, "bonds");
+        assertEq(morphoV2.sharesOf(lender, id), expectedUnits, "units");
         assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore + expectedFee, "fee recipient balance");
         assertEq(loanToken.balanceOf(lender), lenderBalanceBefore - buyerAssets, "lender balance");
         assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + expectedSellerAssets, "borrower balance");
@@ -109,37 +111,41 @@ contract TradingFeeTest is BaseTest {
         borrowOffer.expiryPrice = price;
 
         uint256 expectedBuyerAssets = sellerAssets.mulDivDown(1e18, 1e18 + fee - fee.mulDivDown(1e18, price));
-        uint256 expectedBonds = expectedBuyerAssets.mulDivDown(1e18, price);
+        uint256 expectedUnits = expectedBuyerAssets.mulDivDown(1e18, price);
         uint256 expectedFee = expectedBuyerAssets - sellerAssets;
 
         uint256 feeRecipientBalanceBefore = loanToken.balanceOf(feeRecipient);
         uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
         uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
-        terms.take(term, 0, sellerAssets, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        morphoV2.take(
+            obligation, 0, sellerAssets, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex""
+        );
 
         assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore + expectedFee, "fee recipient balance");
         assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + sellerAssets, "borrower balance");
         assertEq(loanToken.balanceOf(lender), lenderBalanceBefore - expectedBuyerAssets, "lender balance");
     }
 
-    function testBondsWithFee() public {
-        uint256 bonds = 100 ether;
+    function testObligationUnitsWithFee() public {
+        uint256 obligationUnits = 100 ether;
         uint256 price = 0.9 ether;
         uint256 fee = 0.05e18;
 
         borrowOffer.startPrice = price;
         borrowOffer.expiryPrice = price;
 
-        uint256 expectedBuyerAssets = bonds * price / 1e18;
-        uint256 expectedFee = (bonds - expectedBuyerAssets).mulDivDown(fee, 1e18);
+        uint256 expectedBuyerAssets = obligationUnits * price / 1e18;
+        uint256 expectedFee = (obligationUnits - expectedBuyerAssets).mulDivDown(fee, 1e18);
         uint256 expectedSellerAssets = expectedBuyerAssets - expectedFee;
 
         uint256 feeRecipientBalanceBefore = loanToken.balanceOf(feeRecipient);
         uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
         uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
-        terms.take(term, 0, 0, bonds, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        morphoV2.take(
+            obligation, 0, 0, obligationUnits, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex""
+        );
 
         assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore + expectedFee, "fee recipient balance");
         assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + expectedSellerAssets, "borrower balance");
@@ -147,7 +153,7 @@ contract TradingFeeTest is BaseTest {
     }
 
     function testZeroTradingFee() public {
-        terms.setTradingFee(address(loanToken), 0);
+        morphoV2.setTradingFee(address(loanToken), 0);
         uint256 buyerAssets = 100 ether;
         borrowOffer.startPrice = 0.9 ether;
         borrowOffer.expiryPrice = 0.9 ether;
@@ -156,7 +162,9 @@ contract TradingFeeTest is BaseTest {
         uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
         uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
-        terms.take(term, buyerAssets, 0, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        morphoV2.take(
+            obligation, buyerAssets, 0, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex""
+        );
 
         assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore, "no fee collected");
         assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + buyerAssets, "borrower gets full amount");
@@ -172,7 +180,9 @@ contract TradingFeeTest is BaseTest {
         uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
         uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
-        terms.take(term, buyerAssets, 0, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        morphoV2.take(
+            obligation, buyerAssets, 0, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex""
+        );
 
         assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore, "no fee collected");
         assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + buyerAssets, "borrower gets full amount");
@@ -188,15 +198,17 @@ contract TradingFeeTest is BaseTest {
         uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
         uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
-        terms.take(term, 0, sellerAssets, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        morphoV2.take(
+            obligation, 0, sellerAssets, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex""
+        );
 
         assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore, "no fee collected");
         assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + sellerAssets, "borrower gets full amount");
         assertEq(loanToken.balanceOf(lender), lenderBalanceBefore - sellerAssets, "lender pays full amount");
     }
 
-    function testBondsNoInterest() public {
-        uint256 bonds = 100 ether;
+    function testObligationUnitsNoInterest() public {
+        uint256 obligationUnits = 100 ether;
         borrowOffer.startPrice = 1 ether;
         borrowOffer.expiryPrice = 1 ether;
 
@@ -204,10 +216,12 @@ contract TradingFeeTest is BaseTest {
         uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
         uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
-        terms.take(term, 0, 0, bonds, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
+        morphoV2.take(
+            obligation, 0, 0, obligationUnits, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex""
+        );
 
         assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore, "no fee collected");
-        assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + bonds, "borrower gets full amount");
-        assertEq(loanToken.balanceOf(lender), lenderBalanceBefore - bonds, "lender pays full amount");
+        assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + obligationUnits, "borrower gets full amount");
+        assertEq(loanToken.balanceOf(lender), lenderBalanceBefore - obligationUnits, "lender pays full amount");
     }
 }

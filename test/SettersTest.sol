@@ -6,49 +6,49 @@ import "./BaseTest.sol";
 
 contract SettersTest is BaseTest {
     function testInitialOwner() public view {
-        assertEq(terms.owner(), address(this), "deployer should be initial owner");
+        assertEq(morphoV2.owner(), address(this), "deployer should be initial owner");
     }
 
     function testSetOwnerSuccess(address rdm) public {
-        terms.setOwner(rdm);
-        assertEq(terms.owner(), rdm, "owner should be transferred");
+        morphoV2.setOwner(rdm);
+        assertEq(morphoV2.owner(), rdm, "owner should be transferred");
     }
 
     function testSetOwnerOnlyOwner(address rdm) public {
         vm.assume(rdm != address(this));
         vm.prank(rdm);
         vm.expectRevert("Only owner");
-        terms.setOwner(makeAddr("newOwner"));
+        morphoV2.setOwner(makeAddr("newOwner"));
     }
 
     function testSetTradingFeeSuccess(uint256 fee) public {
         vm.assume(fee <= 1e18);
-        terms.setTradingFee(address(loanToken), fee);
-        assertEq(terms.tradingFee(address(loanToken)), fee);
+        morphoV2.setTradingFee(address(loanToken), fee);
+        assertEq(morphoV2.tradingFee(address(loanToken)), fee);
     }
 
     function testSetTradingFeeOnlyOwner(address rdm) public {
         vm.assume(rdm != address(this));
         vm.prank(rdm);
         vm.expectRevert("Only owner");
-        terms.setTradingFee(address(loanToken), 0.1e18);
+        morphoV2.setTradingFee(address(loanToken), 0.1e18);
     }
 
     function testSetTradingFeeTooHigh(uint256 fee) public {
         vm.assume(fee > 1e18);
         vm.expectRevert("Fee too high");
-        terms.setTradingFee(address(loanToken), fee);
+        morphoV2.setTradingFee(address(loanToken), fee);
     }
 
     function testSetTradingFeeRecipientSuccess(address recipient) public {
-        terms.setTradingFeeRecipient(address(loanToken), recipient);
-        assertEq(terms.tradingFeeRecipient(address(loanToken)), recipient, "recipient set");
+        morphoV2.setTradingFeeRecipient(address(loanToken), recipient);
+        assertEq(morphoV2.tradingFeeRecipient(address(loanToken)), recipient, "recipient set");
     }
 
     function testSetTradingFeeRecipientOnlyOwner(address rdm) public {
         vm.assume(rdm != address(this));
         vm.prank(rdm);
         vm.expectRevert("Only owner");
-        terms.setTradingFeeRecipient(address(loanToken), makeAddr("newRecipient"));
+        morphoV2.setTradingFeeRecipient(address(loanToken), makeAddr("newRecipient"));
     }
 }
