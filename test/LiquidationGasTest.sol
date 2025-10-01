@@ -49,7 +49,7 @@ contract LiquidationTest is BaseTest {
         id = toId(obligation);
         Offer memory borrowOffer = Offer({
             buy: false,
-            offeror: borrower,
+            maker: borrower,
             assets: maxDebt,
             loanToken: obligation.loanToken,
             collaterals: obligation.collaterals,

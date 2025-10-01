@@ -35,7 +35,7 @@ contract TakeTest is BaseTest {
         id = keccak256(abi.encode(obligation));
 
         lendOffer.buy = true;
-        lendOffer.offeror = lender;
+        lendOffer.maker = lender;
         lendOffer.assets = 100;
         lendOffer.loanToken = address(loanToken);
         lendOffer.maturity = block.timestamp + 100;
@@ -50,7 +50,7 @@ contract TakeTest is BaseTest {
         }
 
         borrowOffer.buy = false;
-        borrowOffer.offeror = borrower;
+        borrowOffer.maker = borrower;
         borrowOffer.assets = 100;
         borrowOffer.loanToken = address(loanToken);
         borrowOffer.maturity = block.timestamp + 100;
@@ -108,7 +108,7 @@ contract TakeTest is BaseTest {
         vm.prank(otherLender);
         loanToken.approve(address(morphoV2), 100);
         deal(address(loanToken), otherLender, 100);
-        lendOffer.offeror = otherLender;
+        lendOffer.maker = otherLender;
         morphoV2.take(obligation, 0, 101, lender, lendOffer, sig(lendOffer, otherLenderSK), address(0), hex"");
 
         assertEq(morphoV2.sharesOf(lender, id), 0, "lender obligation shares");
@@ -122,7 +122,7 @@ contract TakeTest is BaseTest {
 
     function testWithdrawSecondaryWithBorrower() public {
         morphoV2.take(obligation, 100, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
-        lendOffer.offeror = borrower;
+        lendOffer.maker = borrower;
         lendOffer.nonce = 1;
         morphoV2.take(obligation, 0, 101, lender, lendOffer, sig(lendOffer, borrowerSK), address(0), hex"");
 
@@ -143,7 +143,7 @@ contract TakeTest is BaseTest {
         collateralToken1.approve(address(morphoV2), 135);
         deal(address(collateralToken1), otherBorrower, 135);
         morphoV2.supplyCollateral(obligation, address(collateralToken1), 135, otherBorrower);
-        borrowOffer.offeror = otherBorrower;
+        borrowOffer.maker = otherBorrower;
         morphoV2.take(obligation, 100, 0, borrower, borrowOffer, sig(borrowOffer, otherBorrowerSK), address(0), hex"");
 
         assertEq(morphoV2.sharesOf(lender, id), 101, "lender obligation shares");
@@ -161,7 +161,7 @@ contract TakeTest is BaseTest {
     function testRepaySecondaryWithLender() public {
         morphoV2.take(obligation, 100, 0, borrower, lendOffer, sig(lendOffer, lenderSK), address(0), hex"");
 
-        borrowOffer.offeror = lender;
+        borrowOffer.maker = lender;
         borrowOffer.nonce = 1;
         morphoV2.take(obligation, 100, 0, borrower, borrowOffer, sig(borrowOffer, lenderSK), address(0), hex"");
 
@@ -229,7 +229,7 @@ contract TakeTest is BaseTest {
         (address otherBorrower, uint256 otherBorrowerSK) = makeAddrAndKey("otherBorrower");
         borrowOffer.callbackAddress = address(new BorrowCallback());
         borrowOffer.callbackData = abi.encode(address(collateralToken1), 135);
-        borrowOffer.offeror = address(otherBorrower);
+        borrowOffer.maker = address(otherBorrower);
         deal(address(collateralToken1), borrowOffer.callbackAddress, 135);
         assertEq(morphoV2.collateralOf(otherBorrower, id, address(collateralToken1)), 0);
 
@@ -264,7 +264,7 @@ contract TakeTest is BaseTest {
         loanToken.approve(address(morphoV2), 100);
         lendOffer.callbackAddress = address(new LendCallback());
         lendOffer.callbackData = abi.encode(address(loanToken), 100);
-        lendOffer.offeror = address(otherLender);
+        lendOffer.maker = address(otherLender);
         deal(address(loanToken), lendOffer.callbackAddress, 100);
 
         morphoV2.take(obligation, 100, 0, borrower, lendOffer, sig(lendOffer, otherLenderSK), address(0), hex"");
@@ -318,7 +318,7 @@ contract TakeTest is BaseTest {
         morphoV2.take(obligation, 100, 0, borrower, lendOffer, sig(lendOffer, lenderSK), address(0), hex"");
     }
 
-    function testTakeLendOfferOraclesMismatch() public {
+    function testTakeLendmakeraclesMismatch() public {
         lendOffer.collaterals[0].oracle = address(0);
 
         vm.expectRevert("Oracles do not match");
@@ -339,7 +339,7 @@ contract TakeTest is BaseTest {
         morphoV2.take(obligation, 100, 0, lender, borrowOffer, sig(borrowOffer, borrowerSK), address(0), hex"");
     }
 
-    function testTakeBorrowOfferOraclesMismatch() public {
+    function testTakeBorrowmakeraclesMismatch() public {
         borrowOffer.collaterals[0].oracle = address(0);
 
         vm.expectRevert("Oracles do not match");
@@ -409,9 +409,9 @@ contract BorrowCallback is ICallbacks {
 contract LendCallback is ICallbacks {
     bytes public recordedData;
 
-    function onTake(Obligation memory obligation, address offeror, uint256 assets, bytes memory data) external {
+    function onTake(Obligation memory obligation, address maker, uint256 assets, bytes memory data) external {
         recordedData = data;
-        ERC20(obligation.loanToken).transfer(offeror, assets);
+        ERC20(obligation.loanToken).transfer(maker, assets);
     }
 
     function onLiquidate(Seizure[] memory seizures, address borrower, address liquidator, bytes memory data) external {}

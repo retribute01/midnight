@@ -90,7 +90,7 @@ abstract contract BaseTest is Test {
         morphoV2.supplyCollateral(obligation, address(obligation.collaterals[0].token), collateral, borrower);
         Offer memory borrowOffer = Offer({
             buy: false,
-            offeror: borrower,
+            maker: borrower,
             assets: obligationUnits,
             loanToken: obligation.loanToken,
             collaterals: obligation.collaterals,
@@ -131,7 +131,7 @@ abstract contract BaseTest is Test {
         morphoV2.supplyCollateral(obligation, address(obligation.collaterals[1].token), collateral1, borrower);
         Offer memory borrowOffer = Offer({
             buy: false,
-            offeror: borrower,
+            maker: borrower,
             assets: obligationUnits,
             loanToken: obligation.loanToken,
             collaterals: obligation.collaterals,

@@ -17,7 +17,7 @@ struct Collateral {
 
 struct Offer {
     bool buy;
-    address offeror;
+    address maker;
     uint256 assets;
     address loanToken;
     Collateral[] collaterals;
