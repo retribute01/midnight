@@ -54,7 +54,7 @@ contract MorphoV2 is IMorphoV2 {
         require(block.timestamp <= offer.expiry, "offer expired");
         require(offer.obligation.maturity >= block.timestamp, "maturity");
         require(offer.start < offer.expiry || offer.expiryPrice == offer.startPrice, "inconsistent prices");
-        require(signer(root, sig) == offer.offering, "invalid signature");
+        require(signer(root, sig) == offer.maker, "invalid signature");
         require(MathLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
 
         (
@@ -65,8 +65,8 @@ contract MorphoV2 is IMorphoV2 {
             address sellerCallbackAddress,
             bytes memory sellerCallbackData
         ) = offer.buy
-            ? (offer.offering, offer.callbackAddress, offer.callbackData, taker, takerCallbackAddress, takerCallbackData)
-            : (taker, takerCallbackAddress, takerCallbackData, offer.offering, offer.callbackAddress, offer.callbackData);
+            ? (offer.maker, offer.callbackAddress, offer.callbackData, taker, takerCallbackAddress, takerCallbackData)
+            : (taker, takerCallbackAddress, takerCallbackData, offer.maker, offer.callbackAddress, offer.callbackData);
 
         uint256 price = offer.expiry != offer.start
             ? offer.startPrice
@@ -76,7 +76,7 @@ contract MorphoV2 is IMorphoV2 {
         if (assets > 0) obligationUnits = assets.mulDivDown(1e18, price);
         else assets = obligationUnits.mulDivDown(price, 1e18);
 
-        require((consumed[offer.offering][offer.nonce] += assets) <= offer.assets, "consumed");
+        require((consumed[offer.maker][offer.nonce] += assets) <= offer.assets, "consumed");
 
         bytes32 id = _id(offer.obligation);
 

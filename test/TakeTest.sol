@@ -35,7 +35,7 @@ contract TakeTest is BaseTest {
         id = keccak256(abi.encode(obligation));
 
         lendOffer.buy = true;
-        lendOffer.offering = lender;
+        lendOffer.maker = lender;
         lendOffer.assets = 100;
         lendOffer.obligation.loanToken = address(loanToken);
         lendOffer.obligation.maturity = block.timestamp + 100;
@@ -50,7 +50,7 @@ contract TakeTest is BaseTest {
         }
 
         borrowOffer.buy = false;
-        borrowOffer.offering = borrower;
+        borrowOffer.maker = borrower;
         borrowOffer.assets = 100;
         borrowOffer.obligation.loanToken = address(loanToken);
         borrowOffer.obligation.maturity = block.timestamp + 100;
@@ -130,7 +130,7 @@ contract TakeTest is BaseTest {
         vm.prank(otherLender);
         loanToken.approve(address(morphoV2), 100);
         deal(address(loanToken), otherLender, 100);
-        lendOffer.offering = otherLender;
+        lendOffer.maker = otherLender;
         morphoV2.take(
             0,
             101,
@@ -164,7 +164,7 @@ contract TakeTest is BaseTest {
             address(0),
             hex""
         );
-        lendOffer.offering = borrower;
+        lendOffer.maker = borrower;
         lendOffer.nonce = 1;
         morphoV2.take(
             0, 101, lender, lendOffer, sig(lendOffer, borrowerSK), root(lendOffer), proof(lendOffer), address(0), hex""
@@ -189,7 +189,7 @@ contract TakeTest is BaseTest {
         collateralToken1.approve(address(morphoV2), 135);
         deal(address(collateralToken1), otherBorrower, 135);
         morphoV2.supplyCollateral(obligation, address(collateralToken1), 135, otherBorrower);
-        borrowOffer.offering = otherBorrower;
+        borrowOffer.maker = otherBorrower;
         morphoV2.take(
             100,
             0,
@@ -219,7 +219,7 @@ contract TakeTest is BaseTest {
             100, 0, borrower, lendOffer, sig(lendOffer, lenderSK), root(lendOffer), proof(lendOffer), address(0), hex""
         );
 
-        borrowOffer.offering = lender;
+        borrowOffer.maker = lender;
         borrowOffer.nonce = 1;
         morphoV2.take(
             100,
@@ -349,7 +349,7 @@ contract TakeTest is BaseTest {
         (address otherBorrower, uint256 otherBorrowerSK) = makeAddrAndKey("otherBorrower");
         borrowOffer.callbackAddress = address(new BorrowCallback());
         borrowOffer.callbackData = abi.encode(address(collateralToken1), 135);
-        borrowOffer.offering = address(otherBorrower);
+        borrowOffer.maker = address(otherBorrower);
         deal(address(collateralToken1), borrowOffer.callbackAddress, 135);
         assertEq(morphoV2.collateralOf(otherBorrower, id, address(collateralToken1)), 0);
 
@@ -395,7 +395,7 @@ contract TakeTest is BaseTest {
         loanToken.approve(address(morphoV2), 100);
         lendOffer.callbackAddress = address(new LendCallback());
         lendOffer.callbackData = abi.encode(address(loanToken), 100);
-        lendOffer.offering = address(otherLender);
+        lendOffer.maker = address(otherLender);
         deal(address(loanToken), lendOffer.callbackAddress, 100);
 
         morphoV2.take(
@@ -515,9 +515,9 @@ contract BorrowCallback is ICallbacks {
 contract LendCallback is ICallbacks {
     bytes public recordedData;
 
-    function onTake(Obligation memory obligation, address offering, uint256 assets, bytes memory data) external {
+    function onTake(Obligation memory obligation, address maker, uint256 assets, bytes memory data) external {
         recordedData = data;
-        ERC20(obligation.loanToken).transfer(offering, assets);
+        ERC20(obligation.loanToken).transfer(maker, assets);
     }
 
     function onLiquidate(Seizure[] memory seizures, address borrower, address liquidator, bytes memory data) external {}

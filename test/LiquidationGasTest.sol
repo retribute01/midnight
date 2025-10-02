@@ -54,7 +54,7 @@ contract LiquidationTest is BaseTest {
                 maturity: block.timestamp + 100
             }),
             buy: false,
-            offering: borrower,
+            maker: borrower,
             assets: maxDebt,
             start: block.timestamp,
             expiry: block.timestamp + 100,
