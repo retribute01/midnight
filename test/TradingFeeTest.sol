@@ -35,7 +35,7 @@ contract TradingFeeTest is BaseTest {
         id = keccak256(abi.encode(obligation));
 
         lendOffer.buy = true;
-        lendOffer.offering = lender;
+        lendOffer.maker = lender;
         lendOffer.assets = 100 ether;
         lendOffer.loanToken = address(loanToken);
         lendOffer.maturity = block.timestamp + 100;
@@ -50,7 +50,7 @@ contract TradingFeeTest is BaseTest {
         }
 
         borrowOffer.buy = false;
-        borrowOffer.offering = borrower;
+        borrowOffer.maker = borrower;
         borrowOffer.assets = 100 ether;
         borrowOffer.loanToken = address(loanToken);
         borrowOffer.maturity = block.timestamp + 100;
