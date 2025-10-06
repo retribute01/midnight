@@ -31,7 +31,7 @@ library MathLib {
     }
 
     /// @dev Returns the concatenation of x and y, sorted lexicographically.
-    function sort(bytes32 x, bytes32 y) private pure returns (bytes memory) {
+    function sort(bytes32 x, bytes32 y) internal pure returns (bytes memory) {
         return x < y ? abi.encodePacked(x, y) : abi.encodePacked(y, x);
     }
 }
