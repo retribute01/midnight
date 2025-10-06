@@ -233,7 +233,9 @@ contract MorphoV2 is IMorphoV2 {
         bytes32 hashStruct = keccak256(abi.encode(ROOT_TYPEHASH, root));
         bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, block.chainid, address(this)));
         bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, hashStruct));
-        return ecrecover(digest, signature.v, signature.r, signature.s);
+        address tentativeSigner = ecrecover(digest, signature.v, signature.r, signature.s);
+        require(tentativeSigner != address(0), "invalid signature");
+        return tentativeSigner;
     }
 
     function _isHealthy(Obligation memory obligation, address borrower) internal view returns (bool) {
