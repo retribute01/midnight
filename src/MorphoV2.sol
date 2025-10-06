@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 
 import "./libraries/UtilsLib.sol";
 import "./libraries/SafeTransferLib.sol";
+import "./libraries/ConstantsLib.sol";
 import "./libraries/MathLib.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IMorphoV2.sol";
@@ -11,13 +12,6 @@ import "./interfaces/ICallbacks.sol";
 
 contract MorphoV2 is IMorphoV2 {
     using MathLib for uint256;
-
-    /// CONSTANTS ///
-
-    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
-    bytes32 public constant ROOT_TYPEHASH = keccak256("bytes32 root");
-    uint256 public constant ORACLE_PRICE_SCALE = 1e36;
-    uint256 public constant LIQUIDATION_INCENTIVE_FACTOR = 1.15e18;
 
     /// STORAGE ///
 
