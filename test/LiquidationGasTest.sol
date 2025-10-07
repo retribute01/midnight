@@ -26,6 +26,7 @@ contract LiquidationTest is BaseTest {
 
         // Populate obligation
 
+        obligation.chainId = block.chainid;
         obligation.loanToken = address(loanToken);
         obligation.maturity = block.timestamp + 100;
 
@@ -48,11 +49,7 @@ contract LiquidationTest is BaseTest {
 
         id = toId(obligation);
         Offer memory borrowOffer = Offer({
-            obligation: Obligation({
-                loanToken: obligation.loanToken,
-                collaterals: obligation.collaterals,
-                maturity: block.timestamp + 100
-            }),
+            obligation: obligation,
             buy: false,
             maker: borrower,
             assets: maxDebt,

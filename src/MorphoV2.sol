@@ -47,6 +47,7 @@ contract MorphoV2 is IMorphoV2 {
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(offer.obligation.maturity >= block.timestamp, "maturity");
+        require(offer.obligation.chainId == block.chainid, "chain id mismatch");
         require(offer.start < offer.expiry || offer.expiryPrice == offer.startPrice, "inconsistent prices");
         require(signer(root, sig) == offer.maker, "invalid signature");
         require(MathLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
@@ -230,10 +231,8 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     function signer(bytes32 root, Signature memory signature) internal view returns (address) {
-        bytes32 hashStruct = keccak256(abi.encode(ROOT_TYPEHASH, root));
-        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, block.chainid, address(this)));
-        bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, hashStruct));
-        address tentativeSigner = ecrecover(digest, signature.v, signature.r, signature.s);
+        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", root));
+        address tentativeSigner = ecrecover(messageHash, signature.v, signature.r, signature.s);
         require(tentativeSigner != address(0), "invalid signature");
         return tentativeSigner;
     }

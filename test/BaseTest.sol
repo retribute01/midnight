@@ -69,12 +69,9 @@ abstract contract BaseTest is Test {
     }
 
     function sig(bytes32 _root, uint256 sk) internal view returns (Signature memory) {
-        bytes32 hashStruct = keccak256(abi.encode(ROOT_TYPEHASH, _root));
-        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, block.chainid, address(morphoV2)));
-        bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, hashStruct));
-
+        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", _root));
         Signature memory signature;
-        (signature.v, signature.r, signature.s) = vm.sign(sk, digest);
+        (signature.v, signature.r, signature.s) = vm.sign(sk, messageHash);
         return signature;
     }
 

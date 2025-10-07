@@ -26,6 +26,7 @@ contract TakeTest is BaseTest {
 
         // Populate collaterals one by one to avoid the unsupported memory-to-storage array assignment that breaks the
         // solc legacy pipeline.
+        obligation.chainId = block.chainid;
         obligation.loanToken = address(loanToken);
         obligation.maturity = block.timestamp + 100;
         for (uint256 i = 0; i < collaterals.length; i++) {
@@ -37,31 +38,21 @@ contract TakeTest is BaseTest {
         lendOffer.buy = true;
         lendOffer.maker = lender;
         lendOffer.assets = 100;
-        lendOffer.obligation.loanToken = address(loanToken);
-        lendOffer.obligation.maturity = block.timestamp + 100;
+        lendOffer.obligation = obligation;
         lendOffer.start = block.timestamp;
         lendOffer.expiry = block.timestamp + 200;
         lendOffer.startPrice = 0.99 ether;
         lendOffer.expiryPrice = 0.99 ether;
         lendOffer.nonce = 0;
 
-        for (uint256 i = 0; i < collaterals.length; i++) {
-            lendOffer.obligation.collaterals.push(collaterals[i]);
-        }
-
         borrowOffer.buy = false;
         borrowOffer.maker = borrower;
         borrowOffer.assets = 100;
-        borrowOffer.obligation.loanToken = address(loanToken);
-        borrowOffer.obligation.maturity = block.timestamp + 100;
+        borrowOffer.obligation = obligation;
         borrowOffer.expiry = block.timestamp + 200;
         borrowOffer.startPrice = 0.99 ether;
         borrowOffer.expiryPrice = 0.99 ether;
         borrowOffer.nonce = 0;
-
-        for (uint256 i = 0; i < collaterals.length; i++) {
-            borrowOffer.obligation.collaterals.push(collaterals[i]);
-        }
 
         morphoV2.supplyCollateral(obligation, address(collateralToken1), 135, borrower);
     }
