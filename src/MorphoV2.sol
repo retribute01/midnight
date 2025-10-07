@@ -75,8 +75,10 @@ contract MorphoV2 is IMorphoV2 {
 
         if (assets > 0) {
             obligationUnits = assets.mulDivDown(1e18, price);
+            obligationShares = obligationUnits.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
         } else if (obligationUnits > 0) {
             assets = obligationUnits.mulDivDown(price, 1e18);
+            obligationShares = obligationUnits.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
         } else {
             obligationUnits = obligationShares.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
             assets = obligationUnits.mulDivDown(price, 1e18);
@@ -84,22 +86,20 @@ contract MorphoV2 is IMorphoV2 {
 
         require((consumed[offer.maker][offer.nonce] += assets) <= offer.assets, "consumed");
 
-        uint256 repaid = UtilsLib.min(debtOf[buyer][id], obligationUnits);
-        uint256 bought = obligationUnits - repaid;
-        uint256 boughtShares = bought.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
-        uint256 withdrawn =
-            UtilsLib.min(sharesOf[seller][id].mulDivDown(totalUnits[id] + 1, totalShares[id] + 1), obligationUnits);
-        uint256 withdrawnShares = withdrawn.mulDivUp(totalShares[id] + 1, totalUnits[id] + 1);
+        uint256 sellerNetNewDebt =
+            obligationShares.zeroFloorSub(sharesOf[seller][id]).mulDivUp(totalUnits[id] + 1, totalShares[id] + 1);
+        uint256 buyerNetNewShares =
+            obligationShares.zeroFloorSub(debtOf[buyer][id].mulDivDown(totalUnits[id] + 1, totalShares[id] + 1));
 
-        debtOf[buyer][id] -= repaid;
-        sharesOf[buyer][id] += boughtShares;
-        sharesOf[seller][id] -= withdrawnShares;
-        debtOf[seller][id] += obligationUnits - withdrawn;
+        totalShares[id] = totalShares[id] + buyerNetNewShares
+            - (sharesOf[seller][id] - sharesOf[seller][id].zeroFloorSub(obligationShares));
+        totalUnits[id] =
+            totalUnits[id] + sellerNetNewDebt - (debtOf[buyer][id] - debtOf[buyer][id].zeroFloorSub(obligationUnits));
 
-        totalShares[id] += boughtShares;
-        totalShares[id] -= withdrawnShares;
-        totalUnits[id] += bought;
-        totalUnits[id] -= withdrawn;
+        if (debtOf[buyer][id] > 0) debtOf[buyer][id] = debtOf[buyer][id].zeroFloorSub(obligationUnits);
+        if (buyerNetNewShares > 0) sharesOf[buyer][id] += buyerNetNewShares;
+        if (sharesOf[seller][id] > 0) sharesOf[seller][id] = sharesOf[seller][id].zeroFloorSub(obligationShares);
+        if (sellerNetNewDebt > 0) debtOf[seller][id] += sellerNetNewDebt;
 
         if (buyerCallbackAddress != address(0)) {
             ICallbacks(buyerCallbackAddress).onTake(offer.obligation, buyer, assets, buyerCallbackData);
