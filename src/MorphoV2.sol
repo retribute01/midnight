@@ -4,6 +4,7 @@ pragma solidity 0.8.28;
 
 import "./libraries/UtilsLib.sol";
 import "./libraries/SafeTransferLib.sol";
+import "./libraries/ConstantsLib.sol";
 import "./libraries/MathLib.sol";
 import "./interfaces/IOracle.sol";
 import "./interfaces/IMorphoV2.sol";
@@ -11,15 +12,6 @@ import "./interfaces/ICallbacks.sol";
 
 contract MorphoV2 is IMorphoV2 {
     using MathLib for uint256;
-
-    /// CONSTANTS ///
-
-    bytes32 public constant DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
-    bytes32 public constant OFFER_TYPEHASH = keccak256(
-        "Offer(bool lend,address maker,uint256 assets,address loanToken,Collateral[] collaterals,uint256 maturity,uint256 start,uint256 expiry,uint256 startPrice,uint256 expiryPrice,uint256 nonce)"
-    );
-    uint256 public constant ORACLE_PRICE_SCALE = 1e36;
-    uint256 public constant LIQUIDATION_INCENTIVE_FACTOR = 1.15e18;
 
     /// STORAGE ///
 
@@ -72,13 +64,14 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev If one wants to match two offers without taking a position, they can batch take them and not have a
     /// position at the end.
     function take(
-        Obligation memory obligation,
         uint256 buyerAssets,
         uint256 sellerAssets,
         uint256 obligationUnits,
         address taker,
         Offer memory offer,
         Signature memory sig,
+        bytes32 root,
+        bytes32[] memory proof,
         address takerCallbackAddress,
         bytes memory takerCallbackData
     ) public {
@@ -88,12 +81,11 @@ contract MorphoV2 is IMorphoV2 {
         );
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
-        require(obligation.maturity >= block.timestamp, "maturity");
-        require(offer.loanToken == obligation.loanToken, "Loan tokens do not match");
-        require(offer.maturity == obligation.maturity, "Maturities do not match");
+        require(offer.obligation.maturity >= block.timestamp, "maturity");
+        require(offer.obligation.chainId == block.chainid, "chain id mismatch");
         require(offer.start < offer.expiry || offer.expiryPrice == offer.startPrice, "inconsistent prices");
-        require(signatureIsValid(offer, sig), "Invalid signature");
-        _checkCollateralInclusion(obligation, offer);
+        require(_signer(root, sig) == offer.maker, "invalid signature");
+        require(MathLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
 
         (
             address buyer,
@@ -112,41 +104,36 @@ contract MorphoV2 is IMorphoV2 {
             : offer.startPrice;
         require(price <= 1e18, "price too high");
 
+        uint256 _tradingFee = tradingFee[offer.obligation.loanToken];
+
         if (offer.buy && buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(1e18, price);
-            sellerAssets = (buyerAssets - obligationUnits.mulDivDown(tradingFee[obligation.loanToken], 1e18)).mulDivDown(
-                1e18, 1e18 - tradingFee[obligation.loanToken]
-            );
+            sellerAssets =
+                (buyerAssets - obligationUnits.mulDivDown(_tradingFee, 1e18)).mulDivDown(1e18, 1e18 - _tradingFee);
         } else if (offer.buy && sellerAssets > 0) {
-            buyerAssets = sellerAssets.mulDivDown(
-                1e18 - tradingFee[obligation.loanToken], 1e18 - tradingFee[obligation.loanToken].mulDivDown(1e18, price)
-            );
+            buyerAssets = sellerAssets.mulDivDown(1e18 - _tradingFee, 1e18 - _tradingFee.mulDivDown(1e18, price));
             obligationUnits = buyerAssets.mulDivDown(1e18, price);
         } else if (offer.buy && obligationUnits > 0) {
             buyerAssets = obligationUnits.mulDivDown(price, 1e18);
-            sellerAssets = (buyerAssets - obligationUnits.mulDivDown(tradingFee[obligation.loanToken], 1e18)).mulDivDown(
-                1e18, 1e18 - tradingFee[obligation.loanToken]
-            );
+            sellerAssets =
+                (buyerAssets - obligationUnits.mulDivDown(_tradingFee, 1e18)).mulDivDown(1e18, 1e18 - _tradingFee);
         } else if (!offer.buy && buyerAssets > 0) {
-            sellerAssets = buyerAssets.mulDivDown(
-                1e18, 1e18 + tradingFee[obligation.loanToken].mulDivDown(1e18, price) - tradingFee[obligation.loanToken]
-            );
+            sellerAssets = buyerAssets.mulDivDown(1e18, 1e18 + _tradingFee.mulDivDown(1e18, price) - _tradingFee);
             obligationUnits = sellerAssets.mulDivDown(1e18, price);
         } else if (!offer.buy && sellerAssets > 0) {
             obligationUnits = sellerAssets.mulDivDown(1e18, price);
-            buyerAssets =
-                sellerAssets + (obligationUnits - sellerAssets).mulDivDown(tradingFee[obligation.loanToken], 1e18);
+            buyerAssets = sellerAssets + (obligationUnits - sellerAssets).mulDivDown(_tradingFee, 1e18);
         } else if (!offer.buy && obligationUnits > 0) {
             sellerAssets = obligationUnits.mulDivDown(price, 1e18);
             buyerAssets =
-                sellerAssets + (obligationUnits - sellerAssets).mulDivDown(tradingFee[obligation.loanToken], 1e18);
+                sellerAssets + (obligationUnits - sellerAssets).mulDivDown(tradingFee[offer.obligation.loanToken], 1e18);
         }
 
         require(
             (consumed[offer.maker][offer.nonce] += (offer.buy ? buyerAssets : sellerAssets)) <= offer.assets, "consumed"
         );
 
-        bytes32 id = _id(obligation);
+        bytes32 id = _id(offer.obligation);
 
         uint256 repaid = UtilsLib.min(debtOf[buyer][id], obligationUnits);
         uint256 bought = obligationUnits - repaid;
@@ -166,19 +153,22 @@ contract MorphoV2 is IMorphoV2 {
         totalUnits[id] -= withdrawn;
 
         if (buyerCallbackAddress != address(0)) {
-            ICallbacks(buyerCallbackAddress).onTake(obligation, buyer, buyerAssets, buyerCallbackData);
+            ICallbacks(buyerCallbackAddress).onTake(offer.obligation, buyer, buyerAssets, buyerCallbackData);
         }
 
         SafeTransferLib.safeTransferFrom(
-            offer.loanToken, buyer, tradingFeeRecipient[offer.loanToken], buyerAssets - sellerAssets
+            offer.obligation.loanToken,
+            buyer,
+            tradingFeeRecipient[offer.obligation.loanToken],
+            buyerAssets - sellerAssets
         );
-        SafeTransferLib.safeTransferFrom(offer.loanToken, buyer, seller, sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, seller, sellerAssets);
 
         if (sellerCallbackAddress != address(0)) {
-            ICallbacks(sellerCallbackAddress).onTake(obligation, seller, sellerAssets, sellerCallbackData);
+            ICallbacks(sellerCallbackAddress).onTake(offer.obligation, seller, sellerAssets, sellerCallbackData);
         }
 
-        require(_isHealthy(obligation, seller), "Seller is unhealthy");
+        require(_isHealthy(offer.obligation, seller), "Seller is unhealthy");
     }
 
     /// @dev Will revert if there is no withdrawable funds.
@@ -250,7 +240,7 @@ contract MorphoV2 is IMorphoV2 {
                 obligation.collaterals[i].lltv, 1e18
             );
             repayableDebt +=
-                collateralAmount.mulDivUp(prices[i], ORACLE_PRICE_SCALE).mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR);
+                collateralAmount.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR).mulDivUp(prices[i], ORACLE_PRICE_SCALE);
         }
 
         uint256 originalDebt = debtOf[borrower][id];
@@ -269,13 +259,12 @@ contract MorphoV2 is IMorphoV2 {
             require(UtilsLib.exactlyOneZero(seizure.repaid, seizure.seized), "INCONSISTENT_INPUT");
 
             if (seizure.seized > 0) {
-                seizure.repaid = seizure.seized.mulDivUp(prices[seizure.collateralIndex], ORACLE_PRICE_SCALE).mulDivUp(
-                    1e18, LIQUIDATION_INCENTIVE_FACTOR
+                seizure.repaid = seizure.seized.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR).mulDivUp(
+                    prices[seizure.collateralIndex], ORACLE_PRICE_SCALE
                 );
             } else {
-                seizure.seized = seizure.repaid.mulDivDown(LIQUIDATION_INCENTIVE_FACTOR, 1e18).mulDivDown(
-                    ORACLE_PRICE_SCALE, prices[seizure.collateralIndex]
-                );
+                seizure.seized = seizure.repaid.mulDivDown(ORACLE_PRICE_SCALE, prices[seizure.collateralIndex])
+                    .mulDivDown(LIQUIDATION_INCENTIVE_FACTOR, 1e18);
             }
 
             totalRepaid += seizure.repaid;
@@ -306,28 +295,11 @@ contract MorphoV2 is IMorphoV2 {
         return keccak256(abi.encode(obligation));
     }
 
-    function _checkCollateralInclusion(Obligation memory obligation, Offer memory offer) internal pure {
-        Collateral[] memory subset = offer.buy ? obligation.collaterals : offer.collaterals;
-        Collateral[] memory superset = offer.buy ? offer.collaterals : obligation.collaterals;
-
-        uint256 j = 0;
-        for (uint256 i = 0; i < subset.length; i++) {
-            // Relies on the fact that the collaterals are sorted.
-            // Note that we actually never check that.
-            // If they are not, the matching could fail.
-            while (superset[j].token != subset[i].token) j++;
-            require(superset[j].lltv >= subset[i].lltv, "LLTVs do not match");
-            require(subset[i].oracle == superset[j].oracle, "Oracles do not match");
-            j++;
-        }
-    }
-
-    function signatureIsValid(Offer memory offer, Signature memory signature) internal view returns (bool) {
-        bytes32 hashStruct = keccak256(abi.encode(OFFER_TYPEHASH, offer));
-        bytes32 domainSeparator = keccak256(abi.encode(DOMAIN_TYPEHASH, block.chainid, address(this)));
-        bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, hashStruct));
-        address signatory = ecrecover(digest, signature.v, signature.r, signature.s);
-        return signatory != address(0) && offer.maker == signatory;
+    function _signer(bytes32 root, Signature memory signature) internal pure returns (address) {
+        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", root));
+        address tentativeSigner = ecrecover(messageHash, signature.v, signature.r, signature.s);
+        require(tentativeSigner != address(0), "invalid signature");
+        return tentativeSigner;
     }
 
     function _isHealthy(Obligation memory obligation, address borrower) internal view returns (bool) {
@@ -339,9 +311,9 @@ contract MorphoV2 is IMorphoV2 {
             uint256 maxDebt;
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 uint256 price = IOracle(obligation.collaterals[i].oracle).price();
-                uint256 collateralQuoted =
-                    collateralOf[borrower][id][obligation.collaterals[i].token].mulDivDown(price, ORACLE_PRICE_SCALE);
-                maxDebt += collateralQuoted.mulDivDown(obligation.collaterals[i].lltv, 1e18);
+                maxDebt += collateralOf[borrower][id][obligation.collaterals[i].token].mulDivDown(
+                    price, ORACLE_PRICE_SCALE
+                ).mulDivDown(obligation.collaterals[i].lltv, 1e18);
             }
 
             return debt <= maxDebt;
