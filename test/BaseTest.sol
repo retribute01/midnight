@@ -63,9 +63,9 @@ abstract contract BaseTest is Test {
 
     // assumes the offer is the first one!
     function proof(Offer[2] memory offers) internal pure returns (bytes32[] memory) {
-        bytes32[] memory _proof = new bytes32[](1);
-        _proof[0] = keccak256(abi.encode(offers[1]));
-        return _proof;
+        bytes32[] memory res = new bytes32[](1);
+        res[0] = keccak256(abi.encode(offers[1]));
+        return res;
     }
 
     function sig(bytes32 _root, uint256 sk) internal pure returns (Signature memory) {
