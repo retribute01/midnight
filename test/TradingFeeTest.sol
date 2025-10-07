@@ -96,8 +96,7 @@ contract TradingFeeTest is BaseTest {
         );
 
         assertEq(morphoV2.sharesOf(lender, id), expectedUnits, "units");
-        // assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore + expectedFee, "fee recipient
-        // balance");
+        assertEq(loanToken.balanceOf(feeRecipient), feeRecipientBalanceBefore + expectedFee, "fee recipient balance");
         assertEq(loanToken.balanceOf(lender), lenderBalanceBefore - buyerAssets, "lender balance");
         assertEq(loanToken.balanceOf(borrower), borrowerBalanceBefore + expectedSellerAssets, "borrower balance");
     }
