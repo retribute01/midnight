@@ -64,6 +64,7 @@ contract LiquidationTest is BaseTest {
 
         morphoV2.take(
             0,
+            0,
             maxDebt,
             lender,
             borrowOffer,

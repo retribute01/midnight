@@ -115,6 +115,7 @@ abstract contract BaseTest is Test {
 
         morphoV2.take(
             0,
+            0,
             obligationUnits,
             lender,
             borrowOffer,
@@ -161,6 +162,7 @@ abstract contract BaseTest is Test {
         });
 
         morphoV2.take(
+            0,
             0,
             obligationUnits,
             lender,

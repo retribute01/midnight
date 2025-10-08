@@ -27,13 +27,45 @@ contract MorphoV2 is IMorphoV2 {
     /// otherwise one might not be takable anymore while an other one at the same nonce is still takeable.
     mapping(address user => mapping(uint256 nonce => uint256)) public consumed;
 
+    /// @dev Cut on interest at each trade.
+    mapping(address loanToken => uint256) public tradingFee;
+    address public tradingFeeRecipient;
+
+    /// @dev Contract owner for administrative functions.
+    address public owner;
+
+    /// CONSTRUCTOR ///
+
+    constructor() {
+        owner = msg.sender;
+    }
+
+    /// ADMIN FUNCTIONS ///
+
+    function setOwner(address newOwner) external {
+        require(msg.sender == owner, "Only owner");
+        owner = newOwner;
+    }
+
+    function setTradingFee(address loanToken, uint256 fee) external {
+        require(msg.sender == owner, "Only owner");
+        require(fee <= 1e18, "Fee too high");
+        tradingFee[loanToken] = fee;
+    }
+
+    function setTradingFeeRecipient(address recipient) external {
+        require(msg.sender == owner, "Only owner");
+        tradingFeeRecipient = recipient;
+    }
+
     /// ENTRY-POINTS ///
 
     /// @dev Same function used to buy and sell.
     /// @dev If one wants to match two offers without taking a position, they can batch take them and not have a
     /// position at the end.
     function take(
-        uint256 assets,
+        uint256 buyerAssets,
+        uint256 sellerAssets,
         uint256 obligationUnits,
         address taker,
         Offer memory offer,
@@ -43,7 +75,10 @@ contract MorphoV2 is IMorphoV2 {
         address takerCallbackAddress,
         bytes memory takerCallbackData
     ) public {
-        require(assets == 0 || obligationUnits == 0, "inconsistent input");
+        require(
+            (buyerAssets == 0 ? 1 : 0) + (sellerAssets == 0 ? 1 : 0) + (obligationUnits == 0 ? 1 : 0) >= 2,
+            "inconsistent input"
+        );
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(offer.obligation.maturity >= block.timestamp, "maturity");
@@ -63,15 +98,30 @@ contract MorphoV2 is IMorphoV2 {
             ? (offer.maker, offer.callbackAddress, offer.callbackData, taker, takerCallbackAddress, takerCallbackData)
             : (taker, takerCallbackAddress, takerCallbackData, offer.maker, offer.callbackAddress, offer.callbackData);
 
-        uint256 price = offer.expiry != offer.start
+        uint256 offerPrice = offer.expiry != offer.start
             ? offer.startPrice
                 + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / (offer.expiry - offer.start)
             : offer.startPrice;
+        require(offerPrice <= 1e18, "price too high");
 
-        if (assets > 0) obligationUnits = assets.mulDivDown(1e18, price);
-        else assets = obligationUnits.mulDivDown(price, 1e18);
+        uint256 _tradingFee = tradingFee[offer.obligation.loanToken];
+        uint256 buyerPrice = offer.buy ? offerPrice : offerPrice.mulDivDown(WAD - _tradingFee, WAD) + _tradingFee;
+        uint256 sellerPrice = offer.buy ? (offerPrice - _tradingFee).mulDivDown(WAD, WAD - _tradingFee) : offerPrice;
 
-        require((consumed[offer.maker][offer.nonce] += assets) <= offer.assets, "consumed");
+        if (buyerAssets > 0) {
+            obligationUnits = buyerAssets.mulDivDown(1e18, buyerPrice);
+            sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
+        } else if (sellerAssets > 0) {
+            obligationUnits = sellerAssets.mulDivDown(1e18, sellerPrice);
+            buyerAssets = sellerAssets.mulDivDown(buyerPrice, sellerPrice);
+        } else {
+            buyerAssets = obligationUnits.mulDivDown(buyerPrice, 1e18);
+            sellerAssets = obligationUnits.mulDivDown(sellerPrice, 1e18);
+        }
+
+        require(
+            (consumed[offer.maker][offer.nonce] += (offer.buy ? buyerAssets : sellerAssets)) <= offer.assets, "consumed"
+        );
 
         bytes32 id = _id(offer.obligation);
 
@@ -91,13 +141,16 @@ contract MorphoV2 is IMorphoV2 {
         totalUnits[id] = totalUnits[id] + sellerDebtIncrease - buyerDebtDecrease;
 
         if (buyerCallbackAddress != address(0)) {
-            ICallbacks(buyerCallbackAddress).onTake(offer.obligation, buyer, assets, buyerCallbackData);
+            ICallbacks(buyerCallbackAddress).onTake(offer.obligation, buyer, buyerAssets, buyerCallbackData);
         }
 
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, seller, assets);
+        SafeTransferLib.safeTransferFrom(
+            offer.obligation.loanToken, buyer, tradingFeeRecipient, buyerAssets - sellerAssets
+        );
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, seller, sellerAssets);
 
         if (sellerCallbackAddress != address(0)) {
-            ICallbacks(sellerCallbackAddress).onTake(offer.obligation, seller, assets, sellerCallbackData);
+            ICallbacks(sellerCallbackAddress).onTake(offer.obligation, seller, sellerAssets, sellerCallbackData);
         }
 
         require(_isHealthy(offer.obligation, seller), "Seller is unhealthy");
