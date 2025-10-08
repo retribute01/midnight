@@ -650,7 +650,17 @@ contract TakeTest is BaseTest {
 
     function testTakeBuyerAndSellerCannotBeTheSame() public {
         vm.expectRevert("buyer and seller cannot be the same");
-        morphoV2.take(obligation, 100, 0, lender, lendOffer, sig(lendOffer, lenderSK), address(0), hex"");
+        morphoV2.take(
+            100,
+            0,
+            lender,
+            lendOffer,
+            sig(root([lendOffer]), lenderSK),
+            root([lendOffer]),
+            proof([lendOffer]),
+            address(0),
+            hex""
+        );
     }
 }
 
