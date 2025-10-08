@@ -98,35 +98,25 @@ contract MorphoV2 is IMorphoV2 {
             ? (offer.maker, offer.callbackAddress, offer.callbackData, taker, takerCallbackAddress, takerCallbackData)
             : (taker, takerCallbackAddress, takerCallbackData, offer.maker, offer.callbackAddress, offer.callbackData);
 
-        uint256 price = offer.expiry != offer.start
+        uint256 offerPrice = offer.expiry != offer.start
             ? offer.startPrice
                 + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / (offer.expiry - offer.start)
             : offer.startPrice;
-        require(price <= 1e18, "price too high");
+        require(offerPrice <= 1e18, "price too high");
 
         uint256 _tradingFee = tradingFee[offer.obligation.loanToken];
+        uint256 buyerPrice = offer.buy ? offerPrice : offerPrice.mulDivDown(WAD - _tradingFee, WAD) + _tradingFee;
+        uint256 sellerPrice = offer.buy ? (offerPrice - _tradingFee).mulDivDown(WAD, WAD - _tradingFee) : offerPrice;
 
-        if (offer.buy && buyerAssets > 0) {
-            obligationUnits = buyerAssets.mulDivDown(1e18, price);
-            sellerAssets =
-                (buyerAssets - obligationUnits.mulDivDown(_tradingFee, 1e18)).mulDivDown(1e18, 1e18 - _tradingFee);
-        } else if (offer.buy && sellerAssets > 0) {
-            buyerAssets = sellerAssets.mulDivDown(1e18 - _tradingFee, 1e18 - _tradingFee.mulDivDown(1e18, price));
-            obligationUnits = buyerAssets.mulDivDown(1e18, price);
-        } else if (offer.buy && obligationUnits > 0) {
-            buyerAssets = obligationUnits.mulDivDown(price, 1e18);
-            sellerAssets =
-                (buyerAssets - obligationUnits.mulDivDown(_tradingFee, 1e18)).mulDivDown(1e18, 1e18 - _tradingFee);
-        } else if (!offer.buy && buyerAssets > 0) {
-            sellerAssets = buyerAssets.mulDivDown(1e18, 1e18 + _tradingFee.mulDivDown(1e18, price) - _tradingFee);
-            obligationUnits = sellerAssets.mulDivDown(1e18, price);
-        } else if (!offer.buy && sellerAssets > 0) {
-            obligationUnits = sellerAssets.mulDivDown(1e18, price);
-            buyerAssets = sellerAssets + (obligationUnits - sellerAssets).mulDivDown(_tradingFee, 1e18);
-        } else if (!offer.buy && obligationUnits > 0) {
-            sellerAssets = obligationUnits.mulDivDown(price, 1e18);
-            buyerAssets =
-                sellerAssets + (obligationUnits - sellerAssets).mulDivDown(tradingFee[offer.obligation.loanToken], 1e18);
+        if (buyerAssets > 0) {
+            obligationUnits = buyerAssets.mulDivDown(1e18, buyerPrice);
+            sellerAssets = obligationUnits.mulDivDown(sellerPrice, 1e18);
+        } else if (sellerAssets > 0) {
+            obligationUnits = sellerAssets.mulDivDown(1e18, sellerPrice);
+            buyerAssets = obligationUnits.mulDivDown(buyerPrice, 1e18);
+        } else {
+            buyerAssets = obligationUnits.mulDivDown(buyerPrice, 1e18);
+            sellerAssets = obligationUnits.mulDivDown(sellerPrice, 1e18);
         }
 
         require(
