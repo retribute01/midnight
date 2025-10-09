@@ -75,7 +75,7 @@ contract MorphoV2 is IMorphoV2 {
         bytes32[] memory proof,
         address takerCallbackAddress,
         bytes memory takerCallbackData
-    ) public {
+    ) public returns (uint256, uint256, uint256, uint256) {
         bytes32 id = _id(offer.obligation);
         require(
             UtilsLib.atMostOneNonZero(buyerAssets, sellerAssets, obligationUnits, obligationShares),
@@ -160,6 +160,8 @@ contract MorphoV2 is IMorphoV2 {
         }
 
         require(_isHealthy(offer.obligation, seller), "Seller is unhealthy");
+
+        return (buyerAssets, sellerAssets, obligationUnits, obligationShares);
     }
 
     /// @dev Will revert if there is no withdrawable funds.
