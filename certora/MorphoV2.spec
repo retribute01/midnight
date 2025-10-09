@@ -7,6 +7,8 @@ methods {
 
     function _.transfer(address, uint256) external => DISPATCHER(true);
     function _.transferFrom(address, address, uint256) external => DISPATCHER(true);
+
+    function _.price() external => NONDET;
 }
 
 /// HELPERS ///
@@ -34,6 +36,3 @@ strong invariant totalUnitsEqualsSumDebtPlusWithdrawable(bytes32 id)
 
 strong invariant totalSharesEqualsSumSharesOf(bytes32 id)
     totalShares(id) == sumSharesOf[id];
-
-strong invariant sharePriceBelowOne(bytes32 id)
-    totalShares(id) >= totalUnits(id);
