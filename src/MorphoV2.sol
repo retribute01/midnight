@@ -133,19 +133,23 @@ contract MorphoV2 is IMorphoV2 {
             (consumed[offer.maker][offer.nonce] += (offer.buy ? buyerAssets : sellerAssets)) <= offer.assets, "consumed"
         );
 
-        uint256 sellerSharesDecrease = UtilsLib.min(obligationShares, sharesOf[seller][id]);
-        uint256 sellerDebtIncrease =
-            obligationUnits - sellerSharesDecrease.mulDivUp(totalUnits[id] + 1, totalShares[id] + 1);
-        uint256 buyerDebtDecrease = UtilsLib.min(obligationUnits, debtOf[buyer][id]);
-        uint256 buyerSharesIncrease =
-            (obligationUnits - buyerDebtDecrease).mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
-
-        debtOf[buyer][id] -= buyerDebtDecrease;
-        sharesOf[buyer][id] += buyerSharesIncrease;
-        sharesOf[seller][id] -= sellerSharesDecrease;
-        debtOf[seller][id] += sellerDebtIncrease;
-        totalShares[id] = totalShares[id] + buyerSharesIncrease - sellerSharesDecrease;
-        totalUnits[id] = totalUnits[id] + sellerDebtIncrease - buyerDebtDecrease;
+        if (debtOf[buyer][id] == 0 && sharesOf[seller][id] == 0) {
+            sharesOf[buyer][id] += obligationShares;
+            debtOf[seller][id] += obligationUnits;
+            totalShares[id] += obligationShares;
+            totalUnits[id] += obligationUnits;
+        } else if (debtOf[buyer][id] == 0 && sharesOf[seller][id] > 0) {
+            sharesOf[buyer][id] += obligationShares;
+            sharesOf[seller][id] -= obligationShares;
+        } else if (debtOf[buyer][id] > 0 && sharesOf[seller][id] == 0) {
+            debtOf[buyer][id] -= obligationUnits;
+            debtOf[seller][id] += obligationUnits;
+        } else {
+            debtOf[buyer][id] -= obligationUnits;
+            sharesOf[seller][id] -= obligationShares;
+            totalShares[id] -= obligationShares;
+            totalUnits[id] -= obligationUnits;
+        }
 
         if (buyerCallbackAddress != address(0)) {
             ICallbacks(buyerCallbackAddress).onTake(offer.obligation, buyer, buyerAssets, buyerCallbackData);
