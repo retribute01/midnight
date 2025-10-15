@@ -7,7 +7,6 @@ import {Seizure, Obligation} from "./IMorphoV2.sol";
 interface ICallbacks {
     function onBuy(
         Obligation memory obligation,
-        bool isBuyerMaker,
         address buyer,
         address seller,
         uint256 buyerAssets,
@@ -19,7 +18,6 @@ interface ICallbacks {
     ) external;
     function onSell(
         Obligation memory obligation,
-        bool isSellerMaker,
         address buyer,
         address seller,
         uint256 buyerAssets,

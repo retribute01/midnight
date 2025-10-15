@@ -166,7 +166,6 @@ contract MorphoV2 is IMorphoV2 {
             ICallbacks(buyerCallbackAddress)
                 .onBuy(
                     offer.obligation,
-                    (buyer == offer.maker),
                     buyer,
                     seller,
                     buyerAssets,
@@ -187,7 +186,6 @@ contract MorphoV2 is IMorphoV2 {
             ICallbacks(sellerCallbackAddress)
                 .onSell(
                     offer.obligation,
-                    (seller == offer.maker),
                     buyer,
                     seller,
                     buyerAssets,

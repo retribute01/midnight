@@ -891,7 +891,6 @@ contract BorrowCallback is ICallbacks {
 
     function onSell(
         Obligation memory obligation,
-        bool,
         address,
         address seller,
         uint256,
@@ -909,7 +908,6 @@ contract BorrowCallback is ICallbacks {
 
     function onBuy(
         Obligation memory obligation,
-        bool isBuyerMaker,
         address buyer,
         address seller,
         uint256 buyerAssets,
@@ -928,7 +926,6 @@ contract LendCallback is ICallbacks {
 
     function onBuy(
         Obligation memory obligation,
-        bool,
         address buyer,
         address,
         uint256 buyerAssets,
@@ -944,7 +941,6 @@ contract LendCallback is ICallbacks {
 
     function onSell(
         Obligation memory obligation,
-        bool isSellerMaker,
         address buyer,
         address seller,
         uint256 buyerAssets,
