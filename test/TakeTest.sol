@@ -884,12 +884,36 @@ contract TakeTest is BaseTest {
 contract BorrowCallback is ICallbacks {
     bytes public recordedData;
 
-    function onTake(Obligation memory obligation, address borrower, uint256, bytes memory data) external {
+    function onSell(
+        Obligation memory obligation,
+        bool,
+        address,
+        address seller,
+        uint256,
+        uint256,
+        uint256,
+        uint256,
+        bytes32,
+        bytes memory data
+    ) external {
         recordedData = data;
         (address collateralToken, uint256 amount) = abi.decode(data, (address, uint256));
         ERC20(collateralToken).approve(msg.sender, amount);
-        MorphoV2(msg.sender).supplyCollateral(obligation, collateralToken, amount, borrower);
+        MorphoV2(msg.sender).supplyCollateral(obligation, collateralToken, amount, seller);
     }
+
+    function onBuy(
+        Obligation memory obligation,
+        bool isBuyerMaker,
+        address buyer,
+        address seller,
+        uint256 buyerAssets,
+        uint256 sellerAssets,
+        uint256 obligationUnits,
+        uint256 obligationShares,
+        bytes32 offerHash,
+        bytes memory data
+    ) external {}
 
     function onLiquidate(Seizure[] memory seizures, address borrower, address liquidator, bytes memory data) external {}
 }
@@ -897,10 +921,33 @@ contract BorrowCallback is ICallbacks {
 contract LendCallback is ICallbacks {
     bytes public recordedData;
 
-    function onTake(Obligation memory obligation, address maker, uint256 assets, bytes memory data) external {
+    function onBuy(
+        Obligation memory obligation,
+        bool,
+        address buyer,
+        address,
+        uint256 buyerAssets,
+        uint256,
+        uint256,
+        uint256,
+        bytes32,
+        bytes memory data
+    ) external {
         recordedData = data;
-        ERC20(obligation.loanToken).transfer(maker, assets);
+        ERC20(obligation.loanToken).transfer(buyer, buyerAssets);
     }
 
+    function onSell(
+        Obligation memory obligation,
+        bool isSellerMaker,
+        address buyer,
+        address seller,
+        uint256 buyerAssets,
+        uint256 sellerAssets,
+        uint256 obligationUnits,
+        uint256 obligationShares,
+        bytes32 offerHash,
+        bytes memory data
+    ) external {}
     function onLiquidate(Seizure[] memory seizures, address borrower, address liquidator, bytes memory data) external {}
 }
