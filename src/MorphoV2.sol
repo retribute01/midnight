@@ -2,13 +2,13 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity 0.8.28;
 
-import "./libraries/UtilsLib.sol";
-import "./libraries/SafeTransferLib.sol";
-import "./libraries/ConstantsLib.sol";
-import "./libraries/MathLib.sol";
-import "./interfaces/IOracle.sol";
-import "./interfaces/IMorphoV2.sol";
-import "./interfaces/ICallbacks.sol";
+import {UtilsLib} from "./libraries/UtilsLib.sol";
+import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
+import {WAD, ORACLE_PRICE_SCALE, LIQUIDATION_INCENTIVE_FACTOR} from "./libraries/ConstantsLib.sol";
+import {MathLib} from "./libraries/MathLib.sol";
+import {IOracle} from "./interfaces/IOracle.sol";
+import {IMorphoV2, Obligation, Offer, Signature, Seizure} from "./interfaces/IMorphoV2.sol";
+import {ICallbacks} from "./interfaces/ICallbacks.sol";
 
 contract MorphoV2 is IMorphoV2 {
     using MathLib for uint256;
@@ -30,12 +30,15 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev OCO offers should be all buy or all sell.
     mapping(address user => mapping(uint256 nonce => uint256)) public consumed;
 
-    /// @dev Cut on interest at each trade.
-    mapping(address loanToken => uint256) public tradingFee;
+    /// @dev Cut on interest at each trade for a given obligation id.
+    mapping(bytes32 id => uint256) public tradingFee;
     address public tradingFeeRecipient;
 
     /// @dev Contract owner for administrative functions.
     address public owner;
+
+    /// @dev Address that can set trading fees.
+    address public feeSetter;
 
     /// CONSTRUCTOR ///
 
@@ -50,10 +53,15 @@ contract MorphoV2 is IMorphoV2 {
         owner = newOwner;
     }
 
-    function setTradingFee(address loanToken, uint256 fee) external {
+    function setFeeSetter(address newFeeSetter) external {
         require(msg.sender == owner, "Only owner");
+        feeSetter = newFeeSetter;
+    }
+
+    function setTradingFee(bytes32 id, uint256 fee) external {
+        require(msg.sender == feeSetter, "Only feeSetter");
         require(fee <= 1e18, "Fee too high");
-        tradingFee[loanToken] = fee;
+        tradingFee[id] = fee;
     }
 
     function setTradingFeeRecipient(address recipient) external {
@@ -67,6 +75,7 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev Same function used to buy and sell.
     /// @dev If one wants to match two offers without taking a position, they can batch take them and not have a
     /// position at the end.
+    /// @dev Neither the taker nor the maker can pass from having obligation shares to having debt in one take.
     function take(
         uint256 buyerAssets,
         uint256 sellerAssets,
@@ -94,6 +103,7 @@ contract MorphoV2 is IMorphoV2 {
         require(offer.obligation.maturity >= block.timestamp, "maturity");
         require(offer.obligation.chainId == block.chainid, "chain id mismatch");
         require(offer.start < offer.expiry || offer.expiryPrice == offer.startPrice, "inconsistent prices");
+        require(offer.maker != taker, "buyer and seller cannot be the same");
         require(_signer(root, sig) == offer.maker, "invalid signature");
         require(MathLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
 
@@ -109,12 +119,12 @@ contract MorphoV2 is IMorphoV2 {
             : (taker, takerCallbackAddress, takerCallbackData, offer.maker, offer.callbackAddress, offer.callbackData);
 
         uint256 offerPrice = offer.expiry != offer.start
-            ? offer.startPrice
-                + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start) / (offer.expiry - offer.start)
+            ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start)
+                / (offer.expiry - offer.start)
             : offer.startPrice;
         require(offerPrice <= 1e18, "price too high");
 
-        uint256 _tradingFee = tradingFee[offer.obligation.loanToken];
+        uint256 _tradingFee = tradingFee[id];
         uint256 buyerPrice = offer.buy ? offerPrice : offerPrice.mulDivDown(WAD - _tradingFee, WAD) + _tradingFee;
         uint256 sellerPrice = offer.buy ? (offerPrice - _tradingFee).mulDivDown(WAD, WAD - _tradingFee) : offerPrice;
 
@@ -147,19 +157,23 @@ contract MorphoV2 is IMorphoV2 {
             require((consumed[offer.maker][offer.nonce] += obligationShares) <= offer.obligationShares, "consumed");
         }
 
-        uint256 sellerSharesDecrease = UtilsLib.min(obligationShares, sharesOf[seller][id]);
-        uint256 sellerDebtIncrease =
-            obligationUnits - sellerSharesDecrease.mulDivUp(totalUnits[id] + 1, totalShares[id] + 1);
-        uint256 buyerDebtDecrease = UtilsLib.min(obligationUnits, debtOf[buyer][id]);
-        uint256 buyerSharesIncrease =
-            (obligationUnits - buyerDebtDecrease).mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
-
-        debtOf[buyer][id] -= buyerDebtDecrease;
-        sharesOf[buyer][id] += buyerSharesIncrease;
-        sharesOf[seller][id] -= sellerSharesDecrease;
-        debtOf[seller][id] += sellerDebtIncrease;
-        totalShares[id] = totalShares[id] + buyerSharesIncrease - sellerSharesDecrease;
-        totalUnits[id] = totalUnits[id] + sellerDebtIncrease - buyerDebtDecrease;
+        if (debtOf[buyer][id] == 0 && sharesOf[seller][id] == 0) {
+            sharesOf[buyer][id] += obligationShares;
+            debtOf[seller][id] += obligationUnits;
+            totalShares[id] += obligationShares;
+            totalUnits[id] += obligationUnits;
+        } else if (debtOf[buyer][id] == 0 && sharesOf[seller][id] > 0) {
+            sharesOf[buyer][id] += obligationShares;
+            sharesOf[seller][id] -= obligationShares;
+        } else if (debtOf[buyer][id] > 0 && sharesOf[seller][id] == 0) {
+            debtOf[buyer][id] -= obligationUnits;
+            debtOf[seller][id] += obligationUnits;
+        } else {
+            debtOf[buyer][id] -= obligationUnits;
+            sharesOf[seller][id] -= obligationShares;
+            totalShares[id] -= obligationShares;
+            totalUnits[id] -= obligationUnits;
+        }
 
         if (buyerCallbackAddress != address(0)) {
             ICallbacks(buyerCallbackAddress).onTake(offer.obligation, buyer, buyerAssets, buyerCallbackData);
@@ -244,11 +258,10 @@ contract MorphoV2 is IMorphoV2 {
         for (uint256 i = 0; i < obligation.collaterals.length; i++) {
             prices[i] = IOracle(obligation.collaterals[i].oracle).price();
             uint256 collateralAmount = collateralOf[borrower][id][obligation.collaterals[i].token];
-            maxDebt += collateralAmount.mulDivDown(prices[i], ORACLE_PRICE_SCALE).mulDivDown(
-                obligation.collaterals[i].lltv, 1e18
-            );
-            repayableDebt +=
-                collateralAmount.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR).mulDivUp(prices[i], ORACLE_PRICE_SCALE);
+            maxDebt += collateralAmount.mulDivDown(prices[i], ORACLE_PRICE_SCALE)
+                .mulDivDown(obligation.collaterals[i].lltv, 1e18);
+            repayableDebt += collateralAmount.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR)
+                .mulDivUp(prices[i], ORACLE_PRICE_SCALE);
         }
 
         uint256 originalDebt = debtOf[borrower][id];
@@ -267,9 +280,8 @@ contract MorphoV2 is IMorphoV2 {
             require(UtilsLib.atMostOneNonZero(seizure.repaid, seizure.seized), "INCONSISTENT_INPUT");
 
             if (seizure.seized > 0) {
-                seizure.repaid = seizure.seized.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR).mulDivUp(
-                    prices[seizure.collateralIndex], ORACLE_PRICE_SCALE
-                );
+                seizure.repaid = seizure.seized.mulDivUp(1e18, LIQUIDATION_INCENTIVE_FACTOR)
+                    .mulDivUp(prices[seizure.collateralIndex], ORACLE_PRICE_SCALE);
             } else {
                 seizure.seized = seizure.repaid.mulDivDown(ORACLE_PRICE_SCALE, prices[seizure.collateralIndex])
                     .mulDivDown(LIQUIDATION_INCENTIVE_FACTOR, 1e18);
@@ -319,9 +331,8 @@ contract MorphoV2 is IMorphoV2 {
             uint256 maxDebt;
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 uint256 price = IOracle(obligation.collaterals[i].oracle).price();
-                maxDebt += collateralOf[borrower][id][obligation.collaterals[i].token].mulDivDown(
-                    price, ORACLE_PRICE_SCALE
-                ).mulDivDown(obligation.collaterals[i].lltv, 1e18);
+                maxDebt += collateralOf[borrower][id][obligation.collaterals[i].token]
+                    .mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(obligation.collaterals[i].lltv, 1e18);
             }
 
             return debt <= maxDebt;
