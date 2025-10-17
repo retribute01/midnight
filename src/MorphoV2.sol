@@ -313,11 +313,11 @@ contract MorphoV2 is IMorphoV2 {
     function _isHealthy(Obligation memory obligation, address borrower) internal view returns (bool) {
         bytes32 id = _id(obligation);
         uint256 debt = debtOf[borrower][id];
-        address previousCollateralToken; // used to enforce that collateral are sorted.
         if (debt == 0) {
             return true;
         } else {
             uint256 maxDebt;
+            address previousCollateralToken;
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 require(
                     bytes20(obligation.collaterals[i].token) > bytes20(previousCollateralToken),
