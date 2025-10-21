@@ -305,6 +305,7 @@ contract MorphoV2 is IMorphoV2 {
         consumed[msg.sender][group] += amount;
     }
 
+    /// @dev TODO: is it safe enough?
     function shuffleNonce() external {
         nonce[msg.sender] = uint256(keccak256(abi.encode(nonce[msg.sender], blockhash(0))));
     }
