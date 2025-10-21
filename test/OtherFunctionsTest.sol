@@ -153,4 +153,10 @@ contract OtherFunctionsTest is BaseTest {
         assertEq(loanToken.balanceOf(address(morphoV2)), 0, "balance of morphoV2");
         assertEq(loanToken.balanceOf(lender), shares, "balance of lender");
     }
+
+    function testConsumeNonce(address user, uint256 nonce, uint256 amount) public {
+        vm.prank(user);
+        morphoV2.consumeNonce(nonce, amount);
+        assertEq(morphoV2.consumed(user, nonce), amount, "consumed");
+    }
 }
