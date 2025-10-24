@@ -183,8 +183,6 @@ contract TradingFeeTest is BaseTest {
         borrowOffer.expiryPrice = 0.9 ether;
 
         uint256 feeRecipientBalanceBefore = loanToken.balanceOf(feeRecipient);
-        uint256 borrowerBalanceBefore = loanToken.balanceOf(borrower);
-        uint256 lenderBalanceBefore = loanToken.balanceOf(lender);
 
         uint256 expectedFee = sellerAssets / 1000;
 
