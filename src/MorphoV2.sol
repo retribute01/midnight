@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 
 import {UtilsLib} from "./libraries/UtilsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
-import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, DUTCH_SPEED} from "./libraries/ConstantsLib.sol";
+import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, AUCTION_DURATION} from "./libraries/ConstantsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
 import {IMorphoV2, Obligation, Offer, Signature, Seizure} from "./interfaces/IMorphoV2.sol";
@@ -230,7 +230,7 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @notice Execute the given collection of `seizures` on the given `obligation` of the given `borrower`.
-    /// @dev On each seizure either `repaid` or `seized` should be equal to zero.
+    /// @dev On each seizure at least one of `repaid` or `seized` should be equal to zero.
     /// @param obligation The obligation.
     /// @param seizures An array of amounts of debt to repay or assets to seize with the index of the collateral in the
     /// obligation's collateral assets.
@@ -259,7 +259,7 @@ contract MorphoV2 is IMorphoV2 {
 
         uint256 lif = originalDebt > maxDebt
             ? MAX_LIF
-            : UtilsLib.min(MAX_LIF, WAD + DUTCH_SPEED * (block.timestamp - obligation.maturity));
+            : UtilsLib.min(MAX_LIF, WAD + (MAX_LIF - WAD) * (block.timestamp - obligation.maturity) / AUCTION_DURATION);
 
         uint256 badDebt = originalDebt.zeroFloorSub(repayableDebt);
         if (badDebt > 0) {
