@@ -10,6 +10,8 @@ import {IOracle} from "./interfaces/IOracle.sol";
 import {IMorphoV2, Obligation, Offer, Signature, Seizure} from "./interfaces/IMorphoV2.sol";
 import {ICallbacks} from "./interfaces/ICallbacks.sol";
 
+/// OBLIGATIONS
+/// @dev Obligations' collaterals must be sorted by token address.
 contract MorphoV2 is IMorphoV2 {
     using MathLib for uint256;
 
@@ -22,10 +24,13 @@ contract MorphoV2 is IMorphoV2 {
     mapping(bytes32 => uint256) public totalShares;
     mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
 
-    /// @dev Multiple offers can have the same nonce. This allows to implement easy and efficient batch-cancelling and
-    /// OCO (One-Cancels-the-Other) orders. Note that OCO orders work better if all offers have the same amount,
-    /// otherwise one might not be takable anymore while an other one at the same nonce is still takeable.
-    mapping(address user => mapping(uint256 nonce => uint256)) public consumed;
+    /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
+    /// @dev To work as expected, all offers in a same group should have the same amount and the same loan asset.
+    mapping(address user => mapping(bytes32 group => uint256)) public consumed;
+
+    /// @dev Offers should have this exact nonce to be valid.
+    /// @dev The nonce can be shuffled by the user to cancel everything easily/efficiently.
+    mapping(address user => bytes32) public nonce;
 
     /// @dev Cut on interest at each trade for a given obligation id.
     mapping(bytes32 id => uint256) public tradingFee;
@@ -86,7 +91,6 @@ contract MorphoV2 is IMorphoV2 {
         address takerCallback,
         bytes memory takerCallbackData
     ) public returns (uint256, uint256, uint256, uint256) {
-        bytes32 id = _id(offer.obligation);
         require(
             UtilsLib.atMostOneNonZero(buyerAssets, sellerAssets, obligationUnits, obligationShares),
             "inconsistent input"
@@ -99,6 +103,8 @@ contract MorphoV2 is IMorphoV2 {
         require(offer.maker != taker, "buyer and seller cannot be the same");
         require(_signer(root, sig) == offer.maker, "invalid signature");
         require(MathLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
+        require(offer.nonce == nonce[offer.maker], "invalid nonce");
+        bytes32 id = _id(offer.obligation);
 
         (
             address buyer,
@@ -140,7 +146,7 @@ contract MorphoV2 is IMorphoV2 {
         }
 
         require(
-            (consumed[offer.maker][offer.nonce] += (offer.buy ? buyerAssets : sellerAssets)) <= offer.assets, "consumed"
+            (consumed[offer.maker][offer.group] += (offer.buy ? buyerAssets : sellerAssets)) <= offer.assets, "consumed"
         );
 
         if (debtOf[buyer][id] == 0 && sharesOf[seller][id] == 0) {
@@ -313,6 +319,15 @@ contract MorphoV2 is IMorphoV2 {
         return seizures;
     }
 
+    function consume(bytes32 group, uint256 amount) external {
+        consumed[msg.sender][group] += amount;
+    }
+
+    /// @dev TODO: is it safe enough?
+    function shuffleNonce() external {
+        nonce[msg.sender] = keccak256(abi.encode(nonce[msg.sender], blockhash(block.number - 1)));
+    }
+
     /// INTERNAL ///
 
     function _id(Obligation memory obligation) internal pure returns (bytes32) {
@@ -333,10 +348,14 @@ contract MorphoV2 is IMorphoV2 {
             return true;
         } else {
             uint256 maxDebt;
+            address previousCollateralToken;
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
+                address currentCollateralToken = obligation.collaterals[i].token;
+                require(currentCollateralToken > previousCollateralToken, "collaterals not sorted");
                 uint256 price = IOracle(obligation.collaterals[i].oracle).price();
-                maxDebt += collateralOf[borrower][id][obligation.collaterals[i].token]
-                    .mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(obligation.collaterals[i].lltv, 1e18);
+                maxDebt += collateralOf[borrower][id][currentCollateralToken].mulDivDown(price, ORACLE_PRICE_SCALE)
+                    .mulDivDown(obligation.collaterals[i].lltv, 1e18);
+                previousCollateralToken = currentCollateralToken;
             }
 
             return debt <= maxDebt;
