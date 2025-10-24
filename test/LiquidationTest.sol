@@ -181,7 +181,7 @@ contract LiquidationTest is BaseTest {
         delay = bound(delay, 0, 100 weeks);
 
         setupObligation(obligation, 100);
-        vm.warp(obligation.maturity + 15 minutes + delay);
+        vm.warp(obligation.maturity + AUCTION_DURATION + delay);
         deal(address(loanToken), address(this), 100);
         uint256 initialCollateral = morphoV2.collateralOf(borrower, id, obligation.collaterals[0].token);
 
@@ -198,7 +198,7 @@ contract LiquidationTest is BaseTest {
     }
 
     function testLiquidatePostMaturityPartialLIF(uint256 delay) public {
-        delay = bound(delay, 1, 15 minutes);
+        delay = bound(delay, 1, AUCTION_DURATION);
 
         setupObligation(obligation, 100);
         vm.warp(obligation.maturity + delay);

@@ -229,8 +229,9 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransfer(collateral, msg.sender, assets);
     }
 
-    /// @notice Execute the given collection of `seizures` on the given `obligation` of the given `borrower`.
     /// @dev On each seizure at least one of `repaid` or `seized` should be equal to zero.
+    /// @dev Accounts are liquidatable if they are unhealthy or of the maturity is reached.
+    /// @dev If an account is healthy, the LIF grows linearly from 1 at maturity to MAX_LIF at maturity + 15 minutes.
     /// @param obligation The obligation.
     /// @param seizures An array of amounts of debt to repay or assets to seize with the index of the collateral in the
     /// obligation's collateral assets.
