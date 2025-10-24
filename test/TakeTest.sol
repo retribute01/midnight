@@ -745,7 +745,7 @@ contract TakeTest is BaseTest {
     // test inputs
 
     function setupFeesAndRounding() internal {
-        morphoV2.setTradingFee(keccak256(abi.encode(obligation)), 0.05e18);
+        morphoV2.setTradingFee(keccak256(abi.encode(obligation)), 0.05e18, 1e18);
         morphoV2.setTradingFeeRecipient(address(this));
 
         address otherBorrower = makeAddr("otherBorrower");

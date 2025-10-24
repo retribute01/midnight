@@ -46,4 +46,9 @@ struct Seizure {
     uint256 seized;
 }
 
+struct TradingFee {
+    uint128 slope;
+    uint128 max;
+}
+
 interface IMorphoV2 {}

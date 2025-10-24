@@ -7,13 +7,14 @@ import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 import {WAD, ORACLE_PRICE_SCALE, LIQUIDATION_INCENTIVE_FACTOR} from "./libraries/ConstantsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
-import {IMorphoV2, Obligation, Offer, Signature, Seizure} from "./interfaces/IMorphoV2.sol";
+import {IMorphoV2, Obligation, Offer, Signature, Seizure, TradingFee} from "./interfaces/IMorphoV2.sol";
 import {ICallbacks} from "./interfaces/ICallbacks.sol";
 
 /// OBLIGATIONS
 /// @dev Obligations' collaterals must be sorted by token address.
 contract MorphoV2 is IMorphoV2 {
     using MathLib for uint256;
+    using MathLib for uint128;
 
     /// STORAGE ///
 
@@ -33,7 +34,7 @@ contract MorphoV2 is IMorphoV2 {
     mapping(address user => bytes32) public nonce;
 
     /// @dev Cut on interest at each trade for a given obligation id.
-    mapping(bytes32 id => uint256) public tradingFee;
+    mapping(bytes32 id => TradingFee) public tradingFee;
     address public tradingFeeRecipient;
 
     /// @dev Contract owner for administrative functions.
@@ -60,10 +61,11 @@ contract MorphoV2 is IMorphoV2 {
         feeSetter = newFeeSetter;
     }
 
-    function setTradingFee(bytes32 id, uint256 fee) external {
+    function setTradingFee(bytes32 id, uint128 slope, uint128 max) external {
         require(msg.sender == feeSetter, "Only feeSetter");
-        require(fee <= 1e18, "Fee too high");
-        tradingFee[id] = fee;
+        require(slope <= 1e18, "Slope too high");
+        require(max <= 1e18, "Max too high");
+        tradingFee[id] = TradingFee({slope: slope, max: max});
     }
 
     function setTradingFeeRecipient(address recipient) external {
@@ -122,9 +124,20 @@ contract MorphoV2 is IMorphoV2 {
             : offer.startPrice;
         require(offerPrice <= 1e18, "price too high");
 
-        uint256 _tradingFee = tradingFee[id];
-        uint256 buyerPrice = offer.buy ? offerPrice : offerPrice.mulDivDown(WAD - _tradingFee, WAD) + _tradingFee;
-        uint256 sellerPrice = offer.buy ? (offerPrice - _tradingFee).mulDivDown(WAD, WAD - _tradingFee) : offerPrice;
+        TradingFee memory _tradingFee = tradingFee[id];
+        uint256 buyerPrice = offer.buy
+            ? offerPrice
+            : _tradingFee.slope.mulDivDown(WAD - offerPrice, offerPrice) <= _tradingFee.max
+                ? offerPrice.mulDivDown(WAD - _tradingFee.slope, WAD) + _tradingFee.slope
+                : offerPrice.mulDivDown(WAD + _tradingFee.max, WAD);
+        uint256 sellerPrice = offer.buy
+            ? _tradingFee.slope
+                        .mulDivDown(
+                            WAD + (WAD - _tradingFee.slope).mulDivDown(WAD, offerPrice - _tradingFee.slope), WAD
+                        ) <= _tradingFee.max
+                ? (offerPrice - _tradingFee.slope).mulDivDown(WAD, WAD - _tradingFee.slope)
+                : offerPrice.mulDivDown(WAD, WAD + _tradingFee.max)
+            : offerPrice;
 
         if (buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(1e18, buyerPrice);

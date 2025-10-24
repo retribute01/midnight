@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import {MathLib} from "../src/libraries/MathLib.sol";
-import {Obligation, Offer, Collateral} from "../src/interfaces/IMorphoV2.sol";
+import {Obligation, Offer, Collateral, TradingFee} from "../src/interfaces/IMorphoV2.sol";
 
 import {BaseTest} from "./BaseTest.sol";
 
@@ -55,12 +55,14 @@ contract TradingFeeTest is BaseTest {
         morphoV2.supplyCollateral(obligation, obligation.collaterals[0].token, 200 ether, borrower);
 
         // Set up trading fee for tests
-        morphoV2.setTradingFee(id, 0.05e18); // 5%
+        morphoV2.setTradingFee(id, 0.05e18, 1e18); // 5%
         morphoV2.setTradingFeeRecipient(feeRecipient);
     }
 
     function testTradingFeeSetup() public view {
-        assertEq(morphoV2.tradingFee(id), 0.05e18, "trading fee percentage");
+        (uint128 _slope, uint128 _max) = morphoV2.tradingFee(id);
+        assertEq(_slope, 0.05e18, "slope");
+        assertEq(_max, 1e18, "max");
         assertEq(morphoV2.tradingFeeRecipient(), feeRecipient, "fee recipient");
     }
 
@@ -175,7 +177,7 @@ contract TradingFeeTest is BaseTest {
     }
 
     function testZeroTradingFee() public {
-        morphoV2.setTradingFee(id, 0);
+        morphoV2.setTradingFee(id, 0, 0);
         uint256 buyerAssets = 100 ether;
         borrowOffer.startPrice = 0.9 ether;
         borrowOffer.expiryPrice = 0.9 ether;

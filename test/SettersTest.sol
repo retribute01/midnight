@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import {BaseTest} from "./BaseTest.sol";
+import {TradingFee} from "../src/interfaces/IMorphoV2.sol";
 
 contract SettersTest is BaseTest {
     function testInitialOwner() public view {
@@ -33,23 +34,27 @@ contract SettersTest is BaseTest {
         morphoV2.setFeeSetter(makeAddr("newFeeSetter"));
     }
 
-    function testSetTradingFeeSuccess(bytes32 id, uint256 fee) public {
-        vm.assume(fee <= 1e18);
-        morphoV2.setTradingFee(id, fee);
-        assertEq(morphoV2.tradingFee(id), fee);
+    function testSetTradingFeeSuccess(bytes32 id, uint128 slope, uint128 max) public {
+        vm.assume(slope <= 1e18);
+        vm.assume(max <= 1e18);
+        morphoV2.setTradingFee(id, slope, max);
+        (uint128 _slope, uint128 _max) = morphoV2.tradingFee(id);
+        assertEq(_slope, slope);
+        assertEq(_max, max);
     }
 
     function testSetTradingFeeOnlyFeeSetter(address rdm, bytes32 id) public {
         vm.assume(rdm != address(this));
         vm.prank(rdm);
         vm.expectRevert("Only feeSetter");
-        morphoV2.setTradingFee(id, 0.1e18);
+        morphoV2.setTradingFee(id, 0.1e18, 0.1e18);
     }
 
-    function testSetTradingFeeTooHigh(bytes32 id, uint256 fee) public {
-        vm.assume(fee > 1e18);
-        vm.expectRevert("Fee too high");
-        morphoV2.setTradingFee(id, fee);
+    function testSetTradingFeeTooHigh(bytes32 id, uint128 slope, uint128 max) public {
+        vm.assume(slope > 1e18);
+        vm.assume(max > 1e18);
+        vm.expectRevert("Slope too high");
+        morphoV2.setTradingFee(id, slope, max);
     }
 
     function testSetTradingFeeRecipientSuccess(address recipient) public {
