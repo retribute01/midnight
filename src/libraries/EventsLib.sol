@@ -27,27 +27,28 @@ library EventsLib {
     event Withdraw(
         bytes32 indexed obligationId, address caller, address indexed onBehalf, uint256 obligationUnits, uint256 shares
     );
-    event Repay(bytes32 indexed obligationId, address caller, address indexed onBehalf, uint256 obligationUnits);
+    event Repay(bytes32 indexed obligationId, address caller, uint256 obligationUnits, address indexed onBehalf);
     event SupplyCollateral(
         bytes32 indexed obligationId,
         address caller,
-        address indexed onBehalf,
         address indexed collateral,
-        uint256 assets
+        uint256 assets,
+        address indexed onBehalf
     );
+
     event WithdrawCollateral(
         bytes32 indexed obligationid,
         address caller,
-        address indexed onBehalf,
         address indexed collateral,
-        uint256 assets
+        uint256 assets,
+        address indexed onBehalf
     );
 
     event Liquidate(
         bytes32 indexed obligationId,
         address indexed caller,
-        address indexed borrower,
         Seizure[] seizures,
+        address indexed borrower,
         uint256 totalRepaid,
         uint256 badDebt
     );
