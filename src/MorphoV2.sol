@@ -349,11 +349,16 @@ contract MorphoV2 is IMorphoV2 {
 
     function consume(bytes32 group, uint256 amount) external {
         consumed[msg.sender][group] += amount;
+
+        emit EventsLib.Consume(msg.sender, group, amount);
     }
 
     /// @dev TODO: is it safe enough?
     function shuffleNonce() external {
-        nonce[msg.sender] = keccak256(abi.encode(nonce[msg.sender], blockhash(block.number - 1)));
+        bytes32 newNonce = keccak256(abi.encode(nonce[msg.sender], blockhash(block.number - 1)));
+        nonce[msg.sender] = newNonce;
+
+        emit EventsLib.ShuffleNonce(msg.sender, newNonce);
     }
 
     /// INTERNAL ///

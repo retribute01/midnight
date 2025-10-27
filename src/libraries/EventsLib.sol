@@ -49,4 +49,8 @@ library EventsLib {
         uint256 totalRepaid,
         uint256 badDebt
     );
+
+    event Consume(address indexed user, bytes32 indexed group, uint256 amount);
+
+    event ShuffleNonce(address indexed user, bytes32 nonce);
 }
