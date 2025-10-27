@@ -449,19 +449,8 @@ contract TakeTest is BaseTest {
         deal(obligation.collaterals[0].token, borrowOffer.callback, 135);
         assertEq(morphoV2.collateralOf(otherBorrower, id, obligation.collaterals[0].token), 0);
 
-        morphoV2.take(
-            100,
-            0,
-            0,
-            0,
-            lender,
-            borrowOffer,
-            sig([borrowOffer]),
-            root([borrowOffer]),
-            proof([borrowOffer]),
-            address(0),
-            hex""
-        );
+        take(100, 0, 0, 0, lender, borrowOffer);
+
         assertEq(morphoV2.collateralOf(otherBorrower, id, obligation.collaterals[0].token), 135);
         assertEq(BorrowCallback(borrowOffer.callback).recordedData(), borrowOffer.callbackData);
     }
@@ -497,19 +486,8 @@ contract TakeTest is BaseTest {
         lendOffer.maker = address(otherLender);
         deal(address(loanToken), lendOffer.callback, 100);
 
-        morphoV2.take(
-            100,
-            0,
-            0,
-            0,
-            borrower,
-            lendOffer,
-            sig([lendOffer]),
-            root([lendOffer]),
-            proof([lendOffer]),
-            address(0),
-            hex""
-        );
+        take(100, 0, 0, 0, borrower, lendOffer);
+
         assertEq(LendCallback(lendOffer.callback).recordedData(), lendOffer.callbackData);
     }
 
