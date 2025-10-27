@@ -62,7 +62,7 @@ contract MorphoV2 is IMorphoV2 {
 
     function setTradingFee(bytes32 id, uint256 fee) external {
         require(msg.sender == feeSetter, "Only feeSetter");
-        require(fee <= 1e18, "Fee too high");
+        require(fee <= WAD, "Fee too high");
         tradingFee[id] = fee;
     }
 
@@ -88,10 +88,9 @@ contract MorphoV2 is IMorphoV2 {
         Signature memory sig,
         bytes32 root,
         bytes32[] memory proof,
-        address takerCallbackAddress,
+        address takerCallback,
         bytes memory takerCallbackData
     ) public returns (uint256, uint256, uint256, uint256) {
-        bytes32 id = _id(offer.obligation);
         require(
             UtilsLib.atMostOneNonZero(buyerAssets, sellerAssets, obligationUnits, obligationShares),
             "inconsistent input"
@@ -104,44 +103,45 @@ contract MorphoV2 is IMorphoV2 {
         require(_signer(root, sig) == offer.maker, "invalid signature");
         require(MathLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.nonce == nonce[offer.maker], "invalid nonce");
+        bytes32 id = _id(offer.obligation);
 
         (
             address buyer,
-            address buyerCallbackAddress,
+            address buyerCallback,
             bytes memory buyerCallbackData,
             address seller,
-            address sellerCallbackAddress,
+            address sellerCallback,
             bytes memory sellerCallbackData
         ) = offer.buy
-            ? (offer.maker, offer.callbackAddress, offer.callbackData, taker, takerCallbackAddress, takerCallbackData)
-            : (taker, takerCallbackAddress, takerCallbackData, offer.maker, offer.callbackAddress, offer.callbackData);
+            ? (offer.maker, offer.callback, offer.callbackData, taker, takerCallback, takerCallbackData)
+            : (taker, takerCallback, takerCallbackData, offer.maker, offer.callback, offer.callbackData);
 
         uint256 offerPrice = offer.expiry != offer.start
             ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start)
                 / (offer.expiry - offer.start)
             : offer.startPrice;
-        require(offerPrice <= 1e18, "price too high");
+        require(offerPrice <= WAD, "price too high");
 
         uint256 _tradingFee = tradingFee[id];
         uint256 buyerPrice = offer.buy ? offerPrice : offerPrice.mulDivDown(WAD - _tradingFee, WAD) + _tradingFee;
         uint256 sellerPrice = offer.buy ? (offerPrice - _tradingFee).mulDivDown(WAD, WAD - _tradingFee) : offerPrice;
 
         if (buyerAssets > 0) {
-            obligationUnits = buyerAssets.mulDivDown(1e18, buyerPrice);
+            obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
             sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
             obligationShares = obligationUnits.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
         } else if (sellerAssets > 0) {
-            obligationUnits = sellerAssets.mulDivDown(1e18, sellerPrice);
+            obligationUnits = sellerAssets.mulDivDown(WAD, sellerPrice);
             buyerAssets = sellerAssets.mulDivDown(buyerPrice, sellerPrice);
             obligationShares = obligationUnits.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
         } else if (obligationUnits > 0) {
-            buyerAssets = obligationUnits.mulDivDown(buyerPrice, 1e18);
-            sellerAssets = obligationUnits.mulDivDown(sellerPrice, 1e18);
+            buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
+            sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
             obligationShares = obligationUnits.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
         } else {
             obligationUnits = obligationShares.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
-            buyerAssets = obligationUnits.mulDivDown(buyerPrice, 1e18);
-            sellerAssets = obligationUnits.mulDivDown(sellerPrice, 1e18);
+            buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
+            sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
         }
 
         require(
@@ -166,8 +166,17 @@ contract MorphoV2 is IMorphoV2 {
             totalUnits[id] -= obligationUnits;
         }
 
-        if (buyerCallbackAddress != address(0)) {
-            ICallbacks(buyerCallbackAddress).onTake(offer.obligation, buyer, buyerAssets, buyerCallbackData);
+        if (buyerCallback != address(0)) {
+            ICallbacks(buyerCallback)
+                .onBuy(
+                    offer.obligation,
+                    buyer,
+                    buyerAssets,
+                    sellerAssets,
+                    obligationUnits,
+                    obligationShares,
+                    buyerCallbackData
+                );
         }
 
         SafeTransferLib.safeTransferFrom(
@@ -175,8 +184,17 @@ contract MorphoV2 is IMorphoV2 {
         );
         SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, seller, sellerAssets);
 
-        if (sellerCallbackAddress != address(0)) {
-            ICallbacks(sellerCallbackAddress).onTake(offer.obligation, seller, sellerAssets, sellerCallbackData);
+        if (sellerCallback != address(0)) {
+            ICallbacks(sellerCallback)
+                .onSell(
+                    offer.obligation,
+                    seller,
+                    buyerAssets,
+                    sellerAssets,
+                    obligationUnits,
+                    obligationShares,
+                    sellerCallbackData
+                );
         }
 
         require(_isHealthy(offer.obligation, seller), "Seller is unhealthy");
