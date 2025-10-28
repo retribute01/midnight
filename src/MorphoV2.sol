@@ -263,7 +263,8 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev On each seizure at least one of `repaid` or `seized` should be equal to zero.
     /// @dev Accounts are liquidatable if they are unhealthy or if the maturity is reached.
     /// @dev If an account is healthy, the LIF grows linearly from 1 at maturity to MAX_LIF at maturity +
-    /// TIME_TO_MAX_LIF. @param obligation The obligation.
+    /// TIME_TO_MAX_LIF.
+    /// @param obligation The obligation.
     /// @param seizures An array of amounts of debt to repay or assets to seize with the index of the collateral in the
     /// obligation's collateral assets.
     /// @param borrower The debtor of the loan.
