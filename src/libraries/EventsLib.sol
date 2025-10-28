@@ -53,6 +53,8 @@ library EventsLib {
         uint256 badDebt
     );
 
+    event FlashLoan(address indexed caller, address indexed token, uint256 assets);
+
     event Consume(address indexed user, bytes32 indexed group, uint256 amount);
 
     event ShuffleNonce(address indexed user, bytes32 nonce);
