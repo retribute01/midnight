@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 
 import {UtilsLib} from "./libraries/UtilsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
-import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, TIME_TO_LIF} from "./libraries/ConstantsLib.sol";
+import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, TIME_TO_MAX_LIF} from "./libraries/ConstantsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
 import {IMorphoV2, Obligation, Offer, Signature, Seizure} from "./interfaces/IMorphoV2.sol";
@@ -262,8 +262,8 @@ contract MorphoV2 is IMorphoV2 {
 
     /// @dev On each seizure at least one of `repaid` or `seized` should be equal to zero.
     /// @dev Accounts are liquidatable if they are unhealthy or if the maturity is reached.
-    /// @dev If an account is healthy, the LIF grows linearly from 1 at maturity to MAX_LIF at maturity + TIME_TO_LIF.
-    /// @param obligation The obligation.
+    /// @dev If an account is healthy, the LIF grows linearly from 1 at maturity to MAX_LIF at maturity +
+    /// TIME_TO_MAX_LIF. @param obligation The obligation.
     /// @param seizures An array of amounts of debt to repay or assets to seize with the index of the collateral in the
     /// obligation's collateral assets.
     /// @param borrower The debtor of the loan.
@@ -291,7 +291,7 @@ contract MorphoV2 is IMorphoV2 {
 
         uint256 lif = originalDebt > maxDebt
             ? MAX_LIF
-            : UtilsLib.min(MAX_LIF, WAD + (MAX_LIF - WAD) * (block.timestamp - obligation.maturity) / TIME_TO_LIF);
+            : UtilsLib.min(MAX_LIF, WAD + (MAX_LIF - WAD) * (block.timestamp - obligation.maturity) / TIME_TO_MAX_LIF);
 
         uint256 badDebt = originalDebt.zeroFloorSub(repayableDebt);
         if (badDebt > 0) {

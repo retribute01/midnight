@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {MAX_LIF, TIME_TO_LIF} from "../src/libraries/ConstantsLib.sol";
+import {MAX_LIF, TIME_TO_MAX_LIF} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Collateral, Seizure} from "../src/interfaces/IMorphoV2.sol";
 
 import {Oracle} from "./helpers/Oracle.sol";
@@ -181,7 +181,7 @@ contract LiquidationTest is BaseTest {
         delay = bound(delay, 0, 100 weeks);
 
         setupObligation(obligation, 100);
-        vm.warp(obligation.maturity + TIME_TO_LIF + delay);
+        vm.warp(obligation.maturity + TIME_TO_MAX_LIF + delay);
         deal(address(loanToken), address(this), 100);
         uint256 initialCollateral = morphoV2.collateralOf(borrower, id, obligation.collaterals[0].token);
 
@@ -198,7 +198,7 @@ contract LiquidationTest is BaseTest {
     }
 
     function testLiquidatePostMaturityPartialLIF(uint256 delay) public {
-        delay = bound(delay, 1, TIME_TO_LIF);
+        delay = bound(delay, 1, TIME_TO_MAX_LIF);
 
         setupObligation(obligation, 100);
         vm.warp(obligation.maturity + delay);
@@ -209,7 +209,7 @@ contract LiquidationTest is BaseTest {
         seizures[0] = Seizure({collateralIndex: 0, repaid: 100, seized: 0});
         morphoV2.liquidate(obligation, seizures, borrower, "");
 
-        uint256 lif = 1e18 + (MAX_LIF - 1e18) * delay / TIME_TO_LIF;
+        uint256 lif = 1e18 + (MAX_LIF - 1e18) * delay / TIME_TO_MAX_LIF;
 
         assertEq(morphoV2.debtOf(borrower, id), 0, "debt");
         assertEq(
