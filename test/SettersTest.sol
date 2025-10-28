@@ -49,11 +49,16 @@ contract SettersTest is BaseTest {
         morphoV2.setTradingFee(id, 0.1e18, 0.1e18);
     }
 
-    function testSetTradingFeeTooHigh(bytes32 id, uint128 slope, uint128 max) public {
-        vm.assume(slope > 1e18);
-        vm.assume(max > 1e18);
-        vm.expectRevert("Slope too high");
-        morphoV2.setTradingFee(id, slope, max);
+    function testSetInterestCutTooHigh(bytes32 id, uint128 interestCut) public {
+        vm.assume(interestCut > 1e18);
+        vm.expectRevert("Interest cut too high");
+        morphoV2.setTradingFee(id, interestCut, 0.1e18);
+    }
+
+    function testSetCashCutTooHigh(bytes32 id, uint128 cashCut) public {
+        vm.assume(cashCut > 1e18);
+        vm.expectRevert("Cash cut too high");
+        morphoV2.setTradingFee(id, 0.1e18, cashCut);
     }
 
     function testSetTradingFeeRecipientSuccess(address recipient) public {

@@ -74,11 +74,11 @@ contract MorphoV2 is IMorphoV2 {
         feeSetter = newFeeSetter;
     }
 
-    function setTradingFee(bytes32 id, uint128 slope, uint128 max) external {
+    function setTradingFee(bytes32 id, uint128 interestCut, uint128 cashCut) external {
         require(msg.sender == feeSetter, "Only feeSetter");
-        require(slope <= WAD, "Slope too high");
-        require(max <= WAD, "Max too high");
-        tradingFee[id] = TradingFee({slope: slope, max: max});
+        require(interestCut <= WAD, "Interest cut too high");
+        require(cashCut <= WAD, "Cash cut too high");
+        tradingFee[id] = TradingFee({interestCut: interestCut, cashCut: cashCut});
     }
 
     function setTradingFeeRecipient(address recipient) external {
@@ -141,13 +141,13 @@ contract MorphoV2 is IMorphoV2 {
         uint256 buyerPrice = offer.buy
             ? offerPrice
             : UtilsLib.min(
-                offerPrice.mulDivDown(WAD - _tradingFee.slope, WAD) + _tradingFee.slope,
-                offerPrice.mulDivDown(WAD + _tradingFee.max, WAD)
+                offerPrice.mulDivDown(WAD - _tradingFee.interestCut, WAD) + _tradingFee.interestCut,
+                offerPrice.mulDivDown(WAD + _tradingFee.cashCut, WAD)
             );
         uint256 sellerPrice = offer.buy
             ? UtilsLib.max(
-                (offerPrice - _tradingFee.slope).mulDivDown(WAD, WAD - _tradingFee.slope),
-                offerPrice.mulDivDown(WAD, WAD + _tradingFee.max)
+                (offerPrice - _tradingFee.interestCut).mulDivDown(WAD, WAD - _tradingFee.interestCut),
+                offerPrice.mulDivDown(WAD, WAD + _tradingFee.cashCut)
             )
             : offerPrice;
 
