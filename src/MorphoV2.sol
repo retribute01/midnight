@@ -25,7 +25,8 @@ contract MorphoV2 is IMorphoV2 {
     mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
-    /// @dev To work as expected, all offers in a same group should have the same innput, amount and loan token.
+    /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
+    /// obligationShares and loan token.
     mapping(address user => mapping(bytes32 group => uint256)) public consumed;
 
     /// @dev Offers should have this exact nonce to be valid.
