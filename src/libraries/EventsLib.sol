@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {Seizure, Offer} from "../interfaces/IMorphoV2.sol";
+import {Obligation, Seizure, Offer} from "../interfaces/IMorphoV2.sol";
 
 library EventsLib {
     event Constructor(address indexed owner);
@@ -13,19 +13,16 @@ library EventsLib {
     event SetTradingFeeRecipient(address indexed recipient);
 
     event Take(
-        bytes32 indexed obligationId,
-        address caller,
-        address indexed buyer,
-        address indexed seller,
-        bool isBuyerMaker,
+        address indexed caller,
         uint256 buyerAssets,
         uint256 sellerAssets,
         uint256 obligationUnits,
         uint256 obligationShares,
+        address indexed taker,
         Offer offer
     );
     event Withdraw(
-        bytes32 indexed obligationId, address caller, address indexed onBehalf, uint256 obligationUnits, uint256 shares
+        address indexed caller, bytes32 indexed obligationId, address indexed onBehalf, uint256 obligationUnits, uint256 shares
     );
     event Repay(bytes32 indexed obligationId, address caller, uint256 obligationUnits, address indexed onBehalf);
     event SupplyCollateral(
@@ -53,9 +50,7 @@ library EventsLib {
         uint256 badDebt
     );
 
-    event FlashLoan(address indexed caller, address indexed token, uint256 assets);
-
     event Consume(address indexed user, bytes32 indexed group, uint256 amount);
-
     event ShuffleNonce(address indexed user, bytes32 nonce);
+    event FlashLoan(address indexed caller, address indexed token, uint256 assets);
 }

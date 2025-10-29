@@ -186,6 +186,8 @@ contract MorphoV2 is IMorphoV2 {
             totalUnits[id] -= obligationUnits;
         }
 
+        emit EventsLib.Take(msg.sender, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, offer);
+
         if (buyerCallback != address(0)) {
             ICallbacks(buyerCallback)
                 .onBuy(
@@ -198,19 +200,6 @@ contract MorphoV2 is IMorphoV2 {
                     buyerCallbackData
                 );
         }
-
-        emit EventsLib.Take(
-            id,
-            msg.sender,
-            buyer,
-            seller,
-            (buyer == offer.maker),
-            buyerAssets,
-            sellerAssets,
-            obligationUnits,
-            obligationShares,
-            offer
-        );
 
         SafeTransferLib.safeTransferFrom(
             offer.obligation.loanToken, buyer, tradingFeeRecipient, buyerAssets - sellerAssets
@@ -251,7 +240,7 @@ contract MorphoV2 is IMorphoV2 {
         totalShares[id] -= shares;
         totalUnits[id] -= obligationUnits;
 
-        emit EventsLib.Withdraw(id, msg.sender, onBehalf, obligationUnits, shares);
+        emit EventsLib.Withdraw(msg.sender, id, onBehalf, obligationUnits, shares);
 
         SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, obligationUnits);
     }
