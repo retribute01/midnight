@@ -876,8 +876,8 @@ contract TakeTest is BaseTest {
 
     function testBuyPastMaturity(uint256 timestamp) public {
         timestamp = bound(timestamp, obligation.maturity, type(uint32).max);
-        borrowerOffer.expiry = timestamp;
         vm.warp(timestamp);
+        borrowerOffer.expiry = timestamp;
         borrowerOffer.assets = 100;
         borrowerOffer.startPrice = 1 ether;
         borrowerOffer.expiryPrice = 1 ether;
@@ -889,8 +889,8 @@ contract TakeTest is BaseTest {
 
     function testSellPastMaturity(uint256 timestamp) public {
         timestamp = bound(timestamp, obligation.maturity, type(uint32).max);
-        lenderOffer.expiry = timestamp;
         vm.warp(timestamp);
+        lenderOffer.expiry = timestamp;
         lenderOffer.assets = 100;
         lenderOffer.startPrice = 1 ether;
         lenderOffer.expiryPrice = 1 ether;
