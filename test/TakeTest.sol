@@ -720,10 +720,16 @@ contract TakeTest is BaseTest {
 
     // group tests.
 
-    function testBuyConsumed(uint256 assets, uint256 offerAmount, uint256 secondTake) public {
+    function testBuyConsumed(
+        uint256 assets,
+        uint256 offerAmount,
+        uint256 secondRevertingTake,
+        uint256 secondPassingTake
+    ) public {
         assets = bound(assets, 0, maxAssets - 1);
         offerAmount = bound(offerAmount, assets, maxAssets - 1);
-        secondTake = bound(secondTake, offerAmount - assets + 1, maxAssets);
+        secondRevertingTake = bound(secondRevertingTake, offerAmount - assets + 1, maxAssets);
+        secondPassingTake = bound(secondPassingTake, 0, offerAmount - assets);
         borrowerOffer.assets = offerAmount;
         borrowerOffer.startPrice = 1 ether;
         borrowerOffer.expiryPrice = 1 ether;
@@ -733,15 +739,21 @@ contract TakeTest is BaseTest {
         take(assets, 0, 0, 0, lender, borrowerOffer);
 
         vm.expectRevert("consumed");
-        take(secondTake, 0, 0, 0, lender, borrowerOffer);
+        take(secondRevertingTake, 0, 0, 0, lender, borrowerOffer);
 
-        take(offerAmount - assets, 0, 0, 0, lender, borrowerOffer);
+        take(secondPassingTake, 0, 0, 0, lender, borrowerOffer);
     }
 
-    function testSellConsumed(uint256 assets, uint256 offerAmount, uint256 secondTake) public {
+    function testSellConsumed(
+        uint256 assets,
+        uint256 offerAmount,
+        uint256 secondRevertingTake,
+        uint256 secondPassingTake
+    ) public {
         assets = bound(assets, 0, maxAssets - 1);
         offerAmount = bound(offerAmount, assets, maxAssets - 1);
-        secondTake = bound(secondTake, offerAmount - assets + 1, maxAssets);
+        secondRevertingTake = bound(secondRevertingTake, offerAmount - assets + 1, maxAssets);
+        secondPassingTake = bound(secondPassingTake, 0, offerAmount - assets);
         lenderOffer.assets = offerAmount;
         lenderOffer.startPrice = 1 ether;
         lenderOffer.expiryPrice = 1 ether;
@@ -751,9 +763,9 @@ contract TakeTest is BaseTest {
         take(assets, 0, 0, 0, borrower, lenderOffer);
 
         vm.expectRevert("consumed");
-        take(secondTake, 0, 0, 0, borrower, lenderOffer);
+        take(secondRevertingTake, 0, 0, 0, borrower, lenderOffer);
 
-        take(offerAmount - assets, 0, 0, 0, borrower, lenderOffer);
+        take(secondPassingTake, 0, 0, 0, borrower, lenderOffer);
     }
 
     function testBuyGroup(uint256 firstFill, uint256 secondFill) public {
