@@ -139,23 +139,26 @@ contract MorphoV2 is IMorphoV2 {
             ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start)
                 / (offer.expiry - offer.start)
             : offer.startPrice;
-        require(offerPrice <= WAD, "price too high");
 
         TradingFeeParams memory _tradingFeeParams = tradingFeeParams[id];
-        uint256 buyerPrice = offer.buy
-            ? offerPrice
-            : UtilsLib.min(
-                offerPrice.mulDivDown(WAD - _tradingFeeParams.interestCutLimit, WAD)
-                    + _tradingFeeParams.interestCutLimit,
-                offerPrice.mulDivDown(WAD + _tradingFeeParams.tradingFee, WAD)
-            );
-        uint256 sellerPrice = offer.buy
-            ? UtilsLib.max(
-                (offerPrice - _tradingFeeParams.interestCutLimit)
+        uint256 buyerPrice;
+        uint256 sellerPrice;
+        require(offerPrice <= WAD, "price too high");
+        if (offer.buy) {
+            buyerPrice = offerPrice;
+            sellerPrice = UtilsLib.max(
+                (buyerPrice - _tradingFeeParams.interestCutLimit)
                 .mulDivDown(WAD, WAD - _tradingFeeParams.interestCutLimit),
-                offerPrice.mulDivDown(WAD, WAD + _tradingFeeParams.tradingFee)
-            )
-            : offerPrice;
+                buyerPrice.mulDivDown(WAD, WAD + _tradingFeeParams.tradingFee)
+            );
+        } else {
+            sellerPrice = offerPrice;
+            buyerPrice = UtilsLib.min(
+                sellerPrice.mulDivDown(WAD - _tradingFeeParams.interestCutLimit, WAD)
+                    + _tradingFeeParams.interestCutLimit,
+                sellerPrice.mulDivDown(WAD + _tradingFeeParams.tradingFee, WAD)
+            );
+        }
 
         if (buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
