@@ -186,7 +186,7 @@ contract MorphoV2 is IMorphoV2 {
             totalUnits[id] -= obligationUnits;
         }
 
-        emit EventsLib.Take(msg.sender, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, offer);
+        emit EventsLib.Take(id, msg.sender, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, offer);
 
         if (buyerCallback != address(0)) {
             ICallbacks(buyerCallback)
