@@ -13,8 +13,8 @@ library EventsLib {
     event SetTradingFeeRecipient(address indexed recipient);
 
     event Take(
-        bytes32 indexed obligationId,
         address indexed caller,
+        bytes32 indexed obligationId,
         uint256 buyerAssets,
         uint256 sellerAssets,
         uint256 obligationUnits,
@@ -25,30 +25,30 @@ library EventsLib {
     event Withdraw(
         address indexed caller,
         bytes32 indexed obligationId,
-        address indexed onBehalf,
         uint256 obligationUnits,
-        uint256 shares
+        uint256 shares,
+        address indexed onBehalf
     );
-    event Repay(bytes32 indexed obligationId, address caller, uint256 obligationUnits, address indexed onBehalf);
+    event Repay(address indexed caller, bytes32 indexed obligationId,  uint256 obligationUnits, address indexed onBehalf);
     event SupplyCollateral(
-        bytes32 indexed obligationId,
         address caller,
+        bytes32 indexed obligationId,
         address indexed collateral,
         uint256 assets,
         address indexed onBehalf
     );
 
     event WithdrawCollateral(
-        bytes32 indexed obligationid,
         address caller,
+        bytes32 indexed obligationId,
         address indexed collateral,
         uint256 assets,
         address indexed onBehalf
     );
 
     event Liquidate(
-        bytes32 indexed obligationId,
         address indexed caller,
+        bytes32 indexed obligationId,
         Seizure[] seizures,
         address indexed borrower,
         uint256 totalRepaid,

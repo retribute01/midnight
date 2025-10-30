@@ -186,7 +186,7 @@ contract MorphoV2 is IMorphoV2 {
             totalUnits[id] -= obligationUnits;
         }
 
-        emit EventsLib.Take(id, msg.sender, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, offer);
+        emit EventsLib.Take(msg.sender, id, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, offer);
 
         if (buyerCallback != address(0)) {
             ICallbacks(buyerCallback)
@@ -240,7 +240,7 @@ contract MorphoV2 is IMorphoV2 {
         totalShares[id] -= shares;
         totalUnits[id] -= obligationUnits;
 
-        emit EventsLib.Withdraw(msg.sender, id, onBehalf, obligationUnits, shares);
+        emit EventsLib.Withdraw(msg.sender, id, obligationUnits, shares,  onBehalf);
 
         SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, obligationUnits);
     }
@@ -251,7 +251,7 @@ contract MorphoV2 is IMorphoV2 {
         debtOf[onBehalf][id] -= obligationUnits;
         withdrawable[id] += obligationUnits;
 
-        emit EventsLib.Repay(id, msg.sender, obligationUnits, onBehalf);
+        emit EventsLib.Repay(msg.sender, id, obligationUnits, onBehalf);
 
         SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), obligationUnits);
     }
@@ -263,7 +263,7 @@ contract MorphoV2 is IMorphoV2 {
 
         collateralOf[onBehalf][_id(obligation)][collateral] += assets;
 
-        emit EventsLib.SupplyCollateral(id, msg.sender, collateral, assets, onBehalf);
+        emit EventsLib.SupplyCollateral(msg.sender, id, collateral, assets, onBehalf);
 
         SafeTransferLib.safeTransferFrom(collateral, msg.sender, address(this), assets);
     }
@@ -277,7 +277,7 @@ contract MorphoV2 is IMorphoV2 {
 
         require(_isHealthy(obligation, onBehalf), "Unhealthy borrower");
 
-        emit EventsLib.WithdrawCollateral(id, msg.sender, collateral, assets, onBehalf);
+        emit EventsLib.WithdrawCollateral(msg.sender, id, collateral, assets, onBehalf);
 
         SafeTransferLib.safeTransfer(collateral, msg.sender, assets);
     }
@@ -344,7 +344,7 @@ contract MorphoV2 is IMorphoV2 {
         withdrawable[id] += totalRepaid;
         debtOf[borrower][id] -= totalRepaid;
 
-        emit EventsLib.Liquidate(id, msg.sender, seizures, borrower, totalRepaid, badDebt);
+        emit EventsLib.Liquidate(msg.sender, id, seizures, borrower, totalRepaid, badDebt);
 
         for (uint256 i = 0; i < seizures.length; i++) {
             Seizure memory seizure = seizures[i];
