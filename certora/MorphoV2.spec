@@ -2,13 +2,13 @@
 
 methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
-    
+
     function withdrawable(bytes32 id) external returns uint256 envfree;
     function totalUnits(bytes32 id) external returns (uint256) envfree;
     function totalShares(bytes32 id) external returns (uint256) envfree;
     function sharesOf(address owner, bytes32 id) external returns (uint256) envfree;
     function debtOf(address owner, bytes32 id) external returns (uint256) envfree;
-  
+
     function _.price() external => NONDET;
 }
 
@@ -48,6 +48,9 @@ rule takeInputOutputConsistency(env e, uint256 buyerAssets, uint256 sellerAssets
 
 strong invariant notBorrowerAndLender(bytes32 id, address user)
     sharesOf(user, id) == 0 || debtOf(user, id) == 0;
+
+strong invariant totalUnitsEqualsSumDebtPlusWithdrawable(bytes32 id)
+    totalUnits(id) == sumDebtOf[id] + withdrawable(id);
 
 strong invariant totalSharesEqualsSumSharesOf(bytes32 id)
     totalShares(id) == sumSharesOf[id];
