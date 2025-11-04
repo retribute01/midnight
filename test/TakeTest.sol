@@ -720,7 +720,8 @@ contract TakeTest is BaseTest {
 
     // group tests.
 
-    function testBuyConsumed(
+    // with assets
+    function testBuyConsumedAssets(
         uint256 assets,
         uint256 offerAmount,
         uint256 secondRevertingTake,
@@ -744,7 +745,7 @@ contract TakeTest is BaseTest {
         take(secondPassingTake, 0, 0, 0, lender, borrowerOffer);
     }
 
-    function testSellConsumed(
+    function testSellConsumedAssets(
         uint256 assets,
         uint256 offerAmount,
         uint256 secondRevertingTake,
@@ -768,7 +769,7 @@ contract TakeTest is BaseTest {
         take(secondPassingTake, 0, 0, 0, borrower, lenderOffer);
     }
 
-    function testBuyGroup(uint256 firstFill, uint256 secondFill) public {
+    function testBuyGroupAssets(uint256 firstFill, uint256 secondFill) public {
         firstFill = bound(firstFill, 0, maxAssets);
         secondFill = bound(secondFill, 0, maxAssets);
         borrowerOffer.assets = firstFill + secondFill;
@@ -788,7 +789,7 @@ contract TakeTest is BaseTest {
         take(secondFill, 0, 0, 0, lender, borrowerOffer2);
     }
 
-    function testSellGroup(uint256 firstFill, uint256 secondFill) public {
+    function testSellGroupAssets(uint256 firstFill, uint256 secondFill) public {
         firstFill = bound(firstFill, 0, maxAssets);
         secondFill = bound(secondFill, 0, maxAssets);
         lenderOffer.assets = firstFill + secondFill;
@@ -806,6 +807,192 @@ contract TakeTest is BaseTest {
         take(secondFill + 1, 0, 0, 0, borrower, lenderOffer2);
 
         take(secondFill, 0, 0, 0, borrower, lenderOffer2);
+    }
+
+    // with obligation units
+    function testBuyConsumedUnits(
+        uint256 obligationUnits,
+        uint256 offerObligationUnits,
+        uint256 secondRevertingTake,
+        uint256 secondPassingTake
+    ) public {
+        obligationUnits = bound(obligationUnits, 0, maxAssets - 1);
+        offerObligationUnits = bound(offerObligationUnits, obligationUnits, maxAssets - 1);
+        secondRevertingTake = bound(secondRevertingTake, offerObligationUnits - obligationUnits + 1, maxAssets);
+        secondPassingTake = bound(secondPassingTake, 0, offerObligationUnits - obligationUnits);
+        borrowerOffer.obligationUnits = offerObligationUnits;
+        borrowerOffer.assets = 0;
+        borrowerOffer.startPrice = 1 ether;
+        borrowerOffer.expiryPrice = 1 ether;
+        deal(address(loanToken), lender, offerObligationUnits);
+        collateralize(obligation, borrower, offerObligationUnits);
+
+        take(0, 0, obligationUnits, 0, lender, borrowerOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, secondRevertingTake, 0, lender, borrowerOffer);
+
+        take(0, 0, secondPassingTake, 0, lender, borrowerOffer);
+    }
+
+    function testSellConsumedUnits(
+        uint256 obligationUnits,
+        uint256 offerObligationUnits,
+        uint256 secondRevertingTake,
+        uint256 secondPassingTake
+    ) public {
+        obligationUnits = bound(obligationUnits, 0, maxAssets - 1);
+        offerObligationUnits = bound(offerObligationUnits, obligationUnits, maxAssets - 1);
+        secondRevertingTake = bound(secondRevertingTake, offerObligationUnits - obligationUnits + 1, maxAssets);
+        secondPassingTake = bound(secondPassingTake, 0, offerObligationUnits - obligationUnits);
+        lenderOffer.obligationUnits = offerObligationUnits;
+        lenderOffer.assets = 0;
+        lenderOffer.startPrice = 1 ether;
+        lenderOffer.expiryPrice = 1 ether;
+        deal(address(loanToken), lender, offerObligationUnits);
+        collateralize(obligation, borrower, offerObligationUnits);
+
+        take(0, 0, obligationUnits, 0, borrower, lenderOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, secondRevertingTake, 0, borrower, lenderOffer);
+
+        take(0, 0, secondPassingTake, 0, borrower, lenderOffer);
+    }
+
+    function testBuyGroupUnits(uint256 firstFill, uint256 secondFill) public {
+        firstFill = bound(firstFill, 0, maxAssets);
+        secondFill = bound(secondFill, 0, maxAssets);
+        borrowerOffer.obligationUnits = firstFill + secondFill;
+        borrowerOffer.assets = 0;
+        borrowerOffer.startPrice = 1 ether;
+        borrowerOffer.expiryPrice = 1 ether;
+        Offer memory borrowerOffer2 = borrowerOffer;
+        borrowerOffer2.obligation.maturity = obligation.maturity + 100;
+        deal(address(loanToken), lender, firstFill + secondFill);
+        collateralize(obligation, borrower, firstFill);
+        collateralize(borrowerOffer2.obligation, borrower, secondFill);
+
+        take(0, 0, firstFill, 0, lender, borrowerOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, secondFill + 1, 0, lender, borrowerOffer2);
+
+        take(0, 0, secondFill, 0, lender, borrowerOffer2);
+    }
+
+    function testSellGroupUnits(uint256 firstFill, uint256 secondFill) public {
+        firstFill = bound(firstFill, 0, maxAssets);
+        secondFill = bound(secondFill, 0, maxAssets);
+        lenderOffer.obligationUnits = firstFill + secondFill;
+        lenderOffer.assets = 0;
+        lenderOffer.startPrice = 1 ether;
+        lenderOffer.expiryPrice = 1 ether;
+        Offer memory lenderOffer2 = lenderOffer;
+        lenderOffer2.obligation.maturity = obligation.maturity + 100;
+        deal(address(loanToken), lender, firstFill + secondFill);
+        collateralize(obligation, borrower, firstFill);
+        collateralize(lenderOffer2.obligation, borrower, secondFill);
+
+        take(0, 0, firstFill, 0, borrower, lenderOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, secondFill + 1, 0, borrower, lenderOffer2);
+
+        take(0, 0, secondFill, 0, borrower, lenderOffer2);
+    }
+
+    // with obligation shares
+    function testBuyConsumedShares(
+        uint256 obligationShares,
+        uint256 offerObligationShares,
+        uint256 secondRevertingTake,
+        uint256 secondPassingTake
+    ) public {
+        obligationShares = bound(obligationShares, 0, maxAssets - 1);
+        offerObligationShares = bound(offerObligationShares, obligationShares, maxAssets - 1);
+        secondRevertingTake = bound(secondRevertingTake, offerObligationShares - obligationShares + 1, maxAssets);
+        secondPassingTake = bound(secondPassingTake, 0, offerObligationShares - obligationShares);
+        borrowerOffer.obligationShares = offerObligationShares;
+        borrowerOffer.assets = 0;
+        borrowerOffer.startPrice = 1 ether;
+        borrowerOffer.expiryPrice = 1 ether;
+        deal(address(loanToken), lender, offerObligationShares);
+        collateralize(obligation, borrower, offerObligationShares);
+
+        take(0, 0, 0, obligationShares, lender, borrowerOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, 0, secondRevertingTake, lender, borrowerOffer);
+
+        take(0, 0, 0, secondPassingTake, lender, borrowerOffer);
+    }
+
+    function testSellConsumedShares(
+        uint256 obligationShares,
+        uint256 offerObligationShares,
+        uint256 secondRevertingTake,
+        uint256 secondPassingTake
+    ) public {
+        obligationShares = bound(obligationShares, 0, maxAssets - 1);
+        offerObligationShares = bound(offerObligationShares, obligationShares, maxAssets - 1);
+        secondRevertingTake = bound(secondRevertingTake, offerObligationShares - obligationShares + 1, maxAssets);
+        secondPassingTake = bound(secondPassingTake, 0, offerObligationShares - obligationShares);
+        lenderOffer.obligationShares = offerObligationShares;
+        lenderOffer.assets = 0;
+        lenderOffer.startPrice = 1 ether;
+        lenderOffer.expiryPrice = 1 ether;
+        deal(address(loanToken), lender, offerObligationShares);
+        collateralize(obligation, borrower, offerObligationShares);
+
+        take(0, 0, 0, obligationShares, borrower, lenderOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, 0, secondRevertingTake, borrower, lenderOffer);
+
+        take(0, 0, 0, secondPassingTake, borrower, lenderOffer);
+    }
+
+    function testBuyGroupShares(uint256 firstFill, uint256 secondFill) public {
+        firstFill = bound(firstFill, 0, maxAssets);
+        secondFill = bound(secondFill, 0, maxAssets);
+        borrowerOffer.obligationShares = firstFill + secondFill;
+        borrowerOffer.assets = 0;
+        borrowerOffer.startPrice = 1 ether;
+        borrowerOffer.expiryPrice = 1 ether;
+        Offer memory borrowerOffer2 = borrowerOffer;
+        borrowerOffer2.obligation.maturity = obligation.maturity + 100;
+        deal(address(loanToken), lender, firstFill + secondFill);
+        collateralize(obligation, borrower, firstFill);
+        collateralize(borrowerOffer2.obligation, borrower, secondFill);
+
+        take(0, 0, 0, firstFill, lender, borrowerOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, 0, secondFill + 1, lender, borrowerOffer2);
+
+        take(0, 0, 0, secondFill, lender, borrowerOffer2);
+    }
+
+    function testSellGroupShares(uint256 firstFill, uint256 secondFill) public {
+        firstFill = bound(firstFill, 0, maxAssets);
+        secondFill = bound(secondFill, 0, maxAssets);
+        lenderOffer.obligationShares = firstFill + secondFill;
+        lenderOffer.assets = 0;
+        lenderOffer.startPrice = 1 ether;
+        lenderOffer.expiryPrice = 1 ether;
+        Offer memory lenderOffer2 = lenderOffer;
+        lenderOffer2.obligation.maturity = obligation.maturity + 100;
+        deal(address(loanToken), lender, firstFill + secondFill);
+        collateralize(obligation, borrower, firstFill);
+        collateralize(lenderOffer2.obligation, borrower, secondFill);
+
+        take(0, 0, 0, firstFill, borrower, lenderOffer);
+
+        vm.expectRevert("consumed");
+        take(0, 0, 0, secondFill + 1, borrower, lenderOffer2);
+
+        take(0, 0, 0, secondFill, borrower, lenderOffer2);
     }
 
     // other tests.
