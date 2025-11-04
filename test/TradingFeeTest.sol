@@ -57,11 +57,13 @@ contract TradingFeeTest is BaseTest {
 
     // Normal trading fee. Proportional to amount traded.
 
-    // Buy: the proportional trading fee is the limiting one iff tradingFee <= interestCutLimit * (1 - P_S)/P_S <=> P_S
-    // <= interestCutLimit / (tradingFee + interestCutLimit)
+    // Buy: the proportional trading fee is the limiting one:
+    // iff tradingFee <= interestCutLimit * (1 - P_S)/P_S
+    // iff P_S <= interestCutLimit / (tradingFee + interestCutLimit)
 
-    // Sell: the proportional trading fee is the limiting one iff (P_B - interestCutLimit) / (1 - interestCutLimit) <=
-    // P_B / (1+tradingFee) <=> P_B <= interestCutLimit * (1+tradingFee) / (tradingFee + interestCutLimit)
+    // Sell: the proportional trading fee is the limiting one:
+    // iff (P_B - interestCutLimit) / (1 - interestCutLimit) <= P_B / (1 + tradingFee)
+    // iff P_B <= interestCutLimit * (1 + tradingFee) / (tradingFee + interestCutLimit)
 
     function testBuyBuyerAssetsProportional(uint256 buyerAssets, uint256 sellerPrice, uint256 tradingFee) public {
         buyerAssets = bound(buyerAssets, 0, MAX_TEST_AMOUNT);
@@ -235,13 +237,15 @@ contract TradingFeeTest is BaseTest {
 
     // Interest cut limit. Proportional to interest.
 
-    // Buy: the interest cut limit is the limiting one iff tradingFee >= interestCutLimit * (1 - P_S)/P_S <=> P_S >=
-    // interestCutLimit / (tradingFee + interestCutLimit). It's always true for reasonably high price if you put the
-    // trading fee very high.
+    // Buy: the interest cut limit is the limiting one:
+    // iff tradingFee >= interestCutLimit * (1 - P_S)/P_S
+    // iff P_S >= interestCutLimit / (tradingFee + interestCutLimit)
+    // which is always true for reasonably high price if you put the trading fee very high.
 
-    // Sell: the proportional trading fee is the limiting one iff (P_B - interestCutLimit) / (1 - interestCutLimit) >=
-    // P_B / (1+tradingFee) <=> P_B >= interestCutLimit * (1+tradingFee) / (tradingFee + interestCutLimit). It's the
-    // same as P_B >= interestCutLimit if tradingFee is very high.
+    // Sell: the interest cut limit is the limiting one:
+    // iff (P_B - interestCutLimit) / (1 - interestCutLimit) >= P_B / (1+tradingFee)
+    // iff P_B >= interestCutLimit * (1+tradingFee) / (tradingFee + interestCutLimit)
+    // which is the same as P_B >= interestCutLimit if tradingFee is very high.
 
     function testBuyBuyerAssetsInterestCutLimit(uint256 interestCutLimit, uint256 sellerPrice, uint256 buyerAssets)
         public
