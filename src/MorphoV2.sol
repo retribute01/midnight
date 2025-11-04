@@ -48,7 +48,6 @@ contract MorphoV2 is IMorphoV2 {
 
     constructor() {
         owner = msg.sender;
-
         emit EventsLib.Constructor(owner);
     }
 
