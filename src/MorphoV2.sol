@@ -211,7 +211,7 @@ contract MorphoV2 is IMorphoV2 {
             // Lender enters + lender exits.
             sharesOf[buyer][id] += obligationShares;
             sharesOf[seller][id] -= obligationShares;
-        } else if(previousBuyerDebt > 0 && previousSellerShares == 0) {
+        } else if (previousBuyerDebt > 0 && previousSellerShares == 0) {
             // Borrower exits + borrower enters.
             debtOf[buyer][id] -= obligationUnits;
             debtOf[seller][id] += obligationUnits;
@@ -223,7 +223,18 @@ contract MorphoV2 is IMorphoV2 {
             totalUnits[id] -= obligationUnits;
         }
 
-        emit EventsLib.Take(msg.sender, id, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, offer, previousBuyerDebt, previousSellerShares);
+        emit EventsLib.Take(
+            msg.sender,
+            id,
+            buyerAssets,
+            sellerAssets,
+            obligationUnits,
+            obligationShares,
+            taker,
+            offer,
+            previousBuyerDebt,
+            previousSellerShares
+        );
 
         if (buyerCallback != address(0)) {
             ICallbacks(buyerCallback)
