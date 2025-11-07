@@ -24,6 +24,7 @@ contract MorphoV2 is IMorphoV2 {
     mapping(bytes32 => uint256) public totalUnits;
     mapping(bytes32 => uint256) public totalShares;
     mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
+    mapping(bytes32 => bool) obligationCreated;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
     /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
@@ -131,6 +132,11 @@ contract MorphoV2 is IMorphoV2 {
         require(MathLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
         bytes32 id = _id(offer.obligation);
+
+        if (!obligationCreated[id]) {
+            emit EventsLib.NewObligation(id, offer.obligation);
+            obligationCreated[id] = true;
+        }
 
         (
             address buyer,
@@ -306,6 +312,11 @@ contract MorphoV2 is IMorphoV2 {
         external
     {
         bytes32 id = _id(obligation);
+
+        if (!obligationCreated[id]) {
+            emit EventsLib.NewObligation(id, obligation);
+            obligationCreated[id] = true;
+        }
 
         collateralOf[onBehalf][id][collateral] += assets;
 
