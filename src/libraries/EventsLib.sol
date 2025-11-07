@@ -21,8 +21,8 @@ library EventsLib {
         uint256 obligationShares,
         address indexed taker,
         Offer offer,
-        bool buyerEnter,
-        bool sellerEnter
+        bool buyerIsLender,
+        bool sellerIsBorrower
     );
     event Withdraw(
         address indexed caller,
