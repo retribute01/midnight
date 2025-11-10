@@ -24,7 +24,7 @@ contract MorphoV2 is IMorphoV2 {
     mapping(bytes32 => uint256) public totalUnits;
     mapping(bytes32 => uint256) public totalShares;
     mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
-    mapping(bytes32 => bool) obligationCreated;
+    mapping(bytes32 => bool) public obligationCreated;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
     /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
@@ -79,13 +79,14 @@ contract MorphoV2 is IMorphoV2 {
         emit EventsLib.SetFeeSetter(newFeeSetter);
     }
 
-    function setTradingFee(bytes32 id, uint256 tradingFee, uint256 interestCutLimit) external {
+    function setTradingFee(Obligation memory obligation, uint256 tradingFee, uint256 interestCutLimit) external {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(tradingFee <= type(uint128).max, "Trading fee too high");
         require(interestCutLimit < WAD, "Interest cut limit too high");
 
+        bytes32 id = _id(obligation);
         if (!obligationCreated[id]) {
-            emit EventsLib.CreateObligation(id, offer.obligation);
+            emit EventsLib.CreateObligation(id, obligation);
             obligationCreated[id] = true;
         }
 

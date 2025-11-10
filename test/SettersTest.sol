@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 
 import {BaseTest} from "./BaseTest.sol";
 import {WAD} from "../src/libraries/ConstantsLib.sol";
+import {Obligation} from "../src/interfaces/IMorphoV2.sol";
 
 contract SettersTest is BaseTest {
     function testInitialOwner() public view {
@@ -34,32 +35,40 @@ contract SettersTest is BaseTest {
         morphoV2.setFeeSetter(makeAddr("newFeeSetter"));
     }
 
-    function testSetTradingFeeSuccess(bytes32 id, uint128 tradingFee, uint128 interestCutLimit) public {
+    function testSetTradingFeeSuccess(Obligation memory obligation, uint128 tradingFee, uint128 interestCutLimit)
+        public
+    {
         vm.assume(tradingFee <= WAD);
         vm.assume(interestCutLimit < WAD);
-        morphoV2.setTradingFee(id, tradingFee, interestCutLimit);
+
+        bytes32 id = toId(obligation);
+
+        morphoV2.setTradingFee(obligation, tradingFee, interestCutLimit);
         (uint128 _tradingFee, uint128 _interestCutLimit) = morphoV2.tradingFeeParams(id);
         assertEq(_tradingFee, tradingFee);
         assertEq(_interestCutLimit, interestCutLimit);
     }
 
-    function testSetTradingFeeOnlyFeeSetter(address rdm, bytes32 id) public {
+    function testSetTradingFeeOnlyFeeSetter(address rdm, Obligation memory obligation) public {
         vm.assume(rdm != address(this));
         vm.prank(rdm);
+        bytes32 id = toId(obligation);
         vm.expectRevert("Only feeSetter");
-        morphoV2.setTradingFee(id, 0.1e18, 0.1e18);
+        morphoV2.setTradingFee(obligation, 0.1e18, 0.1e18);
     }
 
-    function testSetInterestCutLimitTooHigh(bytes32 id, uint256 interestCutLimit) public {
+    function testSetInterestCutLimitTooHigh(Obligation memory obligation, uint256 interestCutLimit) public {
         vm.assume(interestCutLimit >= WAD);
+        bytes32 id = toId(obligation);
         vm.expectRevert("Interest cut limit too high");
-        morphoV2.setTradingFee(id, 0.1e18, interestCutLimit);
+        morphoV2.setTradingFee(obligation, 0.1e18, interestCutLimit);
     }
 
-    function testSetTradingFeeTooHigh(bytes32 id, uint256 tradingFee) public {
+    function testSetTradingFeeTooHigh(Obligation memory obligation, uint256 tradingFee) public {
         vm.assume(tradingFee > type(uint128).max);
+        bytes32 id = toId(obligation);
         vm.expectRevert("Trading fee too high");
-        morphoV2.setTradingFee(id, tradingFee, 0.1e18);
+        morphoV2.setTradingFee(obligation, tradingFee, 0.1e18);
     }
 
     function testSetTradingFeeRecipientSuccess(address recipient) public {
