@@ -38,10 +38,12 @@ library MathLib {
     }
 
     function wExp(uint256 x) internal pure returns (uint256) {
-        uint256 firstTerm = x;
-        uint256 secondTerm = mulDivDown(firstTerm, firstTerm, 2 * WAD);
-        uint256 thirdTerm = mulDivDown(secondTerm, firstTerm, 3 * WAD);
-
-        return WAD + firstTerm + secondTerm + thirdTerm;
+        uint256 LN2 = 0.69314718056e18;
+        uint256 k = x / LN2;
+        uint256 r = x - k * LN2;
+        uint256 secondTerm = mulDivDown(r, r, 2 * WAD);
+        uint256 thirdTerm = mulDivDown(secondTerm, r, 3 * WAD);
+        uint256 expR = WAD + r + secondTerm + thirdTerm;
+        return expR << k;
     }
 }
