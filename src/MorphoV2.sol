@@ -83,6 +83,12 @@ contract MorphoV2 is IMorphoV2 {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(tradingFee <= type(uint128).max, "Trading fee too high");
         require(interestCutLimit < WAD, "Interest cut limit too high");
+
+        if (!obligationCreated[id]) {
+            emit EventsLib.CreateObligation(id, offer.obligation);
+            obligationCreated[id] = true;
+        }
+
         // Safe cast because values are below type(uint128).max.
         tradingFeeParams[id] =
             TradingFeeParams({tradingFee: uint128(tradingFee), interestCutLimit: uint128(interestCutLimit)});
