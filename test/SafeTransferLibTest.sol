@@ -19,6 +19,32 @@ contract ERC20False {
     function approve(address, uint256) external pure returns (bool res) {}
 }
 
+/// @dev Token reverting with a reason string.
+contract ERC20RevertReason {
+    function transfer(address, uint256) external pure {
+        revert("transfer revert reason");
+    }
+
+    function transferFrom(address, address, uint256) external pure {
+        revert("transferFrom revert reason");
+    }
+
+    function approve(address, uint256) external pure returns (bool res) {}
+}
+
+/// @dev Token reverting without a reason string.
+contract ERC20RevertNoReason {
+    function transfer(address, uint256) external pure {
+        revert();
+    }
+
+    function transferFrom(address, address, uint256) external pure {
+        revert();
+    }
+
+    function approve(address, uint256) external pure returns (bool res) {}
+}
+
 /// @dev Normal token.
 contract ERC20True {
     fallback() external {
@@ -34,11 +60,15 @@ contract SafeTransferLibTest is Test {
     ERC20True public tokenTrue;
     ERC20False public tokenFalse;
     ERC20WithoutBoolean public tokenWithoutBoolean;
+    ERC20RevertReason public tokenRevertReason;
+    ERC20RevertNoReason public tokenRevertNoReason;
 
     function setUp() public {
         tokenTrue = new ERC20True();
         tokenFalse = new ERC20False();
         tokenWithoutBoolean = new ERC20WithoutBoolean();
+        tokenRevertReason = new ERC20RevertReason();
+        tokenRevertNoReason = new ERC20RevertNoReason();
     }
 
     function testSafeTransferNoCode() public {
@@ -47,8 +77,13 @@ contract SafeTransferLibTest is Test {
     }
 
     function testSafeTransferReverted() public {
-        vm.expectRevert("transfer reverted");
-        this.safeTransfer(address(this), address(1), 1);
+        vm.expectRevert(bytes("transfer revert reason"));
+        this.safeTransfer(address(tokenRevertReason), address(1), 1);
+    }
+
+    function testSafeTransferRevertedNoReason() public {
+        vm.expectRevert();
+        this.safeTransfer(address(tokenRevertNoReason), address(1), 1);
     }
 
     function testSafeTransferReturnedFalse() public {
@@ -72,8 +107,13 @@ contract SafeTransferLibTest is Test {
     }
 
     function testSafeTransferFromReverted() public {
-        vm.expectRevert("transferFrom reverted");
-        this.safeTransferFrom(address(this), address(1), address(1), 1);
+        vm.expectRevert(bytes("transferFrom revert reason"));
+        this.safeTransferFrom(address(tokenRevertReason), address(1), address(1), 1);
+    }
+
+    function testSafeTransferFromRevertedNoReason() public {
+        vm.expectRevert();
+        this.safeTransferFrom(address(tokenRevertNoReason), address(1), address(1), 1);
     }
 
     function testSafeTransferFromReturnedFalse() public {
