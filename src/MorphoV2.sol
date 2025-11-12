@@ -17,6 +17,7 @@ import {
     TradingFeeParams
 } from "./interfaces/IMorphoV2.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
+import {EventsLib} from "./libraries/EventsLib.sol";
 
 /// OBLIGATIONS
 /// @dev Obligations' collaterals must be sorted by token address.
@@ -55,6 +56,7 @@ contract MorphoV2 is IMorphoV2 {
 
     constructor() {
         owner = msg.sender;
+        emit EventsLib.Constructor(owner);
     }
 
     /// MULTICALL ///
@@ -75,11 +77,13 @@ contract MorphoV2 is IMorphoV2 {
     function setOwner(address newOwner) external {
         require(msg.sender == owner, "Only owner");
         owner = newOwner;
+        emit EventsLib.SetOwner(newOwner);
     }
 
     function setFeeSetter(address newFeeSetter) external {
         require(msg.sender == owner, "Only owner");
         feeSetter = newFeeSetter;
+        emit EventsLib.SetFeeSetter(newFeeSetter);
     }
 
     function setTradingFee(bytes32 id, uint256 tradingFee, uint256 interestCutLimit) external {
@@ -89,11 +93,13 @@ contract MorphoV2 is IMorphoV2 {
         // Safe cast because values are below type(uint128).max.
         tradingFeeParams[id] =
             TradingFeeParams({tradingFee: uint128(tradingFee), interestCutLimit: uint128(interestCutLimit)});
+        emit EventsLib.SetTradingFee(id, tradingFee, interestCutLimit);
     }
 
     function setTradingFeeRecipient(address recipient) external {
         require(msg.sender == owner, "Only owner");
         tradingFeeRecipient = recipient;
+        emit EventsLib.SetTradingFeeRecipient(recipient);
     }
 
     /// ENTRY-POINTS ///
@@ -199,17 +205,19 @@ contract MorphoV2 is IMorphoV2 {
             require((consumed[offer.maker][offer.group] += obligationShares) <= offer.obligationShares, "consumed");
         }
 
-        if (debtOf[buyer][id] == 0 && sharesOf[seller][id] == 0) {
+        bool buyerIsLender = (debtOf[buyer][id] == 0);
+        bool sellerIsBorrower = (sharesOf[seller][id] == 0);
+        if (buyerIsLender && sellerIsBorrower) {
             // Lender enters + borrower enters.
             sharesOf[buyer][id] += obligationShares;
             debtOf[seller][id] += obligationUnits;
             totalShares[id] += obligationShares;
             totalUnits[id] += obligationUnits;
-        } else if (debtOf[buyer][id] == 0 && sharesOf[seller][id] > 0) {
+        } else if (buyerIsLender && !sellerIsBorrower) {
             // Lender enters + lender exits.
             sharesOf[buyer][id] += obligationShares;
             sharesOf[seller][id] -= obligationShares;
-        } else if (debtOf[buyer][id] > 0 && sharesOf[seller][id] == 0) {
+        } else if (!buyerIsLender && sellerIsBorrower) {
             // Borrower exits + borrower enters.
             debtOf[buyer][id] -= obligationUnits;
             debtOf[seller][id] += obligationUnits;
@@ -220,6 +228,18 @@ contract MorphoV2 is IMorphoV2 {
             totalShares[id] -= obligationShares;
             totalUnits[id] -= obligationUnits;
         }
+
+        emit EventsLib.Take(
+            msg.sender,
+            id,
+            buyerAssets,
+            sellerAssets,
+            obligationUnits,
+            obligationShares,
+            taker,
+            buyerIsLender,
+            sellerIsBorrower
+        );
 
         if (buyerCallback != address(0)) {
             ICallbacks(buyerCallback)
@@ -274,6 +294,8 @@ contract MorphoV2 is IMorphoV2 {
         totalShares[id] -= shares;
         totalUnits[id] -= obligationUnits;
 
+        emit EventsLib.Withdraw(msg.sender, id, obligationUnits, shares, onBehalf);
+
         SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, obligationUnits);
 
         return (obligationUnits, shares);
@@ -285,22 +307,33 @@ contract MorphoV2 is IMorphoV2 {
         debtOf[onBehalf][id] -= obligationUnits;
         withdrawable[id] += obligationUnits;
 
+        emit EventsLib.Repay(msg.sender, id, obligationUnits, onBehalf);
+
         SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), obligationUnits);
     }
 
     function supplyCollateral(Obligation memory obligation, address collateral, uint256 assets, address onBehalf)
         external
     {
-        collateralOf[onBehalf][toId(obligation)][collateral] += assets;
+        bytes32 id = toId(obligation);
+
+        collateralOf[onBehalf][id][collateral] += assets;
+
+        emit EventsLib.SupplyCollateral(msg.sender, id, collateral, assets, onBehalf);
+
         SafeTransferLib.safeTransferFrom(collateral, msg.sender, address(this), assets);
     }
 
     function withdrawCollateral(Obligation memory obligation, address collateral, uint256 assets, address onBehalf)
         external
     {
-        collateralOf[onBehalf][toId(obligation)][collateral] -= assets;
+        bytes32 id = toId(obligation);
+
+        collateralOf[onBehalf][id][collateral] -= assets;
 
         require(isHealthy(obligation, onBehalf), "Unhealthy borrower");
+
+        emit EventsLib.WithdrawCollateral(msg.sender, id, collateral, assets, onBehalf);
 
         SafeTransferLib.safeTransfer(collateral, msg.sender, assets);
     }
@@ -368,6 +401,8 @@ contract MorphoV2 is IMorphoV2 {
         withdrawable[id] += totalRepaid;
         debtOf[borrower][id] -= totalRepaid;
 
+        emit EventsLib.Liquidate(msg.sender, id, seizures, borrower, totalRepaid, badDebt);
+
         for (uint256 i = 0; i < seizures.length; i++) {
             Seizure memory seizure = seizures[i];
             SafeTransferLib.safeTransfer(
@@ -384,19 +419,26 @@ contract MorphoV2 is IMorphoV2 {
 
     function consume(bytes32 group, uint256 amount) external {
         consumed[msg.sender][group] += amount;
+
+        emit EventsLib.Consume(msg.sender, group, amount);
     }
 
     /// @dev TODO: is it safe enough?
     function shuffleSession() external {
-        session[msg.sender] = keccak256(abi.encode(session[msg.sender], blockhash(block.number - 1)));
+        bytes32 newSession = keccak256(abi.encode(session[msg.sender], blockhash(block.number - 1)));
+        session[msg.sender] = newSession;
+
+        emit EventsLib.ShuffleSession(msg.sender, newSession);
     }
 
-    function flashLoan(address token, uint256 amount, address callback, bytes calldata data) external {
-        SafeTransferLib.safeTransfer(token, msg.sender, amount);
+    function flashLoan(address token, uint256 assets, address callback, bytes calldata data) external {
+        emit EventsLib.FlashLoan(msg.sender, token, assets);
 
-        IFlashLoanCallback(callback).onFlashLoan(token, amount, data);
+        SafeTransferLib.safeTransfer(token, msg.sender, assets);
 
-        SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), amount);
+        IFlashLoanCallback(callback).onFlashLoan(token, assets, data);
+
+        SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), assets);
     }
 
     /// VIEW ///
