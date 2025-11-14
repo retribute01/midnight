@@ -176,20 +176,21 @@ contract MorphoV2 is IMorphoV2 {
             );
         }
 
+        bool roundDownShares = debtOf[buyer][id] == 0 && sharesOf[seller][id] == 0;
         if (buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
             sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
-            obligationShares = obligationUnits.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
+            obligationShares = obligationUnits.mulDiv(totalShares[id] + 1, totalUnits[id] + 1, roundDownShares);
         } else if (sellerAssets > 0) {
             obligationUnits = sellerAssets.mulDivDown(WAD, sellerPrice);
             buyerAssets = sellerAssets.mulDivDown(buyerPrice, sellerPrice);
-            obligationShares = obligationUnits.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
+            obligationShares = obligationUnits.mulDiv(totalShares[id] + 1, totalUnits[id] + 1, roundDownShares);
         } else if (obligationUnits > 0) {
             buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
             sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
-            obligationShares = obligationUnits.mulDivDown(totalShares[id] + 1, totalUnits[id] + 1);
+            obligationShares = obligationUnits.mulDiv(totalShares[id] + 1, totalUnits[id] + 1, roundDownShares);
         } else {
-            obligationUnits = obligationShares.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
+            obligationUnits = obligationShares.mulDiv(totalUnits[id] + 1, totalShares[id] + 1, !roundDownShares);
             buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
             sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
         }
@@ -229,17 +230,17 @@ contract MorphoV2 is IMorphoV2 {
             totalUnits[id] -= obligationUnits;
         }
 
-        emit EventsLib.Take(
-            msg.sender,
-            id,
-            buyerAssets,
-            sellerAssets,
-            obligationUnits,
-            obligationShares,
-            taker,
-            buyerIsLender,
-            sellerIsBorrower
-        );
+        // emit EventsLib.Take(
+        //     msg.sender,
+        //     id,
+        //     buyerAssets,
+        //     sellerAssets,
+        //     obligationUnits,
+        //     obligationShares,
+        //     taker,
+        //     buyerIsLender,
+        //     sellerIsBorrower
+        // );
 
         if (buyerCallback != address(0)) {
             ICallbacks(buyerCallback)
