@@ -185,7 +185,7 @@ abstract contract BaseTest is Test {
     }
 
     function sig(bytes32 _root, uint256 _privateKey) internal view returns (Signature memory) {
-        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, _root, block.chainid, address(morphoV2)));
+        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, _root));
         bytes32 messageHash = keccak256(bytes.concat("\x19\x01", domainSeparator(), structHash));
         Signature memory signature;
         (signature.v, signature.r, signature.s) = vm.sign(_privateKey, messageHash);

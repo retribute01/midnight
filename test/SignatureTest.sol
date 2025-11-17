@@ -10,7 +10,7 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 contract SignatureTest is Test, MorphoV2 {
     function testSigner(bytes32 root, uint256 privateKey) public view {
         privateKey = boundPrivateKey(privateKey);
-        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, root, block.chainid, address(this)));
+        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, root));
         bytes32 digest = keccak256(bytes.concat("\x19\x01", _domainSeparator(), structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         assertEq(_signer(root, Signature({v: v, r: r, s: s})), vm.addr(privateKey));
