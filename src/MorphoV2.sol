@@ -26,12 +26,13 @@ contract MorphoV2 is IMorphoV2 {
 
     /// STORAGE ///
 
-    mapping(address => mapping(bytes32 => uint256)) public sharesOf;
-    mapping(address => mapping(bytes32 => uint256)) public debtOf;
-    mapping(bytes32 => uint256) public withdrawable;
-    mapping(bytes32 => uint256) public totalUnits;
-    mapping(bytes32 => uint256) public totalShares;
-    mapping(address => mapping(bytes32 => mapping(address => uint256))) public collateralOf;
+    mapping(address user => mapping(bytes32 obligationId => uint256)) public sharesOf;
+    mapping(address user => mapping(bytes32 obligationId => uint256)) public debtOf;
+    mapping(bytes32 obligationId => uint256) public withdrawable;
+    mapping(bytes32 obligationId => uint256) public totalUnits;
+    mapping(bytes32 obligationId => uint256) public totalShares;
+    mapping(address user => mapping(bytes32 obligationId => mapping(address collateralToken => uint256))) public
+        collateralOf;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
     /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
