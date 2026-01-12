@@ -7,14 +7,7 @@ import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, TIME_TO_MAX_LIF} from "./libraries/ConstantsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
-import {
-    IMorphoV2,
-    Obligation,
-    Offer,
-    Signature,
-    Collateral,
-    Seizure
-} from "./interfaces/IMorphoV2.sol";
+import {IMorphoV2, Obligation, Offer, Signature, Collateral, Seizure} from "./interfaces/IMorphoV2.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
