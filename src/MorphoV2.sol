@@ -52,26 +52,16 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev Address that can set trading fees.
     address public feeSetter;
 
+    function tradingFeeIndex(uint256 ttm) public pure returns (uint256) {
+        return ttm == 0 ? 0 : ttm < 1 days ? 1 : ttm < 7 days ? 2 : ttm < 30 days ? 3 : ttm < 90 days ? 4 : 5;
+    }
+
     function obligationTradingFee(bytes32 id, uint256 ttm) public view returns (uint256) {
-        return uint256(
-            uint32(
-            _obligationTradingFee[id]
-                >> (ttm == 0
-                        ? 0
-                        : ttm < 1 days ? 32 : ttm < 7 days ? 64 : ttm < 30 days ? 96 : ttm < 90 days ? 128 : 160)
-        )
-        ) * 1e9;
+        return uint256(uint32(_obligationTradingFee[id] >> (tradingFeeIndex(ttm) * 32))) * 1e9;
     }
 
     function defaultTradingFee(address loanToken, uint256 ttm) public view returns (uint256) {
-        return uint256(
-            uint32(
-            _defaultTradingFee[loanToken]
-                >> (ttm == 0
-                        ? 0
-                        : ttm < 1 days ? 32 : ttm < 7 days ? 64 : ttm < 30 days ? 96 : ttm < 90 days ? 128 : 160)
-        )
-        ) * 1e9;
+        return uint256(uint32(_defaultTradingFee[loanToken] >> (tradingFeeIndex(ttm) * 32))) * 1e9;
     }
 
     /// CONSTRUCTOR ///
