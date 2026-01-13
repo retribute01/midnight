@@ -23,4 +23,8 @@ contract UtilsLibTest is Test {
     function testZeroFloorSub(uint256 x, uint256 y) public pure {
         assertEq(UtilsLib.zeroFloorSub(x, y), x > y ? x - y : 0);
     }
+
+    function testShift(uint256 x) public pure {
+        assertEq(x ^ uint32(x), x >> 32 << 32);
+    }
 }

@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 
 import {UtilsLib} from "./libraries/UtilsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
-import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, TIME_TO_MAX_LIF, FEE_PRECISION} from "./libraries/ConstantsLib.sol";
+import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, TIME_TO_MAX_LIF} from "./libraries/ConstantsLib.sol";
 import {MathLib} from "./libraries/MathLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
 import {IMorphoV2, Obligation, Offer, Signature, Collateral, Seizure} from "./interfaces/IMorphoV2.sol";
@@ -35,9 +35,15 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev The session can be shuffled by the user to cancel all current offers easily and efficiently.
     mapping(address user => bytes32) public session;
 
-    /// @dev Trading fees for a given obligation id.
+    /// @dev Obligation trading fees for a given obligation id.
     /// @dev The slot contains the 5 trading fees packed (each takes 32 bits).
-    mapping(bytes32 id => uint256) private _tradingFee;
+    mapping(bytes32 id => uint256) private _obligationTradingFee;
+
+    /// @dev Default trading fees per loan token.
+    /// @dev The slot contains the 5 trading fees packed (each takes 32 bits).
+    /// @dev Used when obligation fee is not set (slot is empty).
+    mapping(address loanToken => uint256) private _defaultTradingFee;
+
     address public tradingFeeRecipient;
 
     /// @dev Contract owner for administrative functions.
@@ -46,10 +52,22 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev Address that can set trading fees.
     address public feeSetter;
 
-    function tradingFee(bytes32 id, uint256 ttm) public view returns (uint256) {
-        return uint32(
-            _tradingFee[id] >> (ttm < 1 days ? 0 : ttm < 7 days ? 32 : ttm < 30 days ? 64 : ttm < 90 days ? 96 : 128)
-        );
+    function obligationTradingFee(bytes32 id, uint256 ttm) public view returns (uint256) {
+        return uint256(
+            uint32(
+            _obligationTradingFee[id]
+                >> (ttm < 1 days ? 0 : ttm < 7 days ? 32 : ttm < 30 days ? 64 : ttm < 90 days ? 96 : 128)
+        )
+        ) * 1e9;
+    }
+
+    function defaultTradingFee(address loanToken, uint256 ttm) public view returns (uint256) {
+        return uint256(
+            uint32(
+            _defaultTradingFee[loanToken]
+                >> (ttm < 1 days ? 0 : ttm < 7 days ? 32 : ttm < 30 days ? 64 : ttm < 90 days ? 96 : 128)
+        )
+        ) * 1e9;
     }
 
     /// CONSTRUCTOR ///
@@ -86,7 +104,7 @@ contract MorphoV2 is IMorphoV2 {
         emit EventsLib.SetFeeSetter(newFeeSetter);
     }
 
-    function setTradingFee(
+    function setObligationTradingFee(
         bytes32 id,
         uint256 zeroDaysTradingFee,
         uint256 oneDaysTradingFee,
@@ -95,15 +113,41 @@ contract MorphoV2 is IMorphoV2 {
         uint256 ninetyDaysTradingFee
     ) external {
         require(msg.sender == feeSetter, "Only feeSetter");
-        require(zeroDaysTradingFee <= FEE_PRECISION, "0days trading fee too high");
-        require(oneDaysTradingFee <= FEE_PRECISION, "1days trading fee too high");
-        require(sevenDaysTradingFee <= FEE_PRECISION, "7days trading fee too high");
-        require(thirtyDaysTradingFee <= FEE_PRECISION, "30days trading fee too high");
-        require(ninetyDaysTradingFee <= FEE_PRECISION, "90days trading fee too high");
-        _tradingFee[id] = zeroDaysTradingFee << 0 | oneDaysTradingFee << 32 | sevenDaysTradingFee << 64
-            | thirtyDaysTradingFee << 96 | ninetyDaysTradingFee << 128;
-        emit EventsLib.SetTradingFee(
+        require(zeroDaysTradingFee <= WAD, "0days trading fee too high");
+        require(oneDaysTradingFee <= WAD, "1days trading fee too high");
+        require(sevenDaysTradingFee <= WAD, "7days trading fee too high");
+        require(thirtyDaysTradingFee <= WAD, "30days trading fee too high");
+        require(ninetyDaysTradingFee <= WAD, "90days trading fee too high");
+        _obligationTradingFee[id] = zeroDaysTradingFee / 1e9 | oneDaysTradingFee / 1e9 << 32 | sevenDaysTradingFee / 1e9
+            << 64 | thirtyDaysTradingFee / 1e9 << 96 | ninetyDaysTradingFee / 1e9 << 128;
+        emit EventsLib.SetObligationTradingFee(
             id, zeroDaysTradingFee, oneDaysTradingFee, sevenDaysTradingFee, thirtyDaysTradingFee, ninetyDaysTradingFee
+        );
+    }
+
+    function setDefaultTradingFee(
+        address loanToken,
+        uint256 zeroDaysTradingFee,
+        uint256 oneDaysTradingFee,
+        uint256 sevenDaysTradingFee,
+        uint256 thirtyDaysTradingFee,
+        uint256 ninetyDaysTradingFee
+    ) external {
+        require(msg.sender == feeSetter, "Only feeSetter");
+        require(zeroDaysTradingFee <= WAD, "0days trading fee too high");
+        require(oneDaysTradingFee <= WAD, "1days trading fee too high");
+        require(sevenDaysTradingFee <= WAD, "7days trading fee too high");
+        require(thirtyDaysTradingFee <= WAD, "30days trading fee too high");
+        require(ninetyDaysTradingFee <= WAD, "90days trading fee too high");
+        _defaultTradingFee[loanToken] = zeroDaysTradingFee / 1e9 | oneDaysTradingFee / 1e9 << 32
+            | sevenDaysTradingFee / 1e9 << 64 | thirtyDaysTradingFee / 1e9 << 96 | ninetyDaysTradingFee / 1e9 << 128;
+        emit EventsLib.SetDefaultTradingFee(
+            loanToken,
+            zeroDaysTradingFee,
+            oneDaysTradingFee,
+            sevenDaysTradingFee,
+            thirtyDaysTradingFee,
+            ninetyDaysTradingFee
         );
     }
 
@@ -169,9 +213,9 @@ contract MorphoV2 is IMorphoV2 {
         require(offerPrice <= WAD, "price too high");
 
         uint256 ttm = UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp);
-        uint256 obligationTradingFee = tradingFee(id, ttm);
-        uint256 buyerPrice = offer.buy ? offerPrice : offerPrice + obligationTradingFee;
-        uint256 sellerPrice = buyerPrice - obligationTradingFee;
+        uint256 tradingFee = obligationTradingFee(id, ttm);
+        uint256 buyerPrice = offer.buy ? offerPrice : offerPrice + tradingFee;
+        uint256 sellerPrice = buyerPrice - tradingFee;
 
         if (buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
