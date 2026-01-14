@@ -37,12 +37,12 @@ contract MorphoV2 is IMorphoV2 {
 
     /// @dev Obligation trading fees for a given obligation id.
     /// @dev The slot contains the 6 trading fees packed (each takes 32 bits).
-    mapping(bytes32 obligationId => uint256) private _obligationTradingFee;
+    mapping(bytes32 obligationId => uint256) internal _obligationTradingFee;
 
     /// @dev Default trading fees per loan token.
     /// @dev The slot contains the 6 trading fees packed (each takes 32 bits).
     /// @dev Used when obligation fee is not set (slot is empty).
-    mapping(address loanToken => uint256) private _defaultTradingFee;
+    mapping(address loanToken => uint256) internal _defaultTradingFee;
 
     address public tradingFeeRecipient;
 
@@ -106,7 +106,7 @@ contract MorphoV2 is IMorphoV2 {
         require(index <= 8, "Invalid index");
         require(newTradingFee % 1e12 == 0, "fee should be a multiple of 1e12");
         _obligationTradingFee[id] =
-            _obligationTradingFee[id] & ~(0xFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
+            _obligationTradingFee[id] & ~(0xFFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
         emit EventsLib.SetObligationTradingFee(id, index, newTradingFee);
     }
 
@@ -116,7 +116,7 @@ contract MorphoV2 is IMorphoV2 {
         require(index <= 8, "Invalid index");
         require(newTradingFee % 1e12 == 0, "fee should be a multiple of 1e12");
         _defaultTradingFee[loanToken] =
-            _defaultTradingFee[loanToken] & ~(0xFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
+            _defaultTradingFee[loanToken] & ~(0xFFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
         emit EventsLib.SetDefaultTradingFee(loanToken, index, newTradingFee);
     }
 
