@@ -36,4 +36,10 @@ library UtilsLib {
             z := mul(gt(x, y), sub(x, y))
         }
     }
+
+    function log2(uint256 x) internal pure returns (uint256 z) {
+        assembly {
+            z := sub(256, clz(x))
+        }
+    }
 }

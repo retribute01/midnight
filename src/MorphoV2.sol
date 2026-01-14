@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Copyright (c) 2025 Morpho Association
-pragma solidity 0.8.28;
+pragma solidity 0.8.31;
 
 import {UtilsLib} from "./libraries/UtilsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
@@ -37,12 +37,12 @@ contract MorphoV2 is IMorphoV2 {
 
     /// @dev Obligation trading fees for a given obligation id.
     /// @dev The slot contains the 6 trading fees packed (each takes 32 bits).
-    mapping(bytes32 obligationId => uint256) private _obligationTradingFee;
+    mapping(bytes32 obligationId => uint256) internal _obligationTradingFee;
 
     /// @dev Default trading fees per loan token.
     /// @dev The slot contains the 6 trading fees packed (each takes 32 bits).
     /// @dev Used when obligation fee is not set (slot is empty).
-    mapping(address loanToken => uint256) private _defaultTradingFee;
+    mapping(address loanToken => uint256) internal _defaultTradingFee;
 
     address public tradingFeeRecipient;
 
@@ -55,15 +55,15 @@ contract MorphoV2 is IMorphoV2 {
     /// GETTERS ///
 
     function tradingFeeIndex(uint256 ttm) public pure returns (uint256) {
-        return ttm == 0 ? 0 : ttm < 1 days ? 1 : ttm < 7 days ? 2 : ttm < 30 days ? 3 : ttm < 90 days ? 4 : 5;
+        return ttm == 0 ? 0 : UtilsLib.min(8, UtilsLib.log2(ttm / 1 days) + 1);
     }
 
     function obligationTradingFee(bytes32 id, uint256 ttm) public view returns (uint256) {
-        return uint256(uint32(_obligationTradingFee[id] >> (tradingFeeIndex(ttm) * 32))) * 1e9;
+        return uint256(uint24(_obligationTradingFee[id] >> (tradingFeeIndex(ttm) * 24))) * 1e12;
     }
 
     function defaultTradingFee(address loanToken, uint256 ttm) public view returns (uint256) {
-        return uint256(uint32(_defaultTradingFee[loanToken] >> (tradingFeeIndex(ttm) * 32))) * 1e9;
+        return uint256(uint24(_defaultTradingFee[loanToken] >> (tradingFeeIndex(ttm) * 24))) * 1e12;
     }
 
     /// CONSTRUCTOR ///
@@ -100,23 +100,23 @@ contract MorphoV2 is IMorphoV2 {
         emit EventsLib.SetFeeSetter(newFeeSetter);
     }
 
-    /// @dev Trading fees are truncated to the nearest 1e9.
     function setObligationTradingFee(bytes32 id, uint256 index, uint256 newTradingFee) external {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(newTradingFee <= WAD, "Trading fee too high");
-        require(index < 6, "Invalid index");
+        require(index <= 8, "Invalid index");
+        require(newTradingFee % 1e12 == 0, "fee should be a multiple of 1e12");
         _obligationTradingFee[id] =
-            _obligationTradingFee[id] & ~(0xFFFFFFFF << (index * 32)) | (newTradingFee / 1e9 << (index * 32));
+            _obligationTradingFee[id] & ~(0xFFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
         emit EventsLib.SetObligationTradingFee(id, index, newTradingFee);
     }
 
-    /// @dev Trading fees are truncated to the nearest 1e9.
     function setDefaultTradingFee(address loanToken, uint256 index, uint256 newTradingFee) external {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(newTradingFee <= WAD, "Trading fee too high");
-        require(index < 6, "Invalid index");
+        require(index <= 8, "Invalid index");
+        require(newTradingFee % 1e12 == 0, "fee should be a multiple of 1e12");
         _defaultTradingFee[loanToken] =
-            _defaultTradingFee[loanToken] & ~(0xFFFFFFFF << (index * 32)) | (newTradingFee / 1e9 << (index * 32));
+            _defaultTradingFee[loanToken] & ~(0xFFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
         emit EventsLib.SetDefaultTradingFee(loanToken, index, newTradingFee);
     }
 
