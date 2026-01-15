@@ -50,12 +50,12 @@ contract SettersTest is BaseTest {
         ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, WAD) / 1e12 * 1e12;
         oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, WAD) / 1e12 * 1e12;
 
-        morphoV2.setObligationTradingFee(id, 0, zeroSecondsFee);
-        morphoV2.setObligationTradingFee(id, 1, oneDayFee);
-        morphoV2.setObligationTradingFee(id, 2, sevenDaysFee);
-        morphoV2.setObligationTradingFee(id, 3, thirtyDaysFee);
-        morphoV2.setObligationTradingFee(id, 4, ninetyDaysFee);
-        morphoV2.setObligationTradingFee(id, 5, oneEightyDaysFee);
+        morphoV2.setObligationTradingFee(id, 0, zeroSecondsFee, true);
+        morphoV2.setObligationTradingFee(id, 1, oneDayFee, true);
+        morphoV2.setObligationTradingFee(id, 2, sevenDaysFee, true);
+        morphoV2.setObligationTradingFee(id, 3, thirtyDaysFee, true);
+        morphoV2.setObligationTradingFee(id, 4, ninetyDaysFee, true);
+        morphoV2.setObligationTradingFee(id, 5, oneEightyDaysFee, true);
 
         assertEq(morphoV2.tradingFee(id, address(loanToken), 0), zeroSecondsFee, "zero days trading fee");
         assertEq(morphoV2.tradingFee(id, address(loanToken), 1 days), oneDayFee, "one day trading fee");
@@ -75,13 +75,13 @@ contract SettersTest is BaseTest {
         vm.assume(rdm != address(this));
         vm.prank(rdm);
         vm.expectRevert("Only feeSetter");
-        morphoV2.setObligationTradingFee(id, 0, 0);
+        morphoV2.setObligationTradingFee(id, 0, 0, true);
     }
 
     function testSetTradingFeeZeroDaysTooHigh(bytes32 id, uint256 tradingFeeTooHigh) public {
         tradingFeeTooHigh = bound(tradingFeeTooHigh, WAD + 1, 2 * WAD);
         vm.expectRevert("Trading fee too high");
-        morphoV2.setObligationTradingFee(id, 0, tradingFeeTooHigh);
+        morphoV2.setObligationTradingFee(id, 0, tradingFeeTooHigh, true);
     }
 
     function testSetTradingFeeRecipientSuccess(address recipient) public {
@@ -123,12 +123,12 @@ contract SettersTest is BaseTest {
         ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, WAD) / 1e12 * 1e12;
         oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, WAD) / 1e12 * 1e12;
 
-        morphoV2.setDefaultTradingFee(loanToken, 0, postMaturityFee);
-        morphoV2.setDefaultTradingFee(loanToken, 1, oneDayFee);
-        morphoV2.setDefaultTradingFee(loanToken, 2, sevenDaysFee);
-        morphoV2.setDefaultTradingFee(loanToken, 3, thirtyDaysFee);
-        morphoV2.setDefaultTradingFee(loanToken, 4, ninetyDaysFee);
-        morphoV2.setDefaultTradingFee(loanToken, 5, oneEightyDaysFee);
+        morphoV2.setDefaultTradingFee(loanToken, 0, postMaturityFee, true);
+        morphoV2.setDefaultTradingFee(loanToken, 1, oneDayFee, true);
+        morphoV2.setDefaultTradingFee(loanToken, 2, sevenDaysFee, true);
+        morphoV2.setDefaultTradingFee(loanToken, 3, thirtyDaysFee, true);
+        morphoV2.setDefaultTradingFee(loanToken, 4, ninetyDaysFee, true);
+        morphoV2.setDefaultTradingFee(loanToken, 5, oneEightyDaysFee, true);
 
         assertEq(morphoV2.tradingFee(bytes32(0), loanToken, 0), postMaturityFee, "0 days default fee");
         assertEq(morphoV2.tradingFee(bytes32(0), loanToken, 1 days), oneDayFee, "1 day default fee");
@@ -144,24 +144,24 @@ contract SettersTest is BaseTest {
         vm.assume(rdm != address(this));
         vm.prank(rdm);
         vm.expectRevert("Only feeSetter");
-        morphoV2.setDefaultTradingFee(loanToken, 0, 0);
+        morphoV2.setDefaultTradingFee(loanToken, 0, 0, true);
     }
 
     function testSetDefaultTradingFeeValidation(address loanToken, uint256 feeTooHigh) public {
         feeTooHigh = bound(feeTooHigh, WAD + 1, 2 * WAD);
         vm.expectRevert("Trading fee too high");
-        morphoV2.setDefaultTradingFee(loanToken, 0, feeTooHigh);
+        morphoV2.setDefaultTradingFee(loanToken, 0, feeTooHigh, true);
     }
 
     function testDefaultTradingFeeTTMBuckets() public {
         address loanToken = makeAddr("loanToken");
 
-        morphoV2.setDefaultTradingFee(loanToken, 0, 0.001e18);
-        morphoV2.setDefaultTradingFee(loanToken, 1, 0.002e18);
-        morphoV2.setDefaultTradingFee(loanToken, 2, 0.004e18);
-        morphoV2.setDefaultTradingFee(loanToken, 3, 0.008e18);
-        morphoV2.setDefaultTradingFee(loanToken, 4, 0.012e18);
-        morphoV2.setDefaultTradingFee(loanToken, 5, 0.015e18);
+        morphoV2.setDefaultTradingFee(loanToken, 0, 0.001e18, true);
+        morphoV2.setDefaultTradingFee(loanToken, 1, 0.002e18, true);
+        morphoV2.setDefaultTradingFee(loanToken, 2, 0.004e18, true);
+        morphoV2.setDefaultTradingFee(loanToken, 3, 0.008e18, true);
+        morphoV2.setDefaultTradingFee(loanToken, 4, 0.012e18, true);
+        morphoV2.setDefaultTradingFee(loanToken, 5, 0.015e18, true);
 
         // Test breakpoint 0: 0 days (post maturity)
         assertEq(morphoV2.tradingFee(bytes32(0), loanToken, 0), 0.001e18, "0 days");
@@ -190,12 +190,12 @@ contract SettersTest is BaseTest {
         bytes32 id = keccak256("test");
 
         // Set fees at breakpoints: increasing curve
-        morphoV2.setObligationTradingFee(id, 0, 0.01e18); // 0d: 1%
-        morphoV2.setObligationTradingFee(id, 1, 0.02e18); // 1d: 2%
-        morphoV2.setObligationTradingFee(id, 2, 0.04e18); // 7d: 4%
-        morphoV2.setObligationTradingFee(id, 3, 0.08e18); // 30d: 8%
-        morphoV2.setObligationTradingFee(id, 4, 0.12e18); // 90d: 12%
-        morphoV2.setObligationTradingFee(id, 5, 0.15e18); // 180d: 15%
+        morphoV2.setObligationTradingFee(id, 0, 0.01e18, true); // 0d: 1%
+        morphoV2.setObligationTradingFee(id, 1, 0.02e18, true); // 1d: 2%
+        morphoV2.setObligationTradingFee(id, 2, 0.04e18, true); // 7d: 4%
+        morphoV2.setObligationTradingFee(id, 3, 0.08e18, true); // 30d: 8%
+        morphoV2.setObligationTradingFee(id, 4, 0.12e18, true); // 90d: 12%
+        morphoV2.setObligationTradingFee(id, 5, 0.15e18, true); // 180d: 15%
 
         // Test exact breakpoints
         assertEq(morphoV2.tradingFee(id, address(0), 0), 0.01e18, "0 days");
@@ -215,5 +215,43 @@ contract SettersTest is BaseTest {
         // Test beyond 180 days
         assertEq(morphoV2.tradingFee(id, address(0), 365 days), 0.15e18, "365 days");
         assertEq(morphoV2.tradingFee(id, address(0), 1000 days), 0.15e18, "1000 days");
+    }
+
+    function testActivatedFlag() public {
+        bytes32 id = keccak256("test");
+        address token = makeAddr("token");
+
+        // Set fee with activated = false, should return 0
+        morphoV2.setObligationTradingFee(id, 1, 0.05e18, false);
+        assertEq(morphoV2.tradingFee(id, token, 1 days), 0, "deactivated fee should be 0");
+
+        // Activate the fee, should return the fee value
+        morphoV2.setObligationTradingFee(id, 1, 0.05e18, true);
+        assertEq(morphoV2.tradingFee(id, token, 1 days), 0.05e18, "activated fee should return value");
+
+        // Deactivate, should return 0 again
+        morphoV2.setObligationTradingFee(id, 1, 0.05e18, false);
+        assertEq(morphoV2.tradingFee(id, token, 1 days), 0, "deactivated fee should be 0 again");
+    }
+
+    function testActivatedFlagFallbackToDefault() public {
+        bytes32 id = keccak256("test");
+        address token = makeAddr("token");
+
+        // Set default fee as activated
+        morphoV2.setDefaultTradingFee(token, 1, 0.02e18, true);
+
+        // Obligation fee not activated, should fall back to default
+        morphoV2.setObligationTradingFee(id, 1, 0.05e18, false);
+        assertEq(morphoV2.tradingFee(id, token, 1 days), 0.02e18, "should fall back to default fee");
+
+        // Activate obligation fee, should use obligation fee
+        morphoV2.setObligationTradingFee(id, 1, 0.05e18, true);
+        assertEq(morphoV2.tradingFee(id, token, 1 days), 0.05e18, "should use obligation fee");
+
+        // Deactivate default fee too
+        morphoV2.setDefaultTradingFee(token, 1, 0.02e18, false);
+        morphoV2.setObligationTradingFee(id, 1, 0.05e18, false);
+        assertEq(morphoV2.tradingFee(id, token, 1 days), 0, "both deactivated should return 0");
     }
 }

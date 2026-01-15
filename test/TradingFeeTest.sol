@@ -57,7 +57,7 @@ contract TradingFeeTest is BaseTest {
         buyerAssets = bound(buyerAssets, 0, MAX_TEST_AMOUNT);
         sellerPrice = bound(sellerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 1 ether - sellerPrice) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
 
@@ -75,7 +75,7 @@ contract TradingFeeTest is BaseTest {
         buyerAssets = bound(buyerAssets, 0, MAX_TEST_AMOUNT);
         buyerPrice = bound(buyerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, buyerPrice) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         lenderOffer.startPrice = buyerPrice;
         lenderOffer.expiryPrice = buyerPrice;
 
@@ -95,7 +95,7 @@ contract TradingFeeTest is BaseTest {
         sellerAssets = bound(sellerAssets, 0, MAX_TEST_AMOUNT);
         sellerPrice = bound(sellerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 1 ether - sellerPrice) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
 
@@ -113,7 +113,7 @@ contract TradingFeeTest is BaseTest {
         sellerAssets = bound(sellerAssets, 0, MAX_TEST_AMOUNT);
         buyerPrice = bound(buyerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 0.05 ether) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         lenderOffer.startPrice = buyerPrice;
         lenderOffer.expiryPrice = buyerPrice;
 
@@ -131,7 +131,7 @@ contract TradingFeeTest is BaseTest {
         obligationUnits = bound(obligationUnits, 0, MAX_TEST_AMOUNT);
         sellerPrice = bound(sellerPrice, 0.01 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 1 ether - sellerPrice) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
 
@@ -150,7 +150,7 @@ contract TradingFeeTest is BaseTest {
         obligationUnits = bound(obligationUnits, 0, MAX_TEST_AMOUNT);
         buyerPrice = bound(buyerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 0.5 ether) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         lenderOffer.startPrice = buyerPrice;
         lenderOffer.expiryPrice = buyerPrice;
 
@@ -169,7 +169,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_TEST_AMOUNT);
         sellerPrice = bound(sellerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 1 ether - sellerPrice) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
 
@@ -188,7 +188,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_TEST_AMOUNT);
         buyerPrice = bound(buyerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 0.05 ether) / 1e12 * 1e12;
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         lenderOffer.startPrice = buyerPrice;
         lenderOffer.expiryPrice = buyerPrice;
 
@@ -207,7 +207,7 @@ contract TradingFeeTest is BaseTest {
         buyerAssets = bound(buyerAssets, 0, MAX_TEST_AMOUNT);
         sellerPrice = bound(sellerPrice, 0.5 ether, 1 ether);
         tradingFee = bound(tradingFee, 0, 1 ether - sellerPrice) / 1e12 * 1e12;
-        morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
+        morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee, true);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
 
@@ -233,8 +233,8 @@ contract TradingFeeTest is BaseTest {
         borrowerOffer.obligation = obligation;
 
         // Set fees at breakpoints for linear interpolation (3 days is between 1 and 7 days)
-        morphoV2.setObligationTradingFee(id, 1, fee1Day);
-        morphoV2.setObligationTradingFee(id, 2, fee7Days);
+        morphoV2.setObligationTradingFee(id, 1, fee1Day, true);
+        morphoV2.setObligationTradingFee(id, 2, fee7Days, true);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
 
@@ -255,7 +255,7 @@ contract TradingFeeTest is BaseTest {
         uint256 tradingFee = 0.6 ether;
         uint256 sellerPrice = 0.5 ether;
 
-        morphoV2.setObligationTradingFee(id, 1, tradingFee);
+        morphoV2.setObligationTradingFee(id, 1, tradingFee, true);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
 

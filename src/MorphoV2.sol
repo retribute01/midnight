@@ -36,14 +36,13 @@ contract MorphoV2 is IMorphoV2 {
     mapping(address user => bytes32) public session;
 
     /// @dev Obligation trading fees for a given obligation id.
-    /// @dev The slot contains 6 trading fees packed (24 bits each).
+    /// @dev Bit 0: activated flag. Bits 1-144: 6 trading fees packed (24 bits each).
     /// @dev Fee indices: 0=0d, 1=1d, 2=7d, 3=30d, 4=90d, 5=180d.
     mapping(bytes32 obligationId => uint256) internal _obligationTradingFeeStorage;
 
-    /// @dev Default trading fees per loan token.
-    /// @dev The slot contains 6 trading fees packed (24 bits each).
+    /// @dev Default trading fees per loan token. Used when obligation fee is not activated.
+    /// @dev Bit 0: activated flag. Bits 1-144: 6 trading fees packed (24 bits each).
     /// @dev Fee indices: 0=0d, 1=1d, 2=7d, 3=30d, 4=90d, 5=180d.
-    /// @dev Used when obligation fee is not set (slot is empty).
     mapping(address loanToken => uint256) internal _defaultTradingFeeStorage;
 
     address public tradingFeeRecipient;
@@ -88,25 +87,29 @@ contract MorphoV2 is IMorphoV2 {
         emit EventsLib.SetFeeSetter(newFeeSetter);
     }
 
-    function setObligationTradingFee(bytes32 id, uint256 index, uint256 newTradingFee) external {
+    function setObligationTradingFee(bytes32 id, uint256 index, uint256 newTradingFee, bool activated) external {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(newTradingFee <= WAD, "Trading fee too high");
         require(index <= 5, "Invalid index");
         require(newTradingFee % 1e12 == 0, "fee should be a multiple of 1e12");
 
+        uint256 flag = activated ? 1 : 0;
         _obligationTradingFeeStorage[id] =
-            _obligationTradingFeeStorage[id] & ~(0xFFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
+            (_obligationTradingFeeStorage[id] & ~(uint256(0xFFFFFF) << (1 + index * 24)) & ~uint256(1))
+                | (newTradingFee / 1e12 << (1 + index * 24)) | flag;
         emit EventsLib.SetObligationTradingFee(id, index, newTradingFee);
     }
 
-    function setDefaultTradingFee(address loanToken, uint256 index, uint256 newTradingFee) external {
+    function setDefaultTradingFee(address loanToken, uint256 index, uint256 newTradingFee, bool activated) external {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(newTradingFee <= WAD, "Trading fee too high");
         require(index <= 5, "Invalid index");
         require(newTradingFee % 1e12 == 0, "fee should be a multiple of 1e12");
 
+        uint256 flag = activated ? 1 : 0;
         _defaultTradingFeeStorage[loanToken] =
-            _defaultTradingFeeStorage[loanToken] & ~(0xFFFFFF << (index * 24)) | (newTradingFee / 1e12 << (index * 24));
+            (_defaultTradingFeeStorage[loanToken] & ~(uint256(0xFFFFFF) << (1 + index * 24)) & ~uint256(1))
+                | (newTradingFee / 1e12 << (1 + index * 24)) | flag;
         emit EventsLib.SetDefaultTradingFee(loanToken, index, newTradingFee);
     }
 
@@ -474,21 +477,26 @@ contract MorphoV2 is IMorphoV2 {
         return tentativeSigner;
     }
 
-    /// @dev Return the trading fee using piecewise linear interpolation between breakpoints
+    /// @dev Return the trading fee using piecewise linear interpolation between breakpoints.
+    /// @dev Returns 0 if neither obligation nor default fee is activated.
     function tradingFee(bytes32 id, address loanToken, uint256 ttm) public view returns (uint256) {
-        uint256 obligationTradingFeeStorage = _obligationTradingFeeStorage[id];
-        uint256 tradingFeeStorage =
-            obligationTradingFeeStorage != 0 ? obligationTradingFeeStorage : _defaultTradingFeeStorage[loanToken];
-
-        if (ttm >= 180 days) return uint256(uint24(tradingFeeStorage >> (5 * 24))) * 1e12;
+        uint256 tradingFeeStorage = _obligationTradingFeeStorage[id];
+        if (tradingFeeStorage & 1 == 0) {
+            tradingFeeStorage = _defaultTradingFeeStorage[loanToken];
+            if (tradingFeeStorage & 1 == 0) return 0;
+        }
 
         uint256[6] memory breakpoints = [uint256(0), 1 days, 7 days, 30 days, 90 days, 180 days];
-        uint256 index = ttm < 1 days ? 0 : ttm < 7 days ? 1 : ttm < 30 days ? 2 : ttm < 90 days ? 3 : 4;
-        uint256 feeLower = uint256(uint24(tradingFeeStorage >> (index * 24))) * 1e12;
-        uint256 feeUpper = uint256(uint24(tradingFeeStorage >> ((index + 1) * 24))) * 1e12;
-        uint256 absDiff = feeLower > feeUpper ? feeLower - feeUpper : feeUpper - feeLower;
+        if (ttm >= breakpoints[5]) return uint256(uint24(tradingFeeStorage >> 121)) * 1e12;
 
-        // TODO: breaks when the fees are not increasing.
-        return feeLower + (ttm - breakpoints[index]) * absDiff / (breakpoints[index + 1] - breakpoints[index]);
+        uint256 index = ttm < breakpoints[1]
+            ? 0
+            : ttm < breakpoints[2] ? 1 : ttm < breakpoints[3] ? 2 : ttm < breakpoints[4] ? 3 : 4;
+
+        uint256 feeLower = uint24(tradingFeeStorage >> (1 + index * 24));
+        uint256 feeUpper = uint24(tradingFeeStorage >> (1 + (index + 1) * 24));
+
+        return (feeLower * (breakpoints[index + 1] - ttm) + feeUpper * (ttm - breakpoints[index])) * 1e12
+            / (breakpoints[index + 1] - breakpoints[index]);
     }
 }
