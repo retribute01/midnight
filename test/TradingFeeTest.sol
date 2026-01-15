@@ -22,7 +22,7 @@ contract TradingFeeTest is BaseTest {
 
         obligation.chainId = block.chainid;
         obligation.loanToken = address(loanToken);
-        obligation.maturity = block.timestamp + 100;
+        obligation.maturity = block.timestamp + 1 days; // TTM = 1 day (exactly at breakpoint)
         obligation.collaterals
             .push(Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)}));
         obligation.collaterals
@@ -221,19 +221,25 @@ contract TradingFeeTest is BaseTest {
         assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
     }
 
-    function testSevenDayTtmFee(uint256 buyerAssets, uint256 sellerPrice, uint256 tradingFee) public {
+    function testSevenDayTtmFee(uint256 buyerAssets, uint256 sellerPrice, uint256 fee1Day, uint256 fee7Days) public {
         buyerAssets = bound(buyerAssets, 0, MAX_TEST_AMOUNT);
         sellerPrice = bound(sellerPrice, 0.5 ether, 1 ether);
-        tradingFee = bound(tradingFee, 0, 1 ether - sellerPrice) / 1e12 * 1e12;
+        fee1Day = bound(fee1Day, 0, (1 ether - sellerPrice) / 2) / 1e12 * 1e12;
+        fee7Days = bound(fee7Days, fee1Day, (1 ether - sellerPrice) / 2) / 1e12 * 1e12;
 
         obligation.maturity = block.timestamp + 3 days;
         id = keccak256(abi.encode(obligation));
         lenderOffer.obligation = obligation;
         borrowerOffer.obligation = obligation;
 
-        morphoV2.setObligationTradingFee(id, 3, tradingFee);
+        // Set fees at breakpoints for linear interpolation (3 days is between 1 and 7 days)
+        morphoV2.setObligationTradingFee(id, 1, fee1Day);
+        morphoV2.setObligationTradingFee(id, 2, fee7Days);
         borrowerOffer.startPrice = sellerPrice;
         borrowerOffer.expiryPrice = sellerPrice;
+
+        // Calculate expected interpolated fee: fee = fee1Day + (fee7Days - fee1Day) * (3 - 1) / (7 - 1)
+        uint256 tradingFee = fee1Day + (fee7Days - fee1Day) * 2 / 6;
 
         uint256 buyerPrice = sellerPrice + tradingFee;
         uint256 expectedSellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
