@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Copyright (c) 2025 Morpho Association
-pragma solidity 0.8.28;
+pragma solidity 0.8.31;
 
 import {UtilsLib} from "./libraries/UtilsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
@@ -26,13 +26,12 @@ contract MorphoV2 is IMorphoV2 {
 
     /// STORAGE ///
 
-    mapping(address user => mapping(bytes32 obligationId => uint256)) public sharesOf;
-    mapping(address user => mapping(bytes32 obligationId => uint256)) public debtOf;
-    mapping(bytes32 obligationId => uint256) public withdrawable;
-    mapping(bytes32 obligationId => uint256) public totalUnits;
-    mapping(bytes32 obligationId => uint256) public totalShares;
-    mapping(address user => mapping(bytes32 obligationId => mapping(address collateralToken => uint256))) public
-        collateralOf;
+    mapping(address user => mapping(bytes32 id => uint256)) public sharesOf;
+    mapping(address user => mapping(bytes32 id => uint256)) public debtOf;
+    mapping(bytes32 id => uint256) public withdrawable;
+    mapping(bytes32 id => uint256) public totalUnits;
+    mapping(bytes32 id => uint256) public totalShares;
+    mapping(address user => mapping(bytes32 id => mapping(address collateralToken => uint256))) public collateralOf;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
     /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
@@ -116,12 +115,13 @@ contract MorphoV2 is IMorphoV2 {
         uint256 obligationUnits,
         uint256 obligationShares,
         address taker,
+        address takerCallback,
+        bytes memory takerCallbackData,
+        address sellerRecipient,
         Offer memory offer,
         Signature memory sig,
         bytes32 root,
-        bytes32[] memory proof,
-        address takerCallback,
-        bytes memory takerCallbackData
+        bytes32[] memory proof
     ) public returns (uint256, uint256, uint256, uint256) {
         require(
             UtilsLib.atMostOneNonZero(buyerAssets, sellerAssets, obligationUnits, obligationShares),
@@ -141,40 +141,33 @@ contract MorphoV2 is IMorphoV2 {
         require(offer.session == session[offer.maker], "invalid session");
         bytes32 id = toId(offer.obligation);
 
-        (
-            address buyer,
-            address buyerCallback,
-            bytes memory buyerCallbackData,
-            address seller,
-            address sellerCallback,
-            bytes memory sellerCallbackData
-        ) = offer.buy
-            ? (offer.maker, offer.callback, offer.callbackData, taker, takerCallback, takerCallbackData)
-            : (taker, takerCallback, takerCallbackData, offer.maker, offer.callback, offer.callbackData);
+        address buyer = offer.buy ? offer.maker : taker;
+        address seller = offer.buy ? taker : offer.maker;
 
-        uint256 offerPrice = offer.expiry != offer.start
-            ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start)
-                / (offer.expiry - offer.start)
-            : offer.startPrice;
-        require(offerPrice <= WAD, "price too high");
-
-        TradingFeeParams memory _tradingFeeParams = tradingFeeParams[id];
         uint256 buyerPrice;
         uint256 sellerPrice;
-        if (offer.buy) {
-            buyerPrice = offerPrice;
-            sellerPrice = UtilsLib.max(
-                (buyerPrice.zeroFloorSub(_tradingFeeParams.interestCutLimit))
-                .mulDivDown(WAD, WAD - _tradingFeeParams.interestCutLimit),
-                buyerPrice.mulDivDown(WAD, WAD + _tradingFeeParams.tradingFee)
-            );
-        } else {
-            sellerPrice = offerPrice;
-            buyerPrice = UtilsLib.min(
-                sellerPrice.mulDivDown(WAD - _tradingFeeParams.interestCutLimit, WAD)
-                    + _tradingFeeParams.interestCutLimit,
-                sellerPrice.mulDivDown(WAD + _tradingFeeParams.tradingFee, WAD)
-            );
+        {
+            uint256 offerPrice = offer.expiry != offer.start
+                ? offer.startPrice + (offer.expiryPrice - offer.startPrice) * (block.timestamp - offer.start)
+                    / (offer.expiry - offer.start)
+                : offer.startPrice;
+            require(offerPrice <= WAD, "price too high");
+
+            TradingFeeParams memory feeParams = tradingFeeParams[id];
+            if (offer.buy) {
+                buyerPrice = offerPrice;
+                sellerPrice = UtilsLib.max(
+                    (buyerPrice.zeroFloorSub(feeParams.interestCutLimit))
+                    .mulDivDown(WAD, WAD - feeParams.interestCutLimit),
+                    buyerPrice.mulDivDown(WAD, WAD + feeParams.tradingFee)
+                );
+            } else {
+                sellerPrice = offerPrice;
+                buyerPrice = UtilsLib.min(
+                    sellerPrice.mulDivDown(WAD - feeParams.interestCutLimit, WAD) + feeParams.interestCutLimit,
+                    sellerPrice.mulDivDown(WAD + feeParams.tradingFee, WAD)
+                );
+            }
         }
 
         if (buyerAssets > 0) {
@@ -239,38 +232,47 @@ contract MorphoV2 is IMorphoV2 {
             obligationShares,
             taker,
             buyerIsLender,
-            sellerIsBorrower
+            sellerIsBorrower,
+            sellerRecipient
         );
 
-        if (buyerCallback != address(0)) {
-            ICallbacks(buyerCallback)
-                .onBuy(
-                    offer.obligation,
-                    buyer,
-                    buyerAssets,
-                    sellerAssets,
-                    obligationUnits,
-                    obligationShares,
-                    buyerCallbackData
-                );
+        {
+            address buyerCallback = offer.buy ? offer.callback : takerCallback;
+            if (buyerCallback != address(0)) {
+                bytes memory buyerCallbackData = offer.buy ? offer.callbackData : takerCallbackData;
+                ICallbacks(buyerCallback)
+                    .onBuy(
+                        offer.obligation,
+                        buyer,
+                        buyerAssets,
+                        sellerAssets,
+                        obligationUnits,
+                        obligationShares,
+                        buyerCallbackData
+                    );
+            }
         }
 
         SafeTransferLib.safeTransferFrom(
             offer.obligation.loanToken, buyer, tradingFeeRecipient, buyerAssets - sellerAssets
         );
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, seller, sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, sellerRecipient, sellerAssets);
 
-        if (sellerCallback != address(0)) {
-            ICallbacks(sellerCallback)
-                .onSell(
-                    offer.obligation,
-                    seller,
-                    buyerAssets,
-                    sellerAssets,
-                    obligationUnits,
-                    obligationShares,
-                    sellerCallbackData
-                );
+        {
+            address sellerCallback = offer.buy ? takerCallback : offer.callback;
+            if (sellerCallback != address(0)) {
+                bytes memory sellerCallbackData = offer.buy ? takerCallbackData : offer.callbackData;
+                ICallbacks(sellerCallback)
+                    .onSell(
+                        offer.obligation,
+                        seller,
+                        buyerAssets,
+                        sellerAssets,
+                        obligationUnits,
+                        obligationShares,
+                        sellerCallbackData
+                    );
+            }
         }
 
         require(isHealthy(offer.obligation, seller), "Seller is unhealthy");
@@ -279,10 +281,13 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @dev Will revert if there is no withdrawable funds.
-    function withdraw(Obligation memory obligation, uint256 obligationUnits, uint256 shares, address onBehalf)
-        external
-        returns (uint256, uint256)
-    {
+    function withdraw(
+        Obligation memory obligation,
+        uint256 obligationUnits,
+        uint256 shares,
+        address onBehalf,
+        address recipient
+    ) external returns (uint256, uint256) {
         require(UtilsLib.atMostOneNonZero(obligationUnits, shares), "INCONSISTENT_INPUT");
         bytes32 id = toId(obligation);
 
@@ -295,9 +300,9 @@ contract MorphoV2 is IMorphoV2 {
         totalShares[id] -= shares;
         totalUnits[id] -= obligationUnits;
 
-        emit EventsLib.Withdraw(msg.sender, id, obligationUnits, shares, onBehalf);
+        emit EventsLib.Withdraw(msg.sender, id, obligationUnits, shares, onBehalf, recipient);
 
-        SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, obligationUnits);
+        SafeTransferLib.safeTransfer(obligation.loanToken, recipient, obligationUnits);
 
         return (obligationUnits, shares);
     }
@@ -325,18 +330,22 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransferFrom(collateral, msg.sender, address(this), assets);
     }
 
-    function withdrawCollateral(Obligation memory obligation, address collateral, uint256 assets, address onBehalf)
-        external
-    {
+    function withdrawCollateral(
+        Obligation memory obligation,
+        address collateral,
+        uint256 assets,
+        address onBehalf,
+        address recipient
+    ) external {
         bytes32 id = toId(obligation);
 
         collateralOf[onBehalf][id][collateral] -= assets;
 
         require(isHealthy(obligation, onBehalf), "Unhealthy borrower");
 
-        emit EventsLib.WithdrawCollateral(msg.sender, id, collateral, assets, onBehalf);
+        emit EventsLib.WithdrawCollateral(msg.sender, id, collateral, assets, onBehalf, recipient);
 
-        SafeTransferLib.safeTransfer(collateral, msg.sender, assets);
+        SafeTransferLib.safeTransfer(collateral, recipient, assets);
     }
 
     /// @dev On each seizure at least one of `repaid` or `seized` should be equal to zero.

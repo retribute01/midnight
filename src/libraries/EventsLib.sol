@@ -9,49 +9,46 @@ library EventsLib {
 
     event SetOwner(address indexed owner);
     event SetFeeSetter(address indexed feeSetter);
-    event SetTradingFee(bytes32 indexed obligationId, uint256 tradingFee, uint256 interestCutLimit);
+    event SetTradingFee(bytes32 indexed id, uint256 tradingFee, uint256 interestCutLimit);
     event SetTradingFeeRecipient(address indexed recipient);
 
     event Take(
         address indexed caller,
-        bytes32 indexed obligationId,
+        bytes32 indexed id,
         uint256 buyerAssets,
         uint256 sellerAssets,
         uint256 obligationUnits,
         uint256 obligationShares,
         address indexed taker,
         bool buyerIsLender,
-        bool sellerIsBorrower
+        bool sellerIsBorrower,
+        address sellerRecipient
     );
     event Withdraw(
         address indexed caller,
-        bytes32 indexed obligationId,
+        bytes32 indexed id,
         uint256 obligationUnits,
         uint256 shares,
-        address indexed onBehalf
+        address indexed onBehalf,
+        address recipient
     );
-    event Repay(
-        address indexed caller, bytes32 indexed obligationId, uint256 obligationUnits, address indexed onBehalf
-    );
+    event Repay(address indexed caller, bytes32 indexed id, uint256 obligationUnits, address indexed onBehalf);
     event SupplyCollateral(
-        address caller,
-        bytes32 indexed obligationId,
-        address indexed collateral,
-        uint256 assets,
-        address indexed onBehalf
+        address caller, bytes32 indexed id, address indexed collateral, uint256 assets, address indexed onBehalf
     );
 
     event WithdrawCollateral(
         address caller,
-        bytes32 indexed obligationId,
+        bytes32 indexed id,
         address indexed collateral,
         uint256 assets,
-        address indexed onBehalf
+        address indexed onBehalf,
+        address recipient
     );
 
     event Liquidate(
         address indexed caller,
-        bytes32 indexed obligationId,
+        bytes32 indexed id,
         Seizure[] seizures,
         address indexed borrower,
         uint256 totalRepaid,

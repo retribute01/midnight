@@ -47,7 +47,7 @@ contract OtherFunctionsTest is BaseTest {
         ERC20(collateralToken).approve(address(morphoV2), supply);
         morphoV2.supplyCollateral(obligation, collateralToken, supply, user);
 
-        morphoV2.withdrawCollateral(obligation, collateralToken, withdraw, user);
+        morphoV2.withdrawCollateral(obligation, collateralToken, withdraw, user, address(this));
 
         assertEq(morphoV2.collateralOf(user, id, collateralToken), supply - withdraw, "collateral of");
         assertEq(ERC20(collateralToken).balanceOf(address(morphoV2)), supply - withdraw, "balance of morphoV2");
@@ -67,7 +67,7 @@ contract OtherFunctionsTest is BaseTest {
         withdraw = bound(withdraw, 0, additionalCollateral);
         uint256 initialCollateral = morphoV2.collateralOf(borrower, id, collateralToken);
 
-        morphoV2.withdrawCollateral(obligation, collateralToken, withdraw, borrower);
+        morphoV2.withdrawCollateral(obligation, collateralToken, withdraw, borrower, address(this));
 
         assertEq(morphoV2.collateralOf(borrower, id, collateralToken), initialCollateral - withdraw, "collateral of");
         assertEq(
@@ -90,7 +90,7 @@ contract OtherFunctionsTest is BaseTest {
         withdraw = bound(withdraw, additionalCollateral + 1, initialCollateral);
 
         vm.expectRevert("Unhealthy borrower");
-        morphoV2.withdrawCollateral(obligation, collateralToken, withdraw, borrower);
+        morphoV2.withdrawCollateral(obligation, collateralToken, withdraw, borrower, address(this));
     }
 
     function testRepay(uint256 units, uint256 repaid) public {
@@ -114,7 +114,7 @@ contract OtherFunctionsTest is BaseTest {
     function testWithdrawInconsistentInput(uint256 units, uint256 shares) public {
         vm.assume(units > 0 && shares > 0);
         vm.expectRevert("INCONSISTENT_INPUT");
-        morphoV2.withdraw(obligation, units, shares, lender);
+        morphoV2.withdraw(obligation, units, shares, lender, lender);
     }
 
     function testWithdrawWithObligations(uint256 units, uint256 withdraw) public {
@@ -123,7 +123,8 @@ contract OtherFunctionsTest is BaseTest {
         testRepay(units, withdraw);
 
         vm.prank(lender);
-        (uint256 returnedObligationUnits, uint256 returnedShares) = morphoV2.withdraw(obligation, withdraw, 0, lender);
+        (uint256 returnedObligationUnits, uint256 returnedShares) =
+            morphoV2.withdraw(obligation, withdraw, 0, lender, lender);
 
         assertEq(morphoV2.sharesOf(lender, id), units - withdraw, "obligationSharesOf");
         assertEq(morphoV2.withdrawable(id), 0, "withdrawable");
@@ -141,7 +142,8 @@ contract OtherFunctionsTest is BaseTest {
 
         // TODO: sharesPrice != 1
         vm.prank(lender);
-        (uint256 returnedObligationUnits, uint256 returnedShares) = morphoV2.withdraw(obligation, 0, shares, lender);
+        (uint256 returnedObligationUnits, uint256 returnedShares) =
+            morphoV2.withdraw(obligation, 0, shares, lender, lender);
 
         assertEq(morphoV2.sharesOf(lender, id), units - shares, "obligationSharesOf");
         assertEq(morphoV2.withdrawable(id), 0, "withdrawable");
@@ -149,6 +151,34 @@ contract OtherFunctionsTest is BaseTest {
         assertEq(loanToken.balanceOf(lender), shares, "balance of lender");
         assertEq(returnedObligationUnits, shares, "returned obligation units");
         assertEq(returnedShares, shares, "returned shares");
+    }
+
+    function testWithdrawToRecipient(uint256 units, uint256 withdraw) public {
+        units = bound(units, 1, MAX_TEST_AMOUNT);
+        withdraw = bound(withdraw, 1, units);
+        testRepay(units, withdraw);
+        address recipient = makeAddr("recipient");
+
+        vm.prank(lender);
+        morphoV2.withdraw(obligation, withdraw, 0, lender, recipient);
+
+        assertEq(loanToken.balanceOf(lender), 0, "balance of lender");
+        assertEq(loanToken.balanceOf(recipient), withdraw, "balance of recipient");
+    }
+
+    function testWithdrawCollateralToRecipient(uint256 supply, uint256 withdraw) public {
+        supply = bound(supply, 1, MAX_TEST_AMOUNT);
+        withdraw = bound(withdraw, 1, supply);
+        address collateralToken = address(new ERC20("collat", "c"));
+        address recipient = makeAddr("recipient");
+        deal(collateralToken, address(this), supply);
+        ERC20(collateralToken).approve(address(morphoV2), supply);
+        morphoV2.supplyCollateral(obligation, collateralToken, supply, address(this));
+
+        morphoV2.withdrawCollateral(obligation, collateralToken, withdraw, address(this), recipient);
+
+        assertEq(ERC20(collateralToken).balanceOf(address(this)), 0, "balance of this");
+        assertEq(ERC20(collateralToken).balanceOf(recipient), withdraw, "balance of recipient");
     }
 
     function testConsume(address user, bytes32 group, uint256 amount) public {

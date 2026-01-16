@@ -85,18 +85,20 @@ abstract contract BaseTest is Test {
         address taker,
         Offer memory offer
     ) internal returns (uint256, uint256, uint256, uint256) {
+        address seller = offer.buy ? taker : offer.maker;
         return morphoV2.take(
             buyerAssets,
             sellerAssets,
             obligationUnits,
             obligationShares,
             taker,
+            address(0),
+            hex"",
+            seller,
             offer,
             sig([offer]),
             root([offer]),
-            proof([offer]),
-            address(0),
-            hex""
+            proof([offer])
         );
     }
 
@@ -228,12 +230,13 @@ abstract contract BaseTest is Test {
             obligationUnits,
             0,
             lender,
+            address(0),
+            hex"",
+            borrower,
             borrowerOffer,
             sig([borrowerOffer]),
             root([borrowerOffer]),
-            proof([borrowerOffer]),
-            address(0),
-            hex""
+            proof([borrowerOffer])
         );
     }
 
