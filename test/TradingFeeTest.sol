@@ -285,4 +285,59 @@ contract TradingFeeTest is BaseTest {
         vm.expectRevert("cannot trade at price above one");
         take(MAX_TEST_AMOUNT, 0, 0, 0, borrower, lenderOffer);
     }
+
+    function testPostMaturityFee(uint256 buyerAssets, uint256 sellerPrice, uint256 fee0Day, uint256 maturity) public {
+        buyerAssets = bound(buyerAssets, 0, MAX_TEST_AMOUNT);
+        sellerPrice = bound(sellerPrice, 0.5 ether, 1 ether);
+        fee0Day = bound(fee0Day, 0, (1 ether - sellerPrice) / 2) / 1e12 * 1e12;
+        maturity = bound(maturity, 0, block.timestamp - 1);
+        obligation.maturity = maturity;
+        id = keccak256(abi.encode(obligation));
+        lenderOffer.obligation = obligation;
+        borrowerOffer.obligation = obligation;
+
+        morphoV2.setObligationTradingFeeActivated(id, true);
+        morphoV2.setObligationTradingFee(id, 0, fee0Day);
+        borrowerOffer.startPrice = sellerPrice;
+        borrowerOffer.expiryPrice = sellerPrice;
+
+        uint256 tradingFee = fee0Day;
+
+        uint256 buyerPrice = sellerPrice + tradingFee;
+        uint256 expectedSellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
+        uint256 expectedFee = buyerAssets - expectedSellerAssets;
+
+        collateralize(obligation, borrower, MAX_TEST_AMOUNT * 3);
+        take(buyerAssets, 0, 0, 0, lender, borrowerOffer);
+
+        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+    }
+
+    function testEarlyFee(uint256 buyerAssets, uint256 sellerPrice, uint256 fee180Days, uint256 maturity) public {
+        buyerAssets = bound(buyerAssets, 0, MAX_TEST_AMOUNT);
+        sellerPrice = bound(sellerPrice, 0.5 ether, 1 ether);
+        fee180Days = bound(fee180Days, 0, (1 ether - sellerPrice) / 2) / 1e12 * 1e12;
+        maturity = bound(maturity, block.timestamp + 180 days, block.timestamp + 36500 days);
+
+        obligation.maturity = maturity;
+        id = keccak256(abi.encode(obligation));
+        lenderOffer.obligation = obligation;
+        borrowerOffer.obligation = obligation;
+
+        morphoV2.setObligationTradingFeeActivated(id, true);
+        morphoV2.setObligationTradingFee(id, 5, fee180Days);
+        borrowerOffer.startPrice = sellerPrice;
+        borrowerOffer.expiryPrice = sellerPrice;
+
+        uint256 tradingFee = fee180Days;
+
+        uint256 buyerPrice = sellerPrice + tradingFee;
+        uint256 expectedSellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
+        uint256 expectedFee = buyerAssets - expectedSellerAssets;
+
+        collateralize(obligation, borrower, MAX_TEST_AMOUNT * 3);
+        take(buyerAssets, 0, 0, 0, lender, borrowerOffer);
+
+        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+    }
 }
