@@ -25,7 +25,7 @@ library FeeLib {
         return ((feeStorage >> (index * FEE_BITS)) & FEE_MASK) * FEE_STEP;
     }
 
-    /// @dev Returns the updated packed fee storage value, preserving the activated flag.
+    /// @dev Returns the updated packed fee storage value.
     function setFee(uint256 feeStorage, uint256 index, uint256 fee) internal pure returns (uint256) {
         require(fee % FEE_STEP == 0, "fee should be a multiple of 1e12");
         uint256 shift = index * FEE_BITS;
@@ -34,6 +34,7 @@ library FeeLib {
         return cleared | packedFee;
     }
 
+    /// @dev Returns the updated packed fee storage value.
     function setActivated(uint256 feeStorage, bool activated) internal pure returns (uint256) {
         return (feeStorage & ~ACTIVATED_MASK) | boolToUint256(activated) << 255;
     }
