@@ -6,13 +6,13 @@ pragma solidity ^0.8.0;
 /// @notice Library for packing/unpacking trading fees in a single uint256.
 /// @dev Storage layout:
 ///   - Bit 255: activated flag
-///   - Bits 0-143: 6 trading fees packed (24 bits each)
+///   - Bits 0-119: 6 trading fees packed (20 bits each)
 ///   - Fee indices: 0=0d, 1=1d, 2=7d, 3=30d, 4=90d, 5=180d
-/// @dev Fees are stored divided by 1e12 to fit in 24 bits.
+/// @dev Fees are stored divided by 1e12 to fit in 20 bits.
 library FeeLib {
     uint256 internal constant FEE_STEP = 1e12;
-    uint256 internal constant FEE_BITS = 24;
-    uint256 internal constant FEE_MASK = 0xFFFFFF;
+    uint256 internal constant FEE_BITS = 20;
+    uint256 internal constant FEE_MASK = 0xFFFFF;
     uint256 internal constant ACTIVATED_MASK = 1 << 255;
 
     /// @dev Returns whether the fee storage is activated.

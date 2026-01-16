@@ -312,36 +312,4 @@ contract SettersTest is BaseTest {
         vm.expectRevert("Only feeSetter");
         morphoV2.setDefaultTradingFeeActivated(loanToken, true);
     }
-
-    function testSetFeeRequiresActivated() public {
-        bytes32 id = keccak256("test");
-
-        // Setting any fee (even zero) when not activated should fail
-        vm.expectRevert("fee must be activated");
-        morphoV2.setObligationTradingFee(id, 0, 0.01e18);
-
-        vm.expectRevert("fee must be activated");
-        morphoV2.setObligationTradingFee(id, 0, 0);
-
-        // Activate, then setting fee should succeed
-        morphoV2.setObligationTradingFeeActivated(id, true);
-        morphoV2.setObligationTradingFee(id, 0, 0.01e18);
-        assertEq(morphoV2.tradingFee(id, address(0), 0), 0.01e18, "fee should be set");
-    }
-
-    function testSetDefaultFeeRequiresActivated() public {
-        address token = makeAddr("token");
-
-        // Setting any fee (even zero) when not activated should fail
-        vm.expectRevert("fee must be activated");
-        morphoV2.setDefaultTradingFee(token, 0, 0.01e18);
-
-        vm.expectRevert("fee must be activated");
-        morphoV2.setDefaultTradingFee(token, 0, 0);
-
-        // Activate, then setting fee should succeed
-        morphoV2.setDefaultTradingFeeActivated(token, true);
-        morphoV2.setDefaultTradingFee(token, 0, 0.01e18);
-        assertEq(morphoV2.tradingFee(bytes32(0), token, 0), 0.01e18, "fee should be set");
-    }
 }
