@@ -1158,6 +1158,32 @@ contract TakeTest is BaseTest {
         assertEq(loanToken.balanceOf(sellerRecipient), assets, "balance of sellerRecipient");
     }
 
+    function testTakeSellOfferSellerRecipientMustBeMaker(uint256 assets) public {
+        assets = bound(assets, 1, maxAssets);
+        deal(address(loanToken), lender, assets);
+        collateralize(obligation, borrower, assets);
+        borrowerOffer.assets = assets;
+        borrowerOffer.startPrice = 1e18;
+        borrowerOffer.expiryPrice = 1e18;
+        address wrongRecipient = makeAddr("wrongRecipient");
+
+        vm.expectRevert("invalid recipient");
+        morphoV2.take(
+            assets,
+            0,
+            0,
+            0,
+            lender,
+            address(0),
+            hex"",
+            wrongRecipient,
+            borrowerOffer,
+            sig([borrowerOffer]),
+            root([borrowerOffer]),
+            proof([borrowerOffer])
+        );
+    }
+
     function testSession() public {
         vm.prank(lender);
         morphoV2.shuffleSession();

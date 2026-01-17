@@ -157,6 +157,7 @@ contract MorphoV2 is IMorphoV2 {
         require(signer(root, sig) == offer.maker, "invalid signature");
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
+        require(offer.buy || sellerRecipient == offer.maker, "invalid recipient");
         bytes32 id = toId(offer.obligation);
 
         address buyer = offer.buy ? offer.maker : taker;
