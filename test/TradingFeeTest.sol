@@ -236,7 +236,7 @@ contract TradingFeeTest is BaseTest {
         fee7Days = bound(fee7Days, fee1Day, (1 ether - sellerPrice) / 2) / 1e12 * 1e12;
 
         obligation.maturity = block.timestamp + 3 days;
-        id = keccak256(abi.encode(obligation));
+        id = toId(obligation);
         lenderOffer.obligation = obligation;
         borrowerOffer.obligation = obligation;
 
@@ -291,7 +291,7 @@ contract TradingFeeTest is BaseTest {
         fee0Day = bound(fee0Day, 0, (1 ether - sellerPrice) / 2) / 1e12 * 1e12;
         maturity = bound(maturity, 0, block.timestamp - 1);
         obligation.maturity = maturity;
-        id = keccak256(abi.encode(obligation));
+        id = toId(obligation);
         lenderOffer.obligation = obligation;
         borrowerOffer.obligation = obligation;
 
@@ -319,7 +319,7 @@ contract TradingFeeTest is BaseTest {
         maturity = bound(maturity, block.timestamp + 180 days, block.timestamp + 36500 days);
 
         obligation.maturity = maturity;
-        id = keccak256(abi.encode(obligation));
+        id = toId(obligation);
         lenderOffer.obligation = obligation;
         borrowerOffer.obligation = obligation;
 
