@@ -5,7 +5,14 @@ pragma solidity 0.8.31;
 import {UtilsLib} from "./libraries/UtilsLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 import {FeeLib} from "./libraries/FeeLib.sol";
-import {WAD, ORACLE_PRICE_SCALE, MAX_LIF, TIME_TO_MAX_LIF} from "./libraries/ConstantsLib.sol";
+import {
+    WAD,
+    ORACLE_PRICE_SCALE,
+    MAX_LIF,
+    TIME_TO_MAX_LIF,
+    EIP712_DOMAIN_TYPEHASH,
+    ROOT_TYPEHASH
+} from "./libraries/ConstantsLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
 import {IMorphoV2, Obligation, Offer, Signature, Collateral} from "./interfaces/IMorphoV2.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
@@ -151,7 +158,6 @@ contract MorphoV2 is IMorphoV2 {
         );
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
-        require(offer.obligation.chainId == block.chainid, "chain id mismatch");
         require(offer.start < offer.expiry || offer.expiryPrice == offer.startPrice, "inconsistent prices");
         require(offer.maker != taker, "buyer and seller cannot be the same");
         require(signer(root, sig) == offer.maker, "invalid signature");
@@ -444,10 +450,10 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), assets);
     }
 
-    /// VIEW ///
+    /// VIEW FUNCTIONS ///
 
-    function toId(Obligation memory obligation) public pure returns (bytes32) {
-        return keccak256(abi.encode(obligation));
+    function toId(Obligation memory obligation) public view returns (bytes32) {
+        return keccak256(abi.encode(block.chainid, address(this), obligation));
     }
 
     function isHealthy(Obligation memory obligation, address borrower) public view returns (bool) {
@@ -471,9 +477,14 @@ contract MorphoV2 is IMorphoV2 {
         }
     }
 
-    function signer(bytes32 root, Signature memory signature) internal pure returns (address) {
-        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", root));
-        address tentativeSigner = ecrecover(messageHash, signature.v, signature.r, signature.s);
+    function domainSeparator() internal view returns (bytes32) {
+        return keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(this)));
+    }
+
+    function signer(bytes32 root, Signature memory signature) internal view returns (address) {
+        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, root));
+        bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator(), structHash));
+        address tentativeSigner = ecrecover(digest, signature.v, signature.r, signature.s);
         require(tentativeSigner != address(0), "invalid signature");
         return tentativeSigner;
     }

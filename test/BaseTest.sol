@@ -6,7 +6,7 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 import {ERC20} from "./helpers/ERC20.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
-import {WAD, ORACLE_PRICE_SCALE} from "../src/libraries/ConstantsLib.sol";
+import {WAD, ORACLE_PRICE_SCALE, EIP712_DOMAIN_TYPEHASH, ROOT_TYPEHASH} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMorphoV2.sol";
 import {MorphoV2} from "../src/MorphoV2.sol";
 
@@ -157,8 +157,8 @@ abstract contract BaseTest is Test {
         Oracle(obligation.collaterals[0].oracle).setPrice(ORACLE_PRICE_SCALE);
     }
 
-    function toId(Obligation memory obligation) internal pure returns (bytes32) {
-        return keccak256(abi.encode(obligation));
+    function toId(Obligation memory obligation) internal view returns (bytes32) {
+        return keccak256(abi.encode(block.chainid, address(morphoV2), obligation));
     }
 
     function root(Offer[1] memory offers) internal pure returns (bytes32) {
@@ -180,20 +180,26 @@ abstract contract BaseTest is Test {
         return res;
     }
 
+    function domainSeparator() internal view returns (bytes32) {
+        return keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(morphoV2)));
+    }
+
+    function sig(bytes32 _root, uint256 _privateKey) internal view returns (Signature memory) {
+        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, _root));
+        bytes32 messageHash = keccak256(bytes.concat("\x19\x01", domainSeparator(), structHash));
+        Signature memory signature;
+        (signature.v, signature.r, signature.s) = vm.sign(_privateKey, messageHash);
+        return signature;
+    }
+
     function sig(Offer[1] memory offers) internal view returns (Signature memory) {
         bytes32 _root = root(offers);
-        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", _root));
-        Signature memory signature;
-        (signature.v, signature.r, signature.s) = vm.sign(privateKey[offers[0].maker], messageHash);
-        return signature;
+        return sig(_root, privateKey[offers[0].maker]);
     }
 
     function sig(Offer[2] memory offers) internal view returns (Signature memory) {
         bytes32 _root = root(offers);
-        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", _root));
-        Signature memory signature;
-        (signature.v, signature.r, signature.s) = vm.sign(privateKey[offers[0].maker], messageHash);
-        return signature;
+        return sig(_root, privateKey[offers[0].maker]);
     }
 
     function sortCollaterals(Collateral[] memory arr) internal pure returns (Collateral[] memory) {
