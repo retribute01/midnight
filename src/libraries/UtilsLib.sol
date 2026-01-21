@@ -71,7 +71,9 @@ library UtilsLib {
         int256 secondTerm = r * r / (2 * WAD_INT);
         int256 thirdTerm = secondTerm * r / (3 * WAD_INT);
         int256 expR = WAD_INT + r + secondTerm + thirdTerm;
+        // forge-lint: disable-next-line(unsafe-typecast)
         if (q > 0) return uint256(expR) << uint256(q);
+        // forge-lint: disable-next-line(unsafe-typecast)
         else return uint256(expR) >> uint256(-q);
     }
 }
