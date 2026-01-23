@@ -291,6 +291,7 @@ contract MorphoV2 is IMorphoV2 {
     {
         require(UtilsLib.atMostOneNonZero(obligationUnits, shares), "INCONSISTENT_INPUT");
         bytes32 id = toId(obligation);
+        touchObligation(obligation);
 
         if (obligationUnits > 0) shares = obligationUnits.mulDivUp(totalShares[id] + 1, totalUnits[id] + 1);
         else obligationUnits = shares.mulDivDown(totalUnits[id] + 1, totalShares[id] + 1);
@@ -310,6 +311,7 @@ contract MorphoV2 is IMorphoV2 {
 
     function repay(Obligation memory obligation, uint256 obligationUnits, address onBehalf) external {
         bytes32 id = toId(obligation);
+        touchObligation(obligation);
 
         debtOf[onBehalf][id] -= obligationUnits;
         withdrawable[id] += obligationUnits;
@@ -336,6 +338,7 @@ contract MorphoV2 is IMorphoV2 {
         external
     {
         bytes32 id = toId(obligation);
+        touchObligation(obligation);
 
         collateralOf[onBehalf][id][collateral] -= assets;
 
