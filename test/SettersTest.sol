@@ -72,6 +72,13 @@ contract SettersTest is BaseTest {
         );
     }
 
+    function testSetTradingFeeOnlyFeeSetter(address rdm, bytes32 id) public {
+        vm.assume(rdm != address(this));
+        vm.prank(rdm);
+        vm.expectRevert("Only feeSetter");
+        morphoV2.setObligationTradingFee(id, 0, 0);
+    }
+
     function testSetTradingFeeZeroDaysTooHigh(bytes32 id, uint256 tradingFeeTooHigh) public {
         tradingFeeTooHigh = bound(tradingFeeTooHigh, WAD + 1, 2 * WAD);
         vm.expectRevert("Trading fee too high");
