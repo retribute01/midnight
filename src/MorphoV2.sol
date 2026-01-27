@@ -440,9 +440,17 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), assets);
     }
 
+    /// @dev Returns the obligation id and creates the obligation if it doesn't exist yet.
     function touchObligation(Obligation memory obligation) public returns (bytes32) {
         bytes32 id = toId(obligation);
         if (!obligationCreated[id]) {
+            address previousCollateralToken;
+            for (uint256 i = 0; i < obligation.collaterals.length; i++) {
+                address collateralToken = obligation.collaterals[i].token;
+                require(collateralToken > previousCollateralToken, "collaterals not sorted");
+                previousCollateralToken = collateralToken;
+            }
+
             _obligationTradingFeeStorage[id] = _defaultTradingFeeStorage[obligation.loanToken];
             obligationCreated[id] = true;
 
@@ -464,15 +472,11 @@ contract MorphoV2 is IMorphoV2 {
             return true;
         } else {
             uint256 maxDebt;
-            address previousCollateralToken;
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 Collateral memory _collateral = obligation.collaterals[i];
-                address collateralToken = _collateral.token;
-                require(collateralToken > previousCollateralToken, "collaterals not sorted");
-                maxDebt += collateralOf[borrower][id][collateralToken]
+                maxDebt += collateralOf[borrower][id][_collateral.token]
                     .mulDivDown(IOracle(_collateral.oracle).price(), ORACLE_PRICE_SCALE)
                     .mulDivDown(_collateral.lltv, WAD);
-                previousCollateralToken = collateralToken;
             }
             return debt <= maxDebt;
         }
