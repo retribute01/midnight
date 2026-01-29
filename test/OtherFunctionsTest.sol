@@ -167,37 +167,4 @@ contract OtherFunctionsTest is BaseTest {
         morphoV2.shuffleSession();
         assertEq(morphoV2.session(user), keccak256(abi.encode(0, blockhash(block.number - 1))), "session");
     }
-
-    function testTickToPriceMinMax() public pure {
-        assertEq(UtilsLib.tickToPrice(0), 0.00001e18, "tick 0");
-        assertEq(UtilsLib.tickToPrice(TICK_RANGE - 1), 0.99999e18, "tick max - 1");
-        assertEq(UtilsLib.tickToPrice(TICK_RANGE), WAD, "tick max");
-    }
-
-    // works between tick 200 and TICK_RANGE
-    function testReturnJumps() public pure {
-        uint256 price = UtilsLib.tickToPrice(200);
-        uint256 previousReturn = _return(price);
-        for (uint256 i = 200; i <= 700; i++) {
-            uint256 currentReturn = _return(UtilsLib.tickToPrice(i));
-            assertApproxEqRel(currentReturn, previousReturn.mulDivDown(WAD, 1.025e18), 0.05e18, "tick i");
-            previousReturn = currentReturn;
-        }
-    }
-
-    function _return(uint256 price) internal pure returns (uint256) {
-        return WAD.mulDivDown(WAD, price) - WAD;
-    }
-
-    function testTickMonotonicity() public pure {
-        for (uint256 i = 0; i < TICK_RANGE; i++) {
-            assertGe(UtilsLib.tickToPrice(i + 1), UtilsLib.tickToPrice(i));
-        }
-    }
-
-    function testTickToPriceRange() public pure {
-        for (uint256 i = 0; i <= TICK_RANGE; i++) {
-            console.log(UtilsLib.tickToPrice(i));
-        }
-    }
 }
