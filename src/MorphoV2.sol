@@ -12,7 +12,8 @@ import {
     MAX_LIF,
     TIME_TO_MAX_LIF,
     EIP712_DOMAIN_TYPEHASH,
-    ROOT_TYPEHASH
+    ROOT_TYPEHASH,
+    OBLIGATION_DEPLOYER_PREFIX
 } from "./libraries/ConstantsLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
 import {
@@ -38,7 +39,8 @@ contract MorphoV2 is IMorphoV2 {
     mapping(bytes32 id => mapping(address user => uint256)) public debtOf;
     mapping(bytes32 id => mapping(address user => mapping(address collateralToken => uint256))) public collateralOf;
     mapping(bytes32 id => ObligationState) public obligationState;
-    mapping(bytes32 id => Obligation) internal _idToObligation;
+    /// @dev Address of a contract whose bytecode is abi.encode(obligation)
+    mapping(bytes32 id => address) internal idToObligationContract;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
     /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
@@ -466,7 +468,14 @@ contract MorphoV2 is IMorphoV2 {
             obligationState[id].created = true;
             obligationState[id].fees = defaultFees[obligation.loanToken];
 
-            _idToObligation[id] = obligation;
+            bytes memory obligationData = abi.encode(obligation);
+            bytes memory creationCode = abi.encodePacked(OBLIGATION_DEPLOYER_PREFIX, obligationData);
+            address _idToObligationContract;
+            assembly ("memory-safe") {
+                _idToObligationContract := create(0, add(creationCode, 0x20), mload(creationCode))
+            }
+            require(_idToObligationContract != address(0), "obligation deploy failed");
+            idToObligationContract[id] = _idToObligationContract;
 
             emit EventsLib.ObligationCreated(id, obligation);
         }
@@ -476,7 +485,19 @@ contract MorphoV2 is IMorphoV2 {
     /// VIEW FUNCTIONS ///
 
     function idToObligation(bytes32 id) external view returns (Obligation memory) {
-        return _idToObligation[id];
+        address _idToObligationContract = idToObligationContract[id];
+        if (_idToObligationContract == address(0)) {
+            return Obligation(address(0), new Collateral[](0), 0);
+        }
+        uint256 size;
+        assembly ("memory-safe") {
+            size := extcodesize(_idToObligationContract)
+        }
+        bytes memory data = new bytes(size);
+        assembly ("memory-safe") {
+            extcodecopy(_idToObligationContract, add(data, 0x20), 0, size)
+        }
+        return abi.decode(data, (Obligation));
     }
 
     function totalUnits(bytes32 id) external view returns (uint256) {
