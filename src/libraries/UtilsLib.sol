@@ -94,6 +94,7 @@ library UtilsLib {
 
     function tickToPrice(uint256 tick) internal pure returns (uint256) {
         unchecked {
+            // forge-lint: disable-next-item(unsafe-typecast)
             return uint256(1e36)
                     .divUpUnchecked(1e18 + wExp(LN_ONE_PLUS_DELTA * (int256(TICK_RANGE / 2) - int256(tick))))
                     .divUpUnchecked(1e13) * 1e13;

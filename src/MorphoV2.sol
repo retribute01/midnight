@@ -13,8 +13,7 @@ import {
     TIME_TO_MAX_LIF,
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH,
-    TICK_RANGE,
-    LN_ONE_PLUS_DELTA
+    TICK_RANGE
 } from "./libraries/ConstantsLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
 import {
