@@ -22,7 +22,7 @@ import {
     Signature,
     Collateral,
     Seizure,
-    ObligationStorage
+    ObligationState
 } from "./interfaces/IMorphoV2.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
@@ -37,7 +37,7 @@ contract MorphoV2 is IMorphoV2 {
     mapping(bytes32 id => mapping(address user => uint256)) public sharesOf;
     mapping(bytes32 id => mapping(address user => uint256)) public debtOf;
     mapping(bytes32 id => mapping(address user => mapping(address collateralToken => uint256))) public collateralOf;
-    mapping(bytes32 id => ObligationStorage) public obligationStorage;
+    mapping(bytes32 id => ObligationState) public obligationState;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
     /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
@@ -99,11 +99,11 @@ contract MorphoV2 is IMorphoV2 {
         require(index <= 5, "Invalid index");
         require(newTradingFee % FEE_STEP == 0, "fee should be a multiple of FEE_STEP");
         require(
-            newTradingFee <= uint256(obligationStorage[id].fees[index]) * FEE_STEP,
+            newTradingFee <= uint256(obligationState[id].fees[index]) * FEE_STEP,
             "New trading fee is higher than current"
         );
         // forge-lint: disable-next-line(unsafe-typecast) as newTradingFee is less than MAX_FEE
-        obligationStorage[id].fees[index] = uint16(newTradingFee / FEE_STEP);
+        obligationState[id].fees[index] = uint16(newTradingFee / FEE_STEP);
         emit EventsLib.SetObligationTradingFee(id, index, newTradingFee);
     }
 
@@ -159,7 +159,7 @@ contract MorphoV2 is IMorphoV2 {
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
         bytes32 id = touchObligation(offer.obligation);
-        ObligationStorage storage _obligationStorage = obligationStorage[id];
+        ObligationState storage _obligationState = obligationState[id];
 
         (
             address buyer,
@@ -182,20 +182,20 @@ contract MorphoV2 is IMorphoV2 {
             obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
             sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
             obligationShares =
-                obligationUnits.mulDivDown(_obligationStorage.totalShares + 1, _obligationStorage.totalUnits + 1);
+                obligationUnits.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
         } else if (sellerAssets > 0) {
             obligationUnits = sellerAssets.mulDivDown(WAD, sellerPrice);
             buyerAssets = sellerAssets.mulDivDown(buyerPrice, sellerPrice);
             obligationShares =
-                obligationUnits.mulDivDown(_obligationStorage.totalShares + 1, _obligationStorage.totalUnits + 1);
+                obligationUnits.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
         } else if (obligationUnits > 0) {
             buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
             sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
             obligationShares =
-                obligationUnits.mulDivDown(_obligationStorage.totalShares + 1, _obligationStorage.totalUnits + 1);
+                obligationUnits.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
         } else {
             obligationUnits =
-                obligationShares.mulDivDown(_obligationStorage.totalUnits + 1, _obligationStorage.totalShares + 1);
+                obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
             buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
             sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
         }
@@ -217,8 +217,8 @@ contract MorphoV2 is IMorphoV2 {
             // Lender enters + borrower enters.
             sharesOf[id][buyer] += obligationShares;
             debtOf[id][seller] += obligationUnits;
-            _obligationStorage.totalShares += UtilsLib.toUint128(obligationShares);
-            _obligationStorage.totalUnits += UtilsLib.toUint128(obligationUnits);
+            _obligationState.totalShares += UtilsLib.toUint128(obligationShares);
+            _obligationState.totalUnits += UtilsLib.toUint128(obligationUnits);
         } else if (buyerIsLender && !sellerIsBorrower) {
             // Lender enters + lender exits.
             sharesOf[id][buyer] += obligationShares;
@@ -231,8 +231,8 @@ contract MorphoV2 is IMorphoV2 {
             // Borrower exits + lender exits.
             debtOf[id][buyer] -= obligationUnits;
             sharesOf[id][seller] -= obligationShares;
-            _obligationStorage.totalShares -= UtilsLib.toUint128(obligationShares);
-            _obligationStorage.totalUnits -= UtilsLib.toUint128(obligationUnits);
+            _obligationState.totalShares -= UtilsLib.toUint128(obligationShares);
+            _obligationState.totalUnits -= UtilsLib.toUint128(obligationUnits);
         }
 
         emit EventsLib.Take(
@@ -290,18 +290,18 @@ contract MorphoV2 is IMorphoV2 {
     {
         require(UtilsLib.atMostOneNonZero(obligationUnits, shares), "INCONSISTENT_INPUT");
         bytes32 id = touchObligation(obligation);
-        ObligationStorage storage _obligationStorage = obligationStorage[id];
+        ObligationState storage _obligationState = obligationState[id];
 
         if (obligationUnits > 0) {
-            shares = obligationUnits.mulDivUp(_obligationStorage.totalShares + 1, _obligationStorage.totalUnits + 1);
+            shares = obligationUnits.mulDivUp(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
         } else {
-            obligationUnits = shares.mulDivDown(_obligationStorage.totalUnits + 1, _obligationStorage.totalShares + 1);
+            obligationUnits = shares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
         }
 
         sharesOf[id][onBehalf] -= shares;
-        _obligationStorage.withdrawable -= obligationUnits;
-        _obligationStorage.totalShares -= UtilsLib.toUint128(shares);
-        _obligationStorage.totalUnits -= UtilsLib.toUint128(obligationUnits);
+        _obligationState.withdrawable -= obligationUnits;
+        _obligationState.totalShares -= UtilsLib.toUint128(shares);
+        _obligationState.totalUnits -= UtilsLib.toUint128(obligationUnits);
 
         emit EventsLib.Withdraw(msg.sender, id, obligationUnits, shares, onBehalf);
 
@@ -314,7 +314,7 @@ contract MorphoV2 is IMorphoV2 {
         bytes32 id = touchObligation(obligation);
 
         debtOf[id][onBehalf] -= obligationUnits;
-        obligationStorage[id].withdrawable += obligationUnits;
+        obligationState[id].withdrawable += obligationUnits;
 
         emit EventsLib.Repay(msg.sender, id, obligationUnits, onBehalf);
 
@@ -364,7 +364,7 @@ contract MorphoV2 is IMorphoV2 {
         uint256 repayableDebt;
         uint256 maxDebt;
         bytes32 id = touchObligation(obligation);
-        ObligationStorage storage _obligationStorage = obligationStorage[id];
+        ObligationState storage _obligationState = obligationState[id];
         uint256[] memory prices = new uint256[](obligation.collaterals.length);
 
         for (uint256 i = 0; i < obligation.collaterals.length; i++) {
@@ -386,7 +386,7 @@ contract MorphoV2 is IMorphoV2 {
         uint256 badDebt = originalDebt.zeroFloorSub(repayableDebt);
         if (badDebt > 0) {
             debtOf[id][borrower] -= badDebt;
-            _obligationStorage.totalUnits -= UtilsLib.toUint128(badDebt);
+            _obligationState.totalUnits -= UtilsLib.toUint128(badDebt);
         }
 
         uint256 totalRepaid;
@@ -408,7 +408,7 @@ contract MorphoV2 is IMorphoV2 {
             collateralOf[id][borrower][collateralToken] -= seizure.seized;
         }
 
-        _obligationStorage.withdrawable += totalRepaid;
+        _obligationState.withdrawable += totalRepaid;
         debtOf[id][borrower] -= totalRepaid;
 
         emit EventsLib.Liquidate(msg.sender, id, seizures, borrower, totalRepaid, badDebt);
@@ -454,7 +454,7 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev Returns the obligation id and creates the obligation if it doesn't exist yet.
     function touchObligation(Obligation memory obligation) public returns (bytes32) {
         bytes32 id = toId(obligation);
-        if (!obligationStorage[id].created) {
+        if (!obligationState[id].created) {
             address previousCollateralToken;
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 address collateralToken = obligation.collaterals[i].token;
@@ -462,8 +462,8 @@ contract MorphoV2 is IMorphoV2 {
                 previousCollateralToken = collateralToken;
             }
 
-            obligationStorage[id].created = true;
-            obligationStorage[id].fees = defaultFees[obligation.loanToken];
+            obligationState[id].created = true;
+            obligationState[id].fees = defaultFees[obligation.loanToken];
 
             emit EventsLib.ObligationCreated(id, obligation);
         }
@@ -473,23 +473,23 @@ contract MorphoV2 is IMorphoV2 {
     /// VIEW FUNCTIONS ///
 
     function totalUnits(bytes32 id) external view returns (uint256) {
-        return obligationStorage[id].totalUnits;
+        return obligationState[id].totalUnits;
     }
 
     function totalShares(bytes32 id) external view returns (uint256) {
-        return obligationStorage[id].totalShares;
+        return obligationState[id].totalShares;
     }
 
     function obligationCreated(bytes32 id) external view returns (bool) {
-        return obligationStorage[id].created;
+        return obligationState[id].created;
     }
 
     function withdrawable(bytes32 id) external view returns (uint256) {
-        return obligationStorage[id].withdrawable;
+        return obligationState[id].withdrawable;
     }
 
     function fees(bytes32 id) external view returns (uint16[6] memory) {
-        return obligationStorage[id].fees;
+        return obligationState[id].fees;
     }
 
     function toId(Obligation memory obligation) public view returns (bytes32) {
@@ -523,7 +523,7 @@ contract MorphoV2 is IMorphoV2 {
 
     /// @dev Returns the trading fee using piecewise linear interpolation between breakpoints.
     function tradingFee(bytes32 id, uint256 timeToMaturity) public view returns (uint256) {
-        uint16[6] memory _fees = obligationStorage[id].fees;
+        uint16[6] memory _fees = obligationState[id].fees;
 
         if (timeToMaturity >= 180 days) return uint256(_fees[5]) * FEE_STEP;
 
