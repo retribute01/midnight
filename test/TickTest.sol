@@ -42,6 +42,11 @@ contract TickTest is Test {
         return WAD.mulDivDown(WAD, price) - WAD;
     }
 
+    function testGasTickToPrice(uint256 tick) public {
+        tick = bound(tick, 0, TICK_RANGE);
+        UtilsLib.tickToPrice(tick);
+    }
+
     // Price to tick
 
     function testPriceToTick(uint256 price) public pure {
@@ -57,5 +62,10 @@ contract TickTest is Test {
         uint256 recoveredTick = UtilsLib.priceToTick(price);
         assertEq(UtilsLib.tickToPrice(recoveredTick), price);
         assertLe(recoveredTick, tick);
+    }
+
+    function testGasPriceToTick(uint256 price) public {
+        price = bound(price, 0, 1 ether);
+        UtilsLib.priceToTick(price);
     }
 }
