@@ -7,8 +7,6 @@ import {Obligation, Collateral} from "../src/interfaces/IMorphoV2.sol";
 import {ERC20} from "./helpers/ERC20.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
 
-import {console} from "../lib/forge-std/src/console.sol";
-import {WAD, TICK_RANGE} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 
 contract OtherFunctionsTest is BaseTest {
