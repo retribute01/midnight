@@ -487,7 +487,7 @@ contract MorphoV2 is IMorphoV2 {
     function idToObligation(bytes32 id) external view returns (Obligation memory) {
         address _idToObligationContract = idToObligationContract[id];
         if (_idToObligationContract == address(0)) {
-            return Obligation(address(0), new Collateral[](0), 0);
+            return Obligation({loanToken: address(0), collaterals: new Collateral[](0), maturity: 0});
         }
         uint256 size;
         assembly ("memory-safe") {
