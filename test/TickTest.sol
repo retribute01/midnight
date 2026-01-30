@@ -29,12 +29,15 @@ contract TickTest is Test {
     }
 
     function testReturnJumps() public pure {
-        uint256 price = UtilsLib.tickToPrice(150);
-        uint256 previousReturn = _return(price);
-        for (uint256 i = 150; i <= 815; i++) {
+        for (uint256 i = 207; i <= 729; i++) {
+            uint256 previousReturn = _return(UtilsLib.tickToPrice(i - 1));
             uint256 currentReturn = _return(UtilsLib.tickToPrice(i));
-            assertApproxEqRel(currentReturn, previousReturn.mulDivDown(WAD, 1.025e18), 0.03e18, "tick i");
-            previousReturn = currentReturn;
+            assertApproxEqRel(
+                currentReturn.mulDivDown(1.025e18, 1e18),
+                previousReturn,
+                0.005e18,
+                string.concat("tick ", vm.toString(i))
+            );
         }
     }
 
@@ -42,6 +45,7 @@ contract TickTest is Test {
         return WAD.mulDivDown(WAD, price) - WAD;
     }
 
+    // To be able to subtract the gas used by bound.
     function testGasBound(uint256 value) public pure {
         bound(value, 0, 1 ether);
     }
@@ -60,12 +64,13 @@ contract TickTest is Test {
         if (tick > 0) assertLe(UtilsLib.tickToPrice(tick - 1), price);
     }
 
-    function testPriceToTickConsistency(uint256 tick) public pure {
-        tick = bound(tick, 0, TICK_RANGE);
-        uint256 price = UtilsLib.tickToPrice(tick);
-        uint256 recoveredTick = UtilsLib.priceToTick(price);
-        assertEq(UtilsLib.tickToPrice(recoveredTick), price);
-        assertLe(recoveredTick, tick);
+    function testPriceToTickConsistency() public pure {
+        for (uint256 tick = 0; tick <= TICK_RANGE; tick++) {
+            uint256 price = UtilsLib.tickToPrice(tick);
+            uint256 recoveredTick = UtilsLib.priceToTick(price);
+            assertEq(UtilsLib.tickToPrice(recoveredTick), price);
+            assertLe(recoveredTick, tick);
+        }
     }
 
     function testGasPriceToTick(uint256 price) public pure {
