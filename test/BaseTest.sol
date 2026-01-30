@@ -10,7 +10,6 @@ import {IdLib} from "../src/libraries/IdLib.sol";
 import {WAD, ORACLE_PRICE_SCALE, EIP712_DOMAIN_TYPEHASH, ROOT_TYPEHASH} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Offer, Signature, Collateral, Seizure} from "../src/interfaces/IMorphoV2.sol";
 import {MorphoV2} from "../src/MorphoV2.sol";
-import {ObligationDeployer} from "../src/ObligationDeployer.sol";
 
 uint256 constant MAX_TEST_AMOUNT = 1e36;
 
