@@ -4,9 +4,9 @@ pragma solidity >=0.5.0;
 
 struct Obligation {
     address loanToken;
-    uint256 maturity;
     // Must be sorted by address.
     Collateral[] collaterals;
+    uint256 maturity;
 }
 
 struct Collateral {

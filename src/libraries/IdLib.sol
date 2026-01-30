@@ -6,9 +6,9 @@ import {ObligationDeployer} from "../ObligationDeployer.sol";
 import {Obligation} from "../interfaces/IMorphoV2.sol";
 
 library IdLib {
-    function toId(address morphoV2, Obligation memory obligation) internal view returns (bytes32) {
+    function toId(Obligation memory obligation, uint256 chainid, address morphoV2) internal pure returns (bytes32) {
         bytes memory creationCode =
-            abi.encodePacked(type(ObligationDeployer).creationCode, abi.encode(obligation, block.chainid, morphoV2));
+            abi.encodePacked(type(ObligationDeployer).creationCode, abi.encode(obligation, chainid, morphoV2));
         return keccak256(creationCode);
     }
 

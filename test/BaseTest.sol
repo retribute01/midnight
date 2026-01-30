@@ -157,7 +157,7 @@ abstract contract BaseTest is Test {
     }
 
     function toId(Obligation memory obligation) internal view returns (bytes32) {
-        return IdLib.toId(address(morphoV2), obligation);
+        return IdLib.toId(obligation, block.chainid, address(morphoV2));
     }
 
     function root(Offer[1] memory offers) internal pure returns (bytes32) {
