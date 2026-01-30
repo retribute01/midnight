@@ -9,6 +9,7 @@ import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {WAD, ORACLE_PRICE_SCALE, EIP712_DOMAIN_TYPEHASH, ROOT_TYPEHASH} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Offer, Signature, Collateral, Seizure} from "../src/interfaces/IMorphoV2.sol";
 import {MorphoV2} from "../src/MorphoV2.sol";
+import {ObligationDeployer} from "../src/ObligationDeployer.sol";
 
 uint256 constant MAX_TEST_AMOUNT = 1e36;
 
@@ -156,7 +157,10 @@ abstract contract BaseTest is Test {
     }
 
     function toId(Obligation memory obligation) internal view returns (bytes32) {
-        return keccak256(abi.encode(block.chainid, address(morphoV2), obligation));
+        bytes memory creationCode = abi.encodePacked(
+            type(ObligationDeployer).creationCode, abi.encode(obligation, block.chainid, address(morphoV2))
+        );
+        return keccak256(creationCode);
     }
 
     function root(Offer[1] memory offers) internal pure returns (bytes32) {

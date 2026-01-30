@@ -56,6 +56,4 @@ struct ObligationState {
     uint16[6] fees;
 }
 
-interface IMorphoV2 {
-    function obligationBeingCreated() external view returns (Obligation memory);
-}
+interface IMorphoV2 {}

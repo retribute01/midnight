@@ -452,47 +452,6 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), assets);
     }
 
-    function setObligationCreation(Obligation memory obligation) internal {
-        uint256 collateralLength = obligation.collaterals.length;
-        assembly ("memory-safe") {
-            tstore(0, mload(obligation))
-            tstore(0x20, mload(add(obligation, 0x20)))
-            tstore(0x40, collateralLength)
-        }
-        for (uint256 i = 0; i < obligation.collaterals.length; i++) {
-            Collateral memory collateral = obligation.collaterals[i];
-            assembly ("memory-safe") {
-                let transientOffset := add(0x60, mul(i, 0x60))
-                tstore(transientOffset, mload(collateral))
-                tstore(add(transientOffset, 0x20), mload(add(collateral, 0x20)))
-                tstore(add(transientOffset, 0x40), mload(add(collateral, 0x40)))
-            }
-        }
-    }
-
-    function obligationBeingCreated() external view returns (Obligation memory) {
-        Obligation memory obligation;
-        uint256 collateralLength;
-        assembly ("memory-safe") {
-            mstore(obligation, tload(0))
-            mstore(add(obligation, 0x20), tload(0x20))
-            collateralLength := tload(0x40)
-        }
-        Collateral[] memory collaterals = new Collateral[](collateralLength);
-        for (uint256 i = 0; i < collateralLength; i++) {
-            Collateral memory collateral;
-            assembly ("memory-safe") {
-                let transientOffset := add(0x60, mul(i, 0x60))
-                mstore(collateral, tload(transientOffset))
-                mstore(add(collateral, 0x20), tload(add(transientOffset, 0x20)))
-                mstore(add(collateral, 0x40), tload(add(transientOffset, 0x40)))
-            }
-            collaterals[i] = collateral;
-        }
-        obligation.collaterals = collaterals;
-        return obligation;
-    }
-
     /// @dev Returns the obligation id and creates the obligation if it doesn't exist yet.
     function touchObligation(Obligation memory obligation) public returns (bytes32) {
         bytes32 id = toId(obligation);
@@ -507,8 +466,7 @@ contract MorphoV2 is IMorphoV2 {
             obligationState[id].created = true;
             obligationState[id].fees = defaultFees[obligation.loanToken];
 
-            setObligationCreation(obligation);
-            new ObligationDeployer{salt: id}();
+            new ObligationDeployer{salt: bytes32(0)}(obligation, block.chainid, address(this));
 
             emit EventsLib.ObligationCreated(id, obligation);
         }
@@ -518,8 +476,7 @@ contract MorphoV2 is IMorphoV2 {
     /// VIEW FUNCTIONS ///
 
     function idToObligationContract(bytes32 id) public view returns (address) {
-        bytes32 creationCodeHash = keccak256(abi.encodePacked(type(ObligationDeployer).creationCode));
-        return address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(this), id, creationCodeHash)))));
+        return address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), address(this), bytes32(0), id)))));
     }
 
     function idToObligation(bytes32 id) external view returns (Obligation memory) {
@@ -548,7 +505,10 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     function toId(Obligation memory obligation) public view returns (bytes32) {
-        return keccak256(abi.encode(block.chainid, address(this), obligation));
+        bytes memory creationCode = abi.encodePacked(
+            type(ObligationDeployer).creationCode, abi.encode(obligation, block.chainid, address(this))
+        );
+        return keccak256(creationCode);
     }
 
     function isHealthy(Obligation memory obligation, address borrower) public view returns (bool) {

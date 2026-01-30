@@ -5,8 +5,7 @@ pragma solidity ^0.8.0;
 import {IMorphoV2, Obligation} from "./interfaces/IMorphoV2.sol";
 
 contract ObligationDeployer {
-    constructor() {
-        Obligation memory obligation = IMorphoV2(msg.sender).obligationBeingCreated();
+    constructor(Obligation memory obligation, uint256, address) {
         bytes memory encodedObligation = abi.encode(obligation);
 
         assembly ("memory-safe") {
