@@ -156,14 +156,19 @@ contract OtherFunctionsTest is BaseTest {
         assertEq(morphoV2.consumed(user, group), amount, "consumed");
     }
 
-    function testIdToObligation(Obligation memory _obligation) public {
-        // Ensure collaterals are sorted, non-zero and unique (done by adding the index to the hash of the token).
-        Collateral[] memory collaterals = new Collateral[](_obligation.collaterals.length);
-        for (uint256 i = 0; i < _obligation.collaterals.length; i++) {
-            collaterals[i].token = address(uint160(uint256(keccak256(abi.encode(_obligation.collaterals[i].token, i)))));
+    function testTouchObligation(Obligation memory _obligation) public {
+        _obligation = sortedAndUniqueCollateralsInObligation(_obligation);
+
+        bytes32 _id = morphoV2.touchObligation(_obligation);
+        assertEq(morphoV2.obligationCreated(_id), true, "obligation created");
+        uint16[6] memory fees = morphoV2.fees(_id);
+        for (uint256 i = 0; i < 6; i++) {
+            assertEq(fees[i], morphoV2.defaultFees(_obligation.loanToken, i), "fees");
         }
-        collaterals = sortCollaterals(collaterals);
-        _obligation.collaterals = collaterals;
+    }
+
+    function testIdToObligation(Obligation memory _obligation) public {
+        _obligation = sortedAndUniqueCollateralsInObligation(_obligation);
 
         bytes32 _id = morphoV2.touchObligation(_obligation);
         Obligation memory obligationFromId = morphoV2.idToObligation(_id);

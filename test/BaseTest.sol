@@ -213,6 +213,22 @@ abstract contract BaseTest is Test {
         return arr;
     }
 
+    // Returns an obligation with sorted, non-zero and unique collaterals (done by adding the index to the hash of the
+    // token).
+    function sortedAndUniqueCollateralsInObligation(Obligation memory obligation)
+        internal
+        pure
+        returns (Obligation memory)
+    {
+        Collateral[] memory collaterals = new Collateral[](obligation.collaterals.length);
+        for (uint256 i = 0; i < obligation.collaterals.length; i++) {
+            collaterals[i].token = address(uint160(uint256(keccak256(abi.encode(obligation.collaterals[i].token, i)))));
+        }
+        collaterals = sortCollaterals(collaterals);
+        obligation.collaterals = collaterals;
+        return obligation;
+    }
+
     function setupObligation(Obligation memory obligation, uint256 obligationUnits) internal {
         deal(address(loanToken), lender, obligationUnits);
 
