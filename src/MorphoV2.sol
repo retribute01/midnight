@@ -177,7 +177,6 @@ contract MorphoV2 is IMorphoV2 {
         uint256 _tradingFee = tradingFee(id, timeToMaturity);
         uint256 sellerPrice = offer.buy ? offerPrice - _tradingFee : offerPrice;
         uint256 buyerPrice = sellerPrice + _tradingFee;
-        require(buyerPrice <= WAD, "cannot trade at price above one");
 
         if (buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
