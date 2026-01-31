@@ -3,7 +3,7 @@
 pragma solidity 0.8.31;
 
 import {UtilsLib} from "./libraries/UtilsLib.sol";
-import {TickLib, TICK_RANGE} from "./libraries/TickLib.sol";
+import {TickLib} from "./libraries/TickLib.sol";
 import {SafeTransferLib} from "./libraries/SafeTransferLib.sol";
 import {
     WAD,
