@@ -105,6 +105,16 @@ contract TickLibTest is BaseTest {
             if (tick > TICK_RANGE / 2) {
                 assertLe(relErrorWad, 0.001e18, string.concat("Tick ", vm.toString(tick), " error exceeds 1%"));
             }
+
+            // Check exact price is bracketed by adjacent sol prices (only where prices vary per-tick)
+            if (tick > 0 && tick < TICK_RANGE) {
+                uint256 prevSolPrice = TickLib.tickToPrice(tick - 1);
+                uint256 nextSolPrice = TickLib.tickToPrice(tick + 1);
+                if (prevSolPrice < solPrice && solPrice < nextSolPrice) {
+                    assertGe(exactPrice, prevSolPrice, string.concat("Tick ", vm.toString(tick), " exact < prev sol"));
+                    assertLe(exactPrice, nextSolPrice, string.concat("Tick ", vm.toString(tick), " exact > next sol"));
+                }
+            }
         }
 
         console.log("Max absolute error (bps):", maxAbsErrorBps);
