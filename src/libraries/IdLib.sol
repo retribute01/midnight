@@ -8,16 +8,22 @@ library IdLib {
     /// @dev Minimal creation code that returns code after the prefix as runtime bytecode.
     /// @dev Explanation of the prefix:
     /// hex       opcode          stack              comments
-    /// --------------------------------------------------------------------------
-    /// 60 0b     PUSH1 0x0b      [11]
-    /// 38        CODESIZE        [codesize, 11]
-    /// 03        SUB             [len]              with len = codesize - 11
+    /// ---------------------------------------------------------------------------------
+    /// 60 4b     PUSH1 0x4b      [75]                0x4b = 75
+    /// 38        CODESIZE        [codesize, 75]
+    /// 03        SUB             [len]               with len = codesize - 75
     /// 80        DUP1            [len, len]
-    /// 60 0b     PUSH1 0x0b      [11, len, len]     code offset = 11
-    /// 5f        PUSH0           [0, 11, len, len]  mem offset = 0
-    /// 39        CODECOPY        [len]              mem[0:len] <- code[11:11+len]
-    /// 5f        PUSH0           [0, len]           return offset = 0
-    /// f3        RETURN          []                 mem[0:len] is returned
+    /// 60 4b     PUSH1 0x4b      [75, len, len]      code offset = 75
+    /// 5f        PUSH0           [0, 75, len, len]   mem offset = 0
+    /// 39        CODECOPY        [len]               mem[0:len] <- code[75:75+len]
+    ///           PUSH 0x40       [64, len]
+    ///           PUSH0           [0, 64, len]        push 0 to the stack
+    ///           MLOAD           [offset, 64, len]   offset = mem[0:32]
+    ///           SUB             [newOffset, len]    newOffset removes 2 words (64 bytes)
+    ///           PUSH0           [0, newOffset, len] push 0 to the stack
+    ///           MSTORE          [len]               mem[0:32] <- newOffset
+    /// 5f        PUSH0           [0, len]            return offset = 0
+    /// f3        RETURN          []                  mem[0:len] is returned
     function creationCode(Obligation memory obligation, uint256 chainid, address morphoV2)
         internal
         pure
