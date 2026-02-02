@@ -44,6 +44,7 @@ library IdLib {
         return abi.decode(create2Address.code, (Obligation));
     }
 
+    /// @dev The contract code begins with 0x00 (STOP), because the first word is the offset of the obligation.
     function sstore2(Obligation memory obligation) internal {
         bytes memory _creationCode = creationCode(obligation, block.chainid, address(this));
         address create2Address;
