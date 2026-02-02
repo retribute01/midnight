@@ -22,7 +22,7 @@ library IdLib {
         return abi.decode(create2Address.code, (Obligation));
     }
 
-    function deployObligation(Obligation memory obligation) internal {
+    function sstore2(Obligation memory obligation) internal {
         new SStore2{salt: bytes32(0)}(abi.encode(obligation, block.chainid, address(this)));
     }
 }
