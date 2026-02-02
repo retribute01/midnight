@@ -2,9 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "../lib/forge-std/src/Test.sol";
-import {IdLib, OBLIGATION_DEPLOYER_BYTECODE} from "../src/libraries/IdLib.sol";
+import {IdLib, SSTORE2_BYTECODE} from "../src/libraries/IdLib.sol";
 import {Obligation} from "../src/interfaces/IMorphoV2.sol";
-import {ObligationDeployer} from "../src/ObligationDeployer.sol";
+import {SStore2} from "../src/SStore2.sol";
 
 // idToObligation is tested in OtherFunctionsTest.sol, to test actual implementation (avoid introducing mocks).
 contract IdLibTest is Test {
@@ -55,9 +55,7 @@ contract IdLibTest is Test {
         assertNotEq(id1, id2);
     }
 
-    function testObligationDeployerBytecode() public pure {
-        assertEq(
-            OBLIGATION_DEPLOYER_BYTECODE, type(ObligationDeployer).creationCode, "ObligationDeployer bytecode mismatch"
-        );
+    function testSStore2Bytecode() public pure {
+        assertEq(SSTORE2_BYTECODE, type(SStore2).creationCode, "SStore2 bytecode mismatch");
     }
 }
