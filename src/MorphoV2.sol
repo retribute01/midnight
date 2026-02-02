@@ -378,6 +378,7 @@ contract MorphoV2 is IMorphoV2 {
         }
 
         if (repaidUnits > 0 || seizedAssets > 0) {
+            uint256 lltv = obligation.collaterals[collateralIndex].lltv;
             uint256 lif = originalDebt > maxDebt
                 ? MAX_LIF
                 : UtilsLib.min(
@@ -391,9 +392,12 @@ contract MorphoV2 is IMorphoV2 {
                     repaidUnits.mulDivDown(ORACLE_PRICE_SCALE, liquidatedCollateralPrice).mulDivDown(lif, WAD);
             }
 
+            address collateralToken = obligation.collaterals[collateralIndex].token;
             uint256 newMaxDebt = maxDebt
-                - seizedAssets.mulDivDown(liquidatedCollateralPrice, ORACLE_PRICE_SCALE)
-                    .mulDivDown(obligation.collaterals[collateralIndex].lltv, WAD);
+                - collateralOf[id][borrower][collateralToken].mulDivDown(liquidatedCollateralPrice, ORACLE_PRICE_SCALE)
+                    .mulDivDown(lltv, WAD)
+                + (collateralOf[id][borrower][collateralToken] - seizedAssets)
+                    .mulDivDown(liquidatedCollateralPrice, ORACLE_PRICE_SCALE).mulDivDown(lltv, WAD);
             require(
                 block.timestamp > obligation.maturity || originalDebt - repaidUnits >= newMaxDebt,
                 "recovery close factory violated"
