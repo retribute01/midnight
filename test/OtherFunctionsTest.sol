@@ -9,7 +9,6 @@ import {ERC20} from "./helpers/ERC20.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
 
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
-import {console} from "../lib/forge-std/src/console.sol";
 
 contract OtherFunctionsTest is BaseTest {
     using UtilsLib for uint256;
@@ -186,14 +185,6 @@ contract OtherFunctionsTest is BaseTest {
             assertEq(_obligation.collaterals[i].lltv, obligationFromId.collaterals[i].lltv, "lltv");
             assertEq(_obligation.collaterals[i].oracle, obligationFromId.collaterals[i].oracle, "oracle");
         }
-    }
-
-    function testShowCreationCode() public pure {
-        Obligation memory _obligation;
-        _obligation.loanToken = address(13);
-        _obligation.maturity = 42;
-        bytes memory creationCode = abi.encode(_obligation);
-        console.logBytes(creationCode);
     }
 
     function testShuffleSession(address user) public {
