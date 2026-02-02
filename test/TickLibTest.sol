@@ -106,7 +106,7 @@ contract TickLibTest is BaseTest {
             maxRelErrorWad = max(maxRelErrorWad, relErrorWad);
 
             assertLe(absErrorWad, 0.00015e18, string.concat("Tick ", vm.toString(tick), " error exceeds 1.5 bps"));
-            if (tick > TICK_RANGE / 2) {
+            if (solPrice > 0.01e18) {
                 assertLe(relErrorWad, 0.001e18, string.concat("Tick ", vm.toString(tick), " error exceeds 0.1%"));
             }
 
