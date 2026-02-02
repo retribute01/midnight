@@ -2,9 +2,8 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "../lib/forge-std/src/Test.sol";
-import {IdLib, SSTORE2_BYTECODE} from "../src/libraries/IdLib.sol";
+import {IdLib} from "../src/libraries/IdLib.sol";
 import {Obligation} from "../src/interfaces/IMorphoV2.sol";
-import {SStore2} from "../src/SStore2.sol";
 
 // idToObligation is tested in OtherFunctionsTest.sol, to test actual implementation (avoid introducing mocks).
 contract IdLibTest is Test {
@@ -53,9 +52,5 @@ contract IdLibTest is Test {
         bytes32 id1 = IdLib.toId(obligation, chainid, morphoV2One);
         bytes32 id2 = IdLib.toId(obligation, chainid, morphoV2Two);
         assertNotEq(id1, id2);
-    }
-
-    function testSStore2Bytecode() public pure {
-        assertEq(SSTORE2_BYTECODE, type(SStore2).creationCode, "SStore2 bytecode mismatch");
     }
 }

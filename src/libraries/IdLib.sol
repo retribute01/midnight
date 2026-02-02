@@ -2,17 +2,34 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {SStore2} from "../SStore2.sol";
 import {Obligation} from "../interfaces/IMorphoV2.sol";
 
-bytes constant SSTORE2_BYTECODE =
-    hex"60806040523460845760c180380380601581609c565b9283398101906020818303126084578051906001600160401b0382116084570181601f8201121560845780516001600160401b038111608857605f601f8201601f1916602001609c565b91818352602083019360208383010111608457815f926020809301865e830101525190f35b5f80fd5b634e487b7160e01b5f52604160045260245ffd5b6040519190601f01601f191682016001600160401b0381118382101760885760405256fe";
-
 library IdLib {
-    function toId(Obligation memory obligation, uint256 chainid, address morphoV2) internal pure returns (bytes32) {
+    /// @dev Minimal creation code that returns code after the prefix as runtime bytecode.
+    /// @dev Explanation of the prefix:
+    /// hex       opcode          stack              comments
+    /// --------------------------------------------------------------------------
+    /// 60 0b     PUSH1 0x0b      [11]
+    /// 38        CODESIZE        [codesize, 11]
+    /// 03        SUB             [len]              with len = codesize - 11
+    /// 80        DUP1            [len, len]
+    /// 60 0b     PUSH1 0x0b      [11, len, len]     code offset = 11
+    /// 5f        PUSH0           [0, 11, len, len]  mem offset = 0
+    /// 39        CODECOPY        [len]              mem[0:len] <- code[11:11+len]
+    /// 5f        PUSH0           [0, len]           return offset = 0
+    /// f3        RETURN          []                 mem[0:len] is returned
+    function creationCode(Obligation memory obligation, uint256 chainid, address morphoV2)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        bytes memory prefix = hex"600b380380600b5f395ff3";
         bytes memory sstore2Data = abi.encode(obligation, chainid, morphoV2);
-        bytes memory creationCode = abi.encodePacked(SSTORE2_BYTECODE, abi.encode(sstore2Data));
-        return keccak256(creationCode);
+        return abi.encodePacked(prefix, sstore2Data);
+    }
+
+    function toId(Obligation memory obligation, uint256 chainid, address morphoV2) internal pure returns (bytes32) {
+        return keccak256(creationCode(obligation, chainid, morphoV2));
     }
 
     function idToObligation(address morphoV2, bytes32 id) internal view returns (Obligation memory) {
@@ -23,6 +40,11 @@ library IdLib {
     }
 
     function sstore2(Obligation memory obligation) internal {
-        new SStore2{salt: bytes32(0)}(abi.encode(obligation, block.chainid, address(this)));
+        bytes memory _creationCode = creationCode(obligation, block.chainid, address(this));
+        address create2Address;
+        assembly ("memory-safe") {
+            create2Address := create2(0, add(_creationCode, 0x20), mload(_creationCode), 0)
+        }
+        require(create2Address != address(0), "Failed to create SStore2 contract");
     }
 }
