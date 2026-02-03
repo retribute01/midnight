@@ -31,7 +31,7 @@ library IdLib {
         return keccak256(creationCode(obligation, chainId, morphoV2));
     }
 
-    function idToObligation(address morphoV2, bytes32 id) internal view returns (Obligation memory) {
+    function idToObligation(bytes32 id, address morphoV2) internal view returns (Obligation memory) {
         address create2Address =
             address(uint160(uint256(keccak256(abi.encodePacked(uint8(0xff), morphoV2, bytes32(0), id)))));
         return abi.decode(create2Address.code, (Obligation));

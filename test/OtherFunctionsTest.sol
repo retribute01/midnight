@@ -176,7 +176,7 @@ contract OtherFunctionsTest is BaseTest {
         _obligation = sortedAndUniqueCollateralsInObligation(_obligation);
 
         bytes32 _id = morphoV2.touchObligation(_obligation);
-        Obligation memory obligationFromId = IdLib.idToObligation(address(morphoV2), _id);
+        Obligation memory obligationFromId = IdLib.idToObligation(_id, address(morphoV2));
         assertEq(_obligation.loanToken, obligationFromId.loanToken, "loanToken");
         assertEq(_obligation.maturity, obligationFromId.maturity, "maturity");
         assertEq(_obligation.collaterals.length, obligationFromId.collaterals.length, "collaterals length");
