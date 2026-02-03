@@ -392,16 +392,14 @@ contract MorphoV2 is IMorphoV2 {
                     repaidUnits.mulDivDown(ORACLE_PRICE_SCALE, liquidatedCollateralPrice).mulDivDown(lif, WAD);
             }
 
-            address collateralToken = obligation.collaterals[collateralIndex].token;
-            uint256 newMaxDebt = maxDebt
-                - collateralOf[id][borrower][collateralToken].mulDivDown(liquidatedCollateralPrice, ORACLE_PRICE_SCALE)
-                    .mulDivDown(lltv, WAD)
-                + (collateralOf[id][borrower][collateralToken] - seizedAssets)
-                    .mulDivDown(liquidatedCollateralPrice, ORACLE_PRICE_SCALE).mulDivDown(lltv, WAD);
-            require(
-                block.timestamp > obligation.maturity || originalDebt - repaidUnits >= newMaxDebt,
-                "recovery close factory violated"
-            );
+            if (block.timestamp <= obligation.maturity) {
+                uint256 _collateralOf = collateralOf[id][borrower][obligation.collaterals[collateralIndex].token];
+                uint256 newMaxDebt = maxDebt
+                    - _collateralOf.mulDivDown(liquidatedCollateralPrice, ORACLE_PRICE_SCALE).mulDivDown(lltv, WAD)
+                    + (_collateralOf - seizedAssets).mulDivDown(liquidatedCollateralPrice, ORACLE_PRICE_SCALE)
+                        .mulDivDown(lltv, WAD);
+                require(originalDebt - repaidUnits >= newMaxDebt, "recovery close factory violated");
+            }
 
             collateralOf[id][borrower][obligation.collaterals[collateralIndex].token] -= seizedAssets;
             _obligationState.withdrawable += repaidUnits;
