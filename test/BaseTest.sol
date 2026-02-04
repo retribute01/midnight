@@ -6,7 +6,9 @@ import {Test} from "../lib/forge-std/src/Test.sol";
 import {ERC20} from "./helpers/ERC20.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
-import {WAD, ORACLE_PRICE_SCALE} from "../src/libraries/ConstantsLib.sol";
+import {IdLib} from "../src/libraries/IdLib.sol";
+import {TICK_RANGE} from "../src/libraries/TickLib.sol";
+import {WAD, ORACLE_PRICE_SCALE, EIP712_DOMAIN_TYPEHASH, ROOT_TYPEHASH} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Offer, Signature, Collateral, Seizure} from "../src/interfaces/IMorphoV2.sol";
 import {MorphoV2} from "../src/MorphoV2.sol";
 
@@ -112,8 +114,7 @@ abstract contract BaseTest is Test {
         lenderOffer.assets = units;
         lenderOffer.group = keccak256(abi.encode("non zero group"));
         lenderOffer.expiry = block.timestamp + 200;
-        lenderOffer.startPrice = 1 ether;
-        lenderOffer.expiryPrice = 1 ether;
+        lenderOffer.tick = TICK_RANGE;
 
         collateralize(obligation, otherBorrower, units);
         take(0, 0, units, 0, otherBorrower, lenderOffer);
@@ -133,8 +134,7 @@ abstract contract BaseTest is Test {
         badBorrowerOffer.assets = 100;
         badBorrowerOffer.start = block.timestamp;
         badBorrowerOffer.expiry = block.timestamp + 200;
-        badBorrowerOffer.startPrice = 1 ether;
-        badBorrowerOffer.expiryPrice = 1 ether;
+        badBorrowerOffer.tick = TICK_RANGE;
 
         deal(obligation.collaterals[0].token, address(this), 135);
         morphoV2.supplyCollateral(obligation, obligation.collaterals[0].token, 135, badBorrower);
@@ -151,16 +151,16 @@ abstract contract BaseTest is Test {
         );
 
         // then empty the market (borrow side only).
-        deal(address(loanToken), address(this), morphoV2.debtOf(badBorrower, toId(obligation)));
-        morphoV2.repay(obligation, morphoV2.debtOf(badBorrower, toId(obligation)), badBorrower);
-        assertEq(morphoV2.debtOf(badBorrower, toId(obligation)), 0, "debt");
+        deal(address(loanToken), address(this), morphoV2.debtOf(toId(obligation), badBorrower));
+        morphoV2.repay(obligation, morphoV2.debtOf(toId(obligation), badBorrower), badBorrower);
+        assertEq(morphoV2.debtOf(toId(obligation), badBorrower), 0, "debt");
 
         // reset the price.
         Oracle(obligation.collaterals[0].oracle).setPrice(ORACLE_PRICE_SCALE);
     }
 
-    function toId(Obligation memory obligation) internal pure returns (bytes32) {
-        return keccak256(abi.encode(obligation));
+    function toId(Obligation memory obligation) internal view returns (bytes32) {
+        return IdLib.toId(obligation, block.chainid, address(morphoV2));
     }
 
     function root(Offer[1] memory offers) internal pure returns (bytes32) {
@@ -182,20 +182,26 @@ abstract contract BaseTest is Test {
         return res;
     }
 
+    function domainSeparator() internal view returns (bytes32) {
+        return keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(morphoV2)));
+    }
+
+    function sig(bytes32 _root, uint256 _privateKey) internal view returns (Signature memory) {
+        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, _root));
+        bytes32 messageHash = keccak256(bytes.concat("\x19\x01", domainSeparator(), structHash));
+        Signature memory signature;
+        (signature.v, signature.r, signature.s) = vm.sign(_privateKey, messageHash);
+        return signature;
+    }
+
     function sig(Offer[1] memory offers) internal view returns (Signature memory) {
         bytes32 _root = root(offers);
-        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", _root));
-        Signature memory signature;
-        (signature.v, signature.r, signature.s) = vm.sign(privateKey[offers[0].maker], messageHash);
-        return signature;
+        return sig(_root, privateKey[offers[0].maker]);
     }
 
     function sig(Offer[2] memory offers) internal view returns (Signature memory) {
         bytes32 _root = root(offers);
-        bytes32 messageHash = keccak256(bytes.concat("\x19\x45thereum Signed Message:\n32", _root));
-        Signature memory signature;
-        (signature.v, signature.r, signature.s) = vm.sign(privateKey[offers[0].maker], messageHash);
-        return signature;
+        return sig(_root, privateKey[offers[0].maker]);
     }
 
     function sortCollaterals(Collateral[] memory arr) internal pure returns (Collateral[] memory) {
@@ -211,6 +217,22 @@ abstract contract BaseTest is Test {
         return arr;
     }
 
+    // Returns an obligation with sorted, non-zero and unique collaterals (done by adding the index to the hash of the
+    // token).
+    function sortedAndUniqueCollateralsInObligation(Obligation memory obligation)
+        internal
+        pure
+        returns (Obligation memory)
+    {
+        Collateral[] memory collaterals = new Collateral[](obligation.collaterals.length);
+        for (uint256 i = 0; i < obligation.collaterals.length; i++) {
+            collaterals[i].token = address(uint160(uint256(keccak256(abi.encode(obligation.collaterals[i].token, i)))));
+        }
+        collaterals = sortCollaterals(collaterals);
+        obligation.collaterals = collaterals;
+        return obligation;
+    }
+
     function setupObligation(Obligation memory obligation, uint256 obligationUnits) internal {
         deal(address(loanToken), lender, obligationUnits);
 
@@ -221,8 +243,7 @@ abstract contract BaseTest is Test {
         borrowerOffer.assets = obligationUnits;
         borrowerOffer.start = block.timestamp;
         borrowerOffer.expiry = block.timestamp;
-        borrowerOffer.startPrice = 1 ether;
-        borrowerOffer.expiryPrice = 1 ether;
+        borrowerOffer.tick = TICK_RANGE;
 
         morphoV2.take(
             0,
@@ -242,5 +263,9 @@ abstract contract BaseTest is Test {
 
     function max(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? a : b;
+    }
+
+    function absDiff(uint256 a, uint256 b) internal pure returns (uint256) {
+        return a > b ? a - b : b - a;
     }
 }
