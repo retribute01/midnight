@@ -244,7 +244,9 @@ contract MorphoV2 is IMorphoV2 {
             obligationShares,
             taker,
             buyerIsLender,
-            sellerIsBorrower
+            sellerIsBorrower,
+            offer.maker,
+            offer.group
         );
 
         if (buyerCallback != address(0)) {

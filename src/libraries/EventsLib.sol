@@ -23,7 +23,9 @@ library EventsLib {
         uint256 obligationShares,
         address indexed taker,
         bool buyerIsLender,
-        bool sellerIsBorrower
+        bool sellerIsBorrower,
+        address maker,
+        bytes32 group
     );
     event Withdraw(
         address indexed caller, bytes32 indexed id, uint256 obligationUnits, uint256 shares, address indexed onBehalf
