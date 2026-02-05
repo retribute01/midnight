@@ -50,5 +50,5 @@ library EventsLib {
     event ShuffleSession(address indexed user, bytes32 session);
     event FlashLoan(address indexed caller, address indexed token, uint256 assets);
 
-    event SetAuthorization(address indexed authorizer, address indexed authorized, bool newIsAuthorized);
+    event SetIsAuthorized(address indexed authorizer, address indexed authorized, bool newIsAuthorized);
 }

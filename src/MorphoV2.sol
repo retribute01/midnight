@@ -449,7 +449,7 @@ contract MorphoV2 is IMorphoV2 {
 
     function setIsAuthorized(address authorized, bool newIsAuthorized) external {
         isAuthorized[msg.sender][authorized] = newIsAuthorized;
-        emit EventsLib.SetAuthorization(msg.sender, authorized, newIsAuthorized);
+        emit EventsLib.SetIsAuthorized(msg.sender, authorized, newIsAuthorized);
     }
 
     function flashLoan(address token, uint256 assets, address callback, bytes calldata data) external {
