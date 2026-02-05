@@ -15,16 +15,20 @@ library EventsLib {
 
     event ObligationCreated(bytes32 indexed id, Obligation obligation);
     event Take(
-        address indexed caller,
+        address caller,
         bytes32 indexed id,
+        address indexed maker,
+        address indexed taker,
+        bool offerIsBuy,
         uint256 buyerAssets,
         uint256 sellerAssets,
         uint256 obligationUnits,
         uint256 obligationShares,
-        address indexed taker,
         bool buyerIsLender,
         bool sellerIsBorrower,
-        address sellerRecipient
+        address recipient,
+        bytes32 group,
+        uint256 consumed
     );
     event Withdraw(
         address indexed caller,

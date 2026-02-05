@@ -218,15 +218,16 @@ contract MorphoV2 is IMorphoV2 {
             sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
         }
 
+        uint256 newConsumed;
         if (offer.assets > 0) {
-            require(
-                (consumed[offer.maker][offer.group] += offer.buy ? buyerAssets : sellerAssets) <= offer.assets,
-                "consumed"
-            );
+            newConsumed = consumed[offer.maker][offer.group] += offer.buy ? buyerAssets : sellerAssets;
+            require(newConsumed <= offer.assets, "consumed");
         } else if (offer.obligationUnits > 0) {
-            require((consumed[offer.maker][offer.group] += obligationUnits) <= offer.obligationUnits, "consumed");
+            newConsumed = consumed[offer.maker][offer.group] += obligationUnits;
+            require(newConsumed <= offer.obligationUnits, "consumed");
         } else {
-            require((consumed[offer.maker][offer.group] += obligationShares) <= offer.obligationShares, "consumed");
+            newConsumed = consumed[offer.maker][offer.group] += obligationShares;
+            require(newConsumed <= offer.obligationShares, "consumed");
         }
 
         bool buyerIsLender = (debtOf[id][buyer] == 0);
@@ -256,14 +257,18 @@ contract MorphoV2 is IMorphoV2 {
         emit EventsLib.Take(
             msg.sender,
             id,
+            offer.maker,
+            taker,
+            offer.buy,
             buyerAssets,
             sellerAssets,
             obligationUnits,
             obligationShares,
-            taker,
             buyerIsLender,
             sellerIsBorrower,
-            recipient
+            recipient,
+            offer.group,
+            newConsumed
         );
 
         if (buyerCallback != address(0)) {
