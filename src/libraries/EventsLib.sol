@@ -19,7 +19,7 @@ library EventsLib {
         bytes32 indexed id,
         address indexed maker,
         address indexed taker,
-        bool offerIsbuy,
+        bool offerIsBuy,
         uint256 buyerAssets,
         uint256 sellerAssets,
         uint256 obligationUnits,
