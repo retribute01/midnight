@@ -322,12 +322,10 @@ contract MorphoV2 is IMorphoV2 {
         collateralOf[id][onBehalf][collateral] += assets;
 
         uint256 collateralPrice = IOracle(obligation.collaterals[collateralIndex].oracle).price();
-        uint256 collateralValue = collateralOf[id][onBehalf][collateral].mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
+        uint256 _collateralOf = collateralOf[id][onBehalf][collateral];
+        uint256 collateralValue = _collateralOf.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
 
-        require(
-            collateralOf[id][onBehalf][collateral] == 0 || collateralValue >= obligation.minCollateral,
-            "Below min collateral"
-        );
+        require(_collateralOf == 0 || collateralValue >= obligation.minCollateral, "Below min collateral");
 
         emit EventsLib.SupplyCollateral(msg.sender, id, collateral, assets, onBehalf);
 
@@ -345,11 +343,10 @@ contract MorphoV2 is IMorphoV2 {
         require(isHealthy(obligation, id, onBehalf), "Unhealthy borrower");
 
         uint256 collateralPrice = IOracle(obligation.collaterals[collateralIndex].oracle).price();
-        uint256 collateralValue = collateralOf[id][onBehalf][collateral].mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
-        require(
-            collateralOf[id][onBehalf][collateral] == 0 || collateralValue >= obligation.minCollateral,
-            "Below min collateral"
-        );
+        uint256 _collateralOf = collateralOf[id][onBehalf][collateral];
+        uint256 collateralValue = _collateralOf.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
+
+        require(_collateralOf == 0 || collateralValue >= obligation.minCollateral, "Below min collateral");
 
         emit EventsLib.WithdrawCollateral(msg.sender, id, collateral, assets, onBehalf);
 
