@@ -313,6 +313,7 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), obligationUnits);
     }
 
+    /// @dev This function does not call the oracle if the collateral balance is 0 after the update.
     function supplyCollateral(Obligation memory obligation, uint256 collateralIndex, uint256 assets, address onBehalf)
         external
     {
@@ -321,17 +322,20 @@ contract MorphoV2 is IMorphoV2 {
 
         collateralOf[id][onBehalf][collateralToken] += assets;
 
-        uint256 collateralPrice = IOracle(obligation.collaterals[collateralIndex].oracle).price();
+        address oracle = obligation.collaterals[collateralIndex].oracle;
         uint256 _collateralOf = collateralOf[id][onBehalf][collateralToken];
-        uint256 collateralValue = _collateralOf.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
-
-        require(_collateralOf == 0 || collateralValue >= obligation.minCollateral, "Below min collateral");
+        require(
+            _collateralOf == 0
+                || _collateralOf.mulDivDown(IOracle(oracle).price(), ORACLE_PRICE_SCALE) >= obligation.minCollateral,
+            "Below min collateral"
+        );
 
         emit EventsLib.SupplyCollateral(msg.sender, id, collateralToken, assets, onBehalf);
 
         SafeTransferLib.safeTransferFrom(collateralToken, msg.sender, address(this), assets);
     }
 
+    /// @dev This function does not call the oracle if the collateral balance is 0 after the update.
     function withdrawCollateral(Obligation memory obligation, uint256 collateralIndex, uint256 assets, address onBehalf)
         external
     {
@@ -342,11 +346,13 @@ contract MorphoV2 is IMorphoV2 {
 
         require(isHealthy(obligation, id, onBehalf), "Unhealthy borrower");
 
-        uint256 collateralPrice = IOracle(obligation.collaterals[collateralIndex].oracle).price();
+        address oracle = obligation.collaterals[collateralIndex].oracle;
         uint256 _collateralOf = collateralOf[id][onBehalf][collateralToken];
-        uint256 collateralValue = _collateralOf.mulDivDown(collateralPrice, ORACLE_PRICE_SCALE);
-
-        require(_collateralOf == 0 || collateralValue >= obligation.minCollateral, "Below min collateral");
+        require(
+            _collateralOf == 0
+                || _collateralOf.mulDivDown(IOracle(oracle).price(), ORACLE_PRICE_SCALE) >= obligation.minCollateral,
+            "Below min collateral"
+        );
 
         emit EventsLib.WithdrawCollateral(msg.sender, id, collateralToken, assets, onBehalf);
 
