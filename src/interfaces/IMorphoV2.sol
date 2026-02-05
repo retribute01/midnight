@@ -29,6 +29,7 @@ struct Offer {
     bytes32 session;
     address callback;
     bytes callbackData;
+    address recipientIfSeller;
 }
 
 struct Signature {

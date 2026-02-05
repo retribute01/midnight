@@ -139,7 +139,7 @@ contract MorphoV2 is IMorphoV2 {
         address taker,
         address takerCallback,
         bytes memory takerCallbackData,
-        address sellerRecipient,
+        address recipientIfSeller,
         Offer memory offer,
         Signature memory sig,
         bytes32 root,
@@ -159,7 +159,6 @@ contract MorphoV2 is IMorphoV2 {
         require(signer(root, sig) == offer.maker, "invalid signature");
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
-        require(offer.buy || sellerRecipient == offer.maker, "invalid recipient");
         bytes32 id = touchObligation(offer.obligation);
         ObligationState storage _obligationState = obligationState[id];
 
@@ -169,10 +168,27 @@ contract MorphoV2 is IMorphoV2 {
             bytes memory buyerCallbackData,
             address seller,
             address sellerCallback,
-            bytes memory sellerCallbackData
+            bytes memory sellerCallbackData,
+            address recipient
         ) = offer.buy
-            ? (offer.maker, offer.callback, offer.callbackData, taker, takerCallback, takerCallbackData)
-            : (taker, takerCallback, takerCallbackData, offer.maker, offer.callback, offer.callbackData);
+            ? (
+                offer.maker,
+                offer.callback,
+                offer.callbackData,
+                taker,
+                takerCallback,
+                takerCallbackData,
+                recipientIfSeller
+            )
+            : (
+                taker,
+                takerCallback,
+                takerCallbackData,
+                offer.maker,
+                offer.callback,
+                offer.callbackData,
+                offer.recipientIfSeller
+            );
 
         uint256 offerPrice = TickLib.tickToPrice(offer.tick);
         uint256 timeToMaturity = UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp);
@@ -247,7 +263,7 @@ contract MorphoV2 is IMorphoV2 {
             taker,
             buyerIsLender,
             sellerIsBorrower,
-            sellerRecipient
+            recipient
         );
 
         if (buyerCallback != address(0)) {
@@ -266,7 +282,7 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransferFrom(
             offer.obligation.loanToken, buyer, tradingFeeRecipient, buyerAssets - sellerAssets
         );
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, sellerRecipient, sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, recipient, sellerAssets);
 
         if (sellerCallback != address(0)) {
             ICallbacks(sellerCallback)
