@@ -1310,6 +1310,132 @@ contract TakeTest is BaseTest {
         );
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
     }
+
+    // Summary:
+    // - trading fee = 0 with buy or sell offer:
+    //   - buyer or seller assets input reverts because of division by a zero price.
+    //   - obligation share or unit inputs succeeds.
+    //
+    // - trading fee > 0 with buy offer:
+    //   - any input reverts because offerPrice-fee underflows
+    //
+    // - trading fee > 0 with sell offer: buyerPrice is set to trading fee
+    //   - buyer assets input succeeds because buyerPrice = _tradingFee > 0.
+    //   - seller assets input reverts because of division by a zero seller price.
+    //   - obligation share or unit input succeeds.
+    function testTakeAtPriceZero() public {
+        assertEq(TickLib.tickToPrice(0), 0, "tick 0 should map to price 0");
+
+        uint256 units = 1e18;
+        uint256 shares = units.mulDivDown(initialShares + 1, initialUnits + 1);
+        uint256 snap = vm.snapshotState();
+
+        // fee=0, sell, buyer assets
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = 1e18;
+        borrowerOffer.obligationUnits = 0;
+        deal(address(loanToken), lender, 1e18);
+        collateralize(obligation, borrower, units);
+        vm.expectRevert();
+        take(1e18, 0, 0, 0, lender, borrowerOffer);
+        vm.revertToState(snap);
+
+        // fee=0, sell, seller assets
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = 1e18;
+        borrowerOffer.obligationUnits = 0;
+        collateralize(obligation, borrower, units);
+        vm.expectRevert();
+        take(0, 1e18, 0, 0, lender, borrowerOffer);
+        vm.revertToState(snap);
+
+        // fee=0, sell, units
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = 0;
+        borrowerOffer.obligationUnits = units;
+        collateralize(obligation, borrower, units);
+        (uint256 buyerAssets, uint256 sellerAssets,,) = take(0, 0, units, 0, lender, borrowerOffer);
+        assertEq(buyerAssets, 0, "fee=0, sell, units: buyer paid 0");
+        assertEq(sellerAssets, 0, "fee=0, sell, units: seller received 0");
+        assertGt(morphoV2.sharesOf(id, lender), 0, "fee=0, sell, units: lender got shares");
+        assertGt(morphoV2.debtOf(id, borrower), 0, "fee=0, sell, units: borrower got debt");
+        vm.revertToState(snap);
+
+        // fee=0, sell, shares
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = 0;
+        borrowerOffer.obligationShares = shares;
+        collateralize(obligation, borrower, units);
+        (buyerAssets, sellerAssets,,) = take(0, 0, 0, shares, lender, borrowerOffer);
+        assertEq(buyerAssets, 0, "fee=0, sell, shares: buyer paid 0");
+        assertEq(sellerAssets, 0, "fee=0, sell, shares: seller received 0");
+        assertGt(morphoV2.sharesOf(id, lender), 0, "fee=0, sell, shares: lender got shares");
+        assertGt(morphoV2.debtOf(id, borrower), 0, "fee=0, sell, shares: borrower got debt");
+        vm.revertToState(snap);
+
+        // fee>0, buy, units
+        morphoV2.setObligationTradingFee(id, 0, 1e12);
+        morphoV2.setObligationTradingFee(id, 1, 1e12);
+        lenderOffer.tick = 0;
+        lenderOffer.assets = 0;
+        lenderOffer.obligationUnits = units;
+        collateralize(obligation, borrower, units);
+        vm.expectRevert();
+        take(0, 0, units, 0, borrower, lenderOffer);
+        vm.revertToState(snap);
+
+        morphoV2.setObligationTradingFee(id, 0, 1e12);
+        morphoV2.setObligationTradingFee(id, 1, 1e12);
+        uint256 fee = morphoV2.tradingFee(id, obligation.maturity - block.timestamp);
+
+        // fee>0, sell, buyer assets
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = fee;
+        borrowerOffer.obligationUnits = 0;
+        deal(address(loanToken), lender, fee);
+        collateralize(obligation, borrower, units);
+        (buyerAssets, sellerAssets,,) = take(fee, 0, 0, 0, lender, borrowerOffer);
+        assertEq(buyerAssets, fee, "fee>0, sell, buyer assets: buyer paid fee");
+        assertEq(sellerAssets, 0, "fee>0, sell, buyer assets: seller received 0");
+        vm.revertToState(snap);
+
+        // fee>0, sell, seller assets
+        morphoV2.setObligationTradingFee(id, 0, 1e12);
+        morphoV2.setObligationTradingFee(id, 1, 1e12);
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = 1e18;
+        borrowerOffer.obligationUnits = 0;
+        collateralize(obligation, borrower, units);
+        vm.expectRevert();
+        take(0, 1e18, 0, 0, lender, borrowerOffer);
+        vm.revertToState(snap);
+
+        // fee>0, sell, units
+        morphoV2.setObligationTradingFee(id, 0, 1e12);
+        morphoV2.setObligationTradingFee(id, 1, 1e12);
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = 0;
+        borrowerOffer.obligationUnits = units;
+        uint256 expectedBuyerAssets = units.mulDivDown(fee, WAD);
+        deal(address(loanToken), lender, expectedBuyerAssets);
+        collateralize(obligation, borrower, units);
+        (buyerAssets, sellerAssets,,) = take(0, 0, units, 0, lender, borrowerOffer);
+        assertEq(buyerAssets, expectedBuyerAssets, "fee>0, sell, units: buyer paid fee");
+        assertEq(sellerAssets, 0, "fee>0, sell, units: seller received 0");
+        vm.revertToState(snap);
+
+        // fee>0, sell, shares
+        morphoV2.setObligationTradingFee(id, 0, 1e12);
+        morphoV2.setObligationTradingFee(id, 1, 1e12);
+        borrowerOffer.tick = 0;
+        borrowerOffer.assets = 0;
+        borrowerOffer.obligationShares = shares;
+        deal(address(loanToken), lender, expectedBuyerAssets);
+        collateralize(obligation, borrower, units);
+        (buyerAssets, sellerAssets,,) = take(0, 0, 0, shares, lender, borrowerOffer);
+        assertGt(buyerAssets, 0, "fee>0, sell, shares: buyer paid fee");
+        assertEq(sellerAssets, 0, "fee>0, sell, shares: seller received 0");
+    }
 }
 
 contract BorrowCallback is ICallbacks {
