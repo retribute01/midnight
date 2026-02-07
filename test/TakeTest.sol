@@ -1312,17 +1312,14 @@ contract TakeTest is BaseTest {
     }
 
     // Summary of zero price tests:
-    // - trading fee = 0 with buy or sell offer:
-    //   - buyer or seller assets input reverts because of division by a zero price.
-    //   - obligation share or unit inputs succeeds.
     //
-    // - trading fee > 0 with buy offer:
-    //   - any input reverts because offerPrice-fee underflows
+    // Trading at 0 succeeds in those cases:
+    // - any offer / unit or share take input / 0 trading fee.
+    // - sell offer / unit, share or buyer take input / > 0 trading fee.
     //
-    // - trading fee > 0 with sell offer: buyerPrice is set to trading fee
-    //   - buyer assets input succeeds because buyerPrice = _tradingFee > 0.
-    //   - seller assets input reverts because of division by a zero seller price.
-    //   - obligation share or unit input succeeds.
+    // Otherwise it fails:
+    // - by underflow when the trading fee is > 0, and the offer is a buy offer.
+    // - by division by zero in all other cases.
 
     // fee=0, sell, buyer assets
     function testPriceZero_NoTradingFee_sell_buyerAssets() public {
