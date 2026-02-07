@@ -1311,7 +1311,7 @@ contract TakeTest is BaseTest {
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
     }
 
-    // Summary:
+    // Summary of zero price tests:
     // - trading fee = 0 with buy or sell offer:
     //   - buyer or seller assets input reverts because of division by a zero price.
     //   - obligation share or unit inputs succeeds.
@@ -1323,127 +1323,137 @@ contract TakeTest is BaseTest {
     //   - buyer assets input succeeds because buyerPrice = _tradingFee > 0.
     //   - seller assets input reverts because of division by a zero seller price.
     //   - obligation share or unit input succeeds.
-    function testTakeAtPriceZero() public {
-        assertEq(TickLib.tickToPrice(0), 0, "tick 0 should map to price 0");
 
-        uint256 units = 1e18;
-        uint256 shares = units.mulDivDown(initialShares + 1, initialUnits + 1);
-        uint256 snap = vm.snapshotState();
-
-        // fee=0, sell, buyer assets
+    // fee=0, sell, buyer assets
+    function testPriceZero_NoTradingFee_sell_buyerAssets() public {
         borrowerOffer.tick = 0;
         borrowerOffer.assets = 1e18;
-        borrowerOffer.obligationUnits = 0;
         deal(address(loanToken), lender, 1e18);
-        collateralize(obligation, borrower, units);
+        collateralize(obligation, borrower, 1e18);
         vm.expectRevert();
         take(1e18, 0, 0, 0, lender, borrowerOffer);
-        vm.revertToState(snap);
+    }
 
-        // fee=0, sell, seller assets
+    // fee=0, sell, seller assets
+    function testPriceZero_NoTradingFee_sell_sellerAssets() public {
         borrowerOffer.tick = 0;
         borrowerOffer.assets = 1e18;
-        borrowerOffer.obligationUnits = 0;
-        collateralize(obligation, borrower, units);
+        collateralize(obligation, borrower, 1e18);
         vm.expectRevert();
         take(0, 1e18, 0, 0, lender, borrowerOffer);
-        vm.revertToState(snap);
+    }
 
-        // fee=0, sell, units
+    // fee=0, sell, units
+    function testPriceZero_NoTradingFee_sell_units() public {
+        uint256 units = 1e18;
+        uint256 shares = units.mulDivDown(initialShares + 1, initialUnits + 1);
         borrowerOffer.tick = 0;
         borrowerOffer.assets = 0;
         borrowerOffer.obligationUnits = units;
         collateralize(obligation, borrower, units);
         (uint256 buyerAssets, uint256 sellerAssets,,) = take(0, 0, units, 0, lender, borrowerOffer);
-        assertEq(buyerAssets, 0, "fee=0, sell, units: buyerAssets");
-        assertEq(sellerAssets, 0, "fee=0, sell, units: sellerAssets");
-        assertEq(morphoV2.sharesOf(id, lender), shares, "fee=0, sell, units: shares");
-        assertEq(morphoV2.debtOf(id, borrower), units, "fee=0, sell, units: debt");
-        vm.revertToState(snap);
+        assertEq(buyerAssets, 0, "buyerAssets");
+        assertEq(sellerAssets, 0, "sellerAssets");
+        assertEq(morphoV2.sharesOf(id, lender), shares, "sharesOf");
+        assertEq(morphoV2.debtOf(id, borrower), units, "debtOf");
+    }
 
-        // fee=0, sell, shares
+    // fee=0, sell, shares
+    function testPriceZero_NoTradingFee_sell_shares() public {
+        uint256 units = 1e18;
+        uint256 shares = units.mulDivDown(initialShares + 1, initialUnits + 1);
         borrowerOffer.tick = 0;
         borrowerOffer.assets = 0;
         borrowerOffer.obligationShares = shares;
         collateralize(obligation, borrower, units);
-        (buyerAssets, sellerAssets,,) = take(0, 0, 0, shares, lender, borrowerOffer);
+        (uint256 buyerAssets, uint256 sellerAssets,,) = take(0, 0, 0, shares, lender, borrowerOffer);
         uint256 expectedUnits = shares.mulDivDown(initialUnits + 1, initialShares + 1);
-        assertEq(buyerAssets, 0, "fee=0, sell, shares: buyerAssets");
-        assertEq(sellerAssets, 0, "fee=0, sell, shares: sellerAssets");
-        assertEq(morphoV2.sharesOf(id, lender), shares, "fee=0, sell, shares: shares");
-        assertEq(morphoV2.debtOf(id, borrower), expectedUnits, "fee=0, sell, shares: debt");
-        vm.revertToState(snap);
+        assertEq(buyerAssets, 0, "buyerAssets");
+        assertEq(sellerAssets, 0, "sellerAssets");
+        assertEq(morphoV2.sharesOf(id, lender), shares, "sharesOf");
+        assertEq(morphoV2.debtOf(id, borrower), expectedUnits, "debtOf");
+    }
 
-        // fee>0, buy, units
+    // fee>0, buy, units
+    function testPriceZero_WithTradingFee_buy_units() public {
         morphoV2.setObligationTradingFee(id, 0, 1e12);
         morphoV2.setObligationTradingFee(id, 1, 1e12);
         lenderOffer.tick = 0;
         lenderOffer.assets = 0;
-        lenderOffer.obligationUnits = units;
-        collateralize(obligation, borrower, units);
+        lenderOffer.obligationUnits = 1e18;
+        collateralize(obligation, borrower, 1e18);
         vm.expectRevert();
-        take(0, 0, units, 0, borrower, lenderOffer);
-        vm.revertToState(snap);
+        take(0, 0, 1e18, 0, borrower, lenderOffer);
+    }
 
+    // fee>0, sell, buyer assets
+    function testPriceZero_WithTradingFee_sell_buyerAssets() public {
         morphoV2.setObligationTradingFee(id, 0, 1e12);
         morphoV2.setObligationTradingFee(id, 1, 1e12);
         uint256 fee = morphoV2.tradingFee(id, obligation.maturity - block.timestamp);
-
-        // fee>0, sell, buyer assets
+        uint256 units = 1e18;
+        uint256 shares = units.mulDivDown(initialShares + 1, initialUnits + 1);
         borrowerOffer.tick = 0;
         borrowerOffer.assets = fee;
-        borrowerOffer.obligationUnits = 0;
         deal(address(loanToken), lender, fee);
         collateralize(obligation, borrower, units);
-        (buyerAssets, sellerAssets,,) = take(fee, 0, 0, 0, lender, borrowerOffer);
-        assertEq(buyerAssets, fee, "fee>0, sell, buyer assets: buyerAssets");
-        assertEq(sellerAssets, 0, "fee>0, sell, buyer assets: sellerAssets");
-        assertEq(morphoV2.sharesOf(id, lender), shares, "fee>0, sell, buyer assets: shares");
-        assertEq(morphoV2.debtOf(id, borrower), units, "fee>0, sell, buyer assets: debt");
-        vm.revertToState(snap);
+        (uint256 buyerAssets, uint256 sellerAssets,,) = take(fee, 0, 0, 0, lender, borrowerOffer);
+        assertEq(buyerAssets, fee, "buyerAssets");
+        assertEq(sellerAssets, 0, "sellerAssets");
+        assertEq(morphoV2.sharesOf(id, lender), shares, "sharesOf");
+        assertEq(morphoV2.debtOf(id, borrower), units, "debtOf");
+    }
 
-        // fee>0, sell, seller assets
+    // fee>0, sell, seller assets
+    function testPriceZero_WithTradingFee_sell_sellerAssets() public {
         morphoV2.setObligationTradingFee(id, 0, 1e12);
         morphoV2.setObligationTradingFee(id, 1, 1e12);
         borrowerOffer.tick = 0;
         borrowerOffer.assets = 1e18;
-        borrowerOffer.obligationUnits = 0;
-        collateralize(obligation, borrower, units);
+        collateralize(obligation, borrower, 1e18);
         vm.expectRevert();
         take(0, 1e18, 0, 0, lender, borrowerOffer);
-        vm.revertToState(snap);
+    }
 
-        // fee>0, sell, units
+    // fee>0, sell, units
+    function testPriceZero_WithTradingFee_sell_units() public {
         morphoV2.setObligationTradingFee(id, 0, 1e12);
         morphoV2.setObligationTradingFee(id, 1, 1e12);
+        uint256 fee = morphoV2.tradingFee(id, obligation.maturity - block.timestamp);
+        uint256 units = 1e18;
+        uint256 shares = units.mulDivDown(initialShares + 1, initialUnits + 1);
         borrowerOffer.tick = 0;
         borrowerOffer.assets = 0;
         borrowerOffer.obligationUnits = units;
         uint256 expectedBuyerAssets = units.mulDivDown(fee, WAD);
         deal(address(loanToken), lender, expectedBuyerAssets);
         collateralize(obligation, borrower, units);
-        (buyerAssets, sellerAssets,,) = take(0, 0, units, 0, lender, borrowerOffer);
-        assertEq(buyerAssets, expectedBuyerAssets, "fee>0, sell, units: buyerAssets");
-        assertEq(sellerAssets, 0, "fee>0, sell, units: sellerAssets");
-        assertEq(morphoV2.sharesOf(id, lender), shares, "fee>0, sell, units: shares");
-        assertEq(morphoV2.debtOf(id, borrower), units, "fee>0, sell, units: debt");
-        vm.revertToState(snap);
+        (uint256 buyerAssets, uint256 sellerAssets,,) = take(0, 0, units, 0, lender, borrowerOffer);
+        assertEq(buyerAssets, expectedBuyerAssets, "buyerAssets");
+        assertEq(sellerAssets, 0, "sellerAssets");
+        assertEq(morphoV2.sharesOf(id, lender), shares, "sharesOf");
+        assertEq(morphoV2.debtOf(id, borrower), units, "debtOf");
+    }
 
-        // fee>0, sell, shares
+    // fee>0, sell, shares
+    function testPriceZero_WithTradingFee_sell_shares() public {
         morphoV2.setObligationTradingFee(id, 0, 1e12);
         morphoV2.setObligationTradingFee(id, 1, 1e12);
+        uint256 fee = morphoV2.tradingFee(id, obligation.maturity - block.timestamp);
+        uint256 units = 1e18;
+        uint256 shares = units.mulDivDown(initialShares + 1, initialUnits + 1);
         borrowerOffer.tick = 0;
         borrowerOffer.assets = 0;
         borrowerOffer.obligationShares = shares;
-        expectedUnits = shares.mulDivDown(initialUnits + 1, initialShares + 1);
-        expectedBuyerAssets = expectedUnits.mulDivDown(fee, WAD);
+        uint256 expectedUnits = shares.mulDivDown(initialUnits + 1, initialShares + 1);
+        uint256 expectedBuyerAssets = expectedUnits.mulDivDown(fee, WAD);
         deal(address(loanToken), lender, expectedBuyerAssets);
         collateralize(obligation, borrower, expectedUnits);
-        (buyerAssets, sellerAssets,,) = take(0, 0, 0, shares, lender, borrowerOffer);
-        assertEq(buyerAssets, expectedBuyerAssets, "fee>0, sell, shares: buyerAssets");
-        assertEq(sellerAssets, 0, "fee>0, sell, shares: sellerAssets");
-        assertEq(morphoV2.sharesOf(id, lender), shares, "fee>0, sell, shares: shares");
-        assertEq(morphoV2.debtOf(id, borrower), expectedUnits, "fee>0, sell, shares: debt");
+        (uint256 buyerAssets, uint256 sellerAssets,,) = take(0, 0, 0, shares, lender, borrowerOffer);
+        assertEq(buyerAssets, expectedBuyerAssets, "buyerAssets");
+        assertEq(sellerAssets, 0, "sellerAssets");
+        assertEq(morphoV2.sharesOf(id, lender), shares, "sharesOf");
+        assertEq(morphoV2.debtOf(id, borrower), expectedUnits, "debtOf");
     }
 }
 
