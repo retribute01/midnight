@@ -1139,6 +1139,7 @@ contract TakeTest is BaseTest {
 
     function testTakeWrongRoot() public {
         vm.expectRevert("invalid signature");
+        vm.prank(borrower);
         morphoV2.take(
             100,
             0,
@@ -1157,6 +1158,7 @@ contract TakeTest is BaseTest {
 
     function testTakeInvalidSignature() public {
         vm.expectRevert("invalid signature");
+        vm.prank(borrower);
         morphoV2.take(
             100,
             0,
@@ -1173,9 +1175,10 @@ contract TakeTest is BaseTest {
         );
     }
 
-    function testTakeInvalidProofOneLeaf(bytes32[] memory _proof) public {
-        vm.assume(_proof.length >= 1);
+    function testTakeInvalidProofOneLeaf(bytes32[] memory proof) public {
+        vm.assume(proof.length >= 1);
         vm.expectRevert("invalid proof");
+        vm.prank(borrower);
         morphoV2.take(
             100,
             0,
@@ -1188,14 +1191,15 @@ contract TakeTest is BaseTest {
             lenderOffer,
             sig([lenderOffer]),
             root([lenderOffer]),
-            _proof
+            proof
         );
     }
 
-    function testTakeInvalidProofTwoLeaves(Offer memory otherOffer, bytes32[] memory _proof) public {
-        vm.assume(_proof.length >= 1);
-        vm.assume(_proof[0] != keccak256(abi.encode(otherOffer)));
+    function testTakeInvalidProofTwoLeaves(Offer memory otherOffer, bytes32[] memory proof) public {
+        vm.assume(proof.length >= 1);
+        vm.assume(proof[0] != keccak256(abi.encode(otherOffer)));
         vm.expectRevert("invalid proof");
+        vm.prank(borrower);
         morphoV2.take(
             100,
             0,
@@ -1206,9 +1210,9 @@ contract TakeTest is BaseTest {
             hex"",
             borrower,
             lenderOffer,
-            sig([lenderOffer, otherOffer]),
-            root([lenderOffer, otherOffer]),
-            _proof
+            sig([lenderOffer]),
+            root([lenderOffer]),
+            proof
         );
     }
 
@@ -1218,6 +1222,7 @@ contract TakeTest is BaseTest {
         collateralize(obligation, borrower, assets.mulDivDown(WAD, TickLib.tickToPrice(lenderOffer.tick)));
         lenderOffer.assets = assets;
 
+        vm.prank(borrower);
         morphoV2.take(
             assets,
             0,
@@ -1262,6 +1267,7 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lender, assets);
         deal(obligation.collaterals[0].token, callback, collateral);
 
+        vm.prank(borrower);
         morphoV2.take(
             assets,
             0,
@@ -1297,8 +1303,8 @@ contract TakeTest is BaseTest {
 
     function testBuyBuyerCallback(uint256 assets) public {
         assets = bound(assets, 0, maxAssets);
-        (address otherLender,) = makeAddrAndKey("otherLender");
-        vm.prank(otherLender);
+        (address _otherLender,) = makeAddrAndKey("otherLender");
+        vm.prank(_otherLender);
         loanToken.approve(address(morphoV2), assets);
         address callback = address(new LendCallback());
         borrowerOffer.assets = assets;
@@ -1306,15 +1312,16 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), callback, assets);
         collateralize(obligation, borrower, assets);
 
+        vm.prank(_otherLender);
         morphoV2.take(
             assets,
             0,
             0,
             0,
-            otherLender,
+            _otherLender,
             callback,
             abi.encode(address(loanToken), assets),
-            borrower,
+            address(0),
             borrowerOffer,
             sig([borrowerOffer]),
             root([borrowerOffer]),

@@ -89,6 +89,7 @@ abstract contract BaseTest is Test {
     ) internal returns (uint256, uint256, uint256, uint256) {
         // receiverIfTakerIsSeller param is for taker (when offer.buy == true)
         // offer.receiverIfMakerIsSeller is for maker (when offer.buy == false)
+        vm.prank(taker);
         return morphoV2.take(
             buyerAssets,
             sellerAssets,
@@ -248,6 +249,7 @@ abstract contract BaseTest is Test {
         borrowerOffer.expiry = block.timestamp;
         borrowerOffer.tick = TICK_RANGE;
 
+        vm.prank(lender);
         morphoV2.take(
             0,
             0,
