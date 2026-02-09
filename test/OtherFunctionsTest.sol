@@ -46,13 +46,14 @@ contract OtherFunctionsTest is BaseTest {
         withdraw = bound(withdraw, 0, additionalCollateral);
         uint256 initialCollateral = morphoV2.collateralOf(id, borrower, collateralToken);
 
+        vm.prank(borrower);
         morphoV2.withdrawCollateral(obligation, 0, withdraw, borrower);
 
         assertEq(morphoV2.collateralOf(id, borrower, collateralToken), initialCollateral - withdraw, "collateral of");
         assertEq(
             ERC20(collateralToken).balanceOf(address(morphoV2)), initialCollateral - withdraw, "balance of morphoV2"
         );
-        assertEq(ERC20(collateralToken).balanceOf(address(this)), withdraw, "balance of this");
+        assertEq(ERC20(collateralToken).balanceOf(borrower), withdraw, "balance of borrower");
     }
 
     function testWithdrawCollateralWithBorrowUnhealthy(uint256 additionalCollateral, uint256 withdraw, uint256 units)
@@ -68,6 +69,7 @@ contract OtherFunctionsTest is BaseTest {
         uint256 initialCollateral = morphoV2.collateralOf(id, borrower, collateralToken);
         withdraw = bound(withdraw, additionalCollateral + 1, initialCollateral);
 
+        vm.prank(borrower);
         vm.expectRevert("Unhealthy borrower");
         morphoV2.withdrawCollateral(obligation, 0, withdraw, borrower);
     }
@@ -92,6 +94,7 @@ contract OtherFunctionsTest is BaseTest {
 
     function testWithdrawInconsistentInput(uint256 units, uint256 shares) public {
         vm.assume(units > 0 && shares > 0);
+        vm.prank(lender);
         vm.expectRevert("INCONSISTENT_INPUT");
         morphoV2.withdraw(obligation, units, shares, lender);
     }
@@ -222,6 +225,7 @@ contract OtherFunctionsTest is BaseTest {
         ERC20(collateralToken).approve(address(morphoV2), collateral);
         morphoV2.supplyCollateral(obligation, 0, collateral, borrower);
 
+        vm.prank(borrower);
         vm.expectRevert("Below min collateral");
         morphoV2.withdrawCollateral(obligation, 0, withdrawnCollateral, borrower);
     }
@@ -268,6 +272,7 @@ contract OtherFunctionsTest is BaseTest {
 
         revertingOracle.stopOracle();
 
+        vm.prank(borrower);
         morphoV2.withdrawCollateral(obligationWithRevertingOracle, 0, collateral, borrower);
 
         assertEq(
