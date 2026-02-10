@@ -49,6 +49,7 @@ contract TakeTest is BaseTest {
 
         otherLenderOffer.buy = false;
         otherLenderOffer.maker = otherLender;
+        otherLenderOffer.receiverIfMakerIsSeller = otherLender;
         otherLenderOffer.assets = type(uint256).max;
         otherLenderOffer.obligation = obligation;
         otherLenderOffer.expiry = block.timestamp + 200;
@@ -56,6 +57,7 @@ contract TakeTest is BaseTest {
 
         borrowerOffer.buy = false;
         borrowerOffer.maker = borrower;
+        borrowerOffer.receiverIfMakerIsSeller = borrower;
         borrowerOffer.assets = type(uint256).max;
         borrowerOffer.obligation = obligation;
         borrowerOffer.expiry = block.timestamp + 200;
@@ -1145,12 +1147,13 @@ contract TakeTest is BaseTest {
             0,
             0,
             borrower,
+            address(0),
+            hex"",
+            borrower,
             lenderOffer,
             sig([borrowerOffer]),
             root([lenderOffer]),
-            proof([lenderOffer]),
-            address(0),
-            hex""
+            proof([lenderOffer])
         );
     }
 
@@ -1163,12 +1166,13 @@ contract TakeTest is BaseTest {
             0,
             0,
             borrower,
+            address(0),
+            hex"",
+            borrower,
             lenderOffer,
             Signature({v: 0, r: 0, s: 0}),
             root([lenderOffer]),
-            proof([lenderOffer]),
-            address(0),
-            hex""
+            proof([lenderOffer])
         );
     }
 
@@ -1177,7 +1181,18 @@ contract TakeTest is BaseTest {
         vm.expectRevert("invalid proof");
         vm.prank(borrower);
         morphoV2.take(
-            100, 0, 0, 0, borrower, lenderOffer, sig([lenderOffer]), root([lenderOffer]), proof, address(0), hex""
+            100,
+            0,
+            0,
+            0,
+            borrower,
+            address(0),
+            hex"",
+            borrower,
+            lenderOffer,
+            sig([lenderOffer]),
+            root([lenderOffer]),
+            proof
         );
     }
 
@@ -1192,12 +1207,13 @@ contract TakeTest is BaseTest {
             0,
             0,
             borrower,
+            address(0),
+            hex"",
+            borrower,
             lenderOffer,
             sig([lenderOffer, otherOffer]),
             root([lenderOffer, otherOffer]),
-            proof,
-            address(0),
-            hex""
+            proof
         );
     }
 
@@ -1214,12 +1230,13 @@ contract TakeTest is BaseTest {
             0,
             0,
             borrower,
+            address(0),
+            hex"",
+            borrower,
             lenderOffer,
             sig([lenderOffer, otherOffer]),
             root([lenderOffer, otherOffer]),
-            proof([lenderOffer, otherOffer]),
-            address(0),
-            hex""
+            proof([lenderOffer, otherOffer])
         );
     }
 
@@ -1258,12 +1275,13 @@ contract TakeTest is BaseTest {
             0,
             0,
             borrower,
+            callback,
+            abi.encode(0, collateral),
+            borrower,
             lenderOffer,
             sig([lenderOffer]),
             root([lenderOffer]),
-            proof([lenderOffer]),
-            callback,
-            abi.encode(0, collateral)
+            proof([lenderOffer])
         );
         assertEq(morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token), collateral);
         assertEq(BorrowCallback(callback).recordedData(), abi.encode(0, collateral));
@@ -1302,12 +1320,13 @@ contract TakeTest is BaseTest {
             0,
             0,
             _otherLender,
+            callback,
+            abi.encode(address(loanToken), assets),
+            address(0),
             borrowerOffer,
             sig([borrowerOffer]),
             root([borrowerOffer]),
-            proof([borrowerOffer]),
-            callback,
-            abi.encode(address(loanToken), assets)
+            proof([borrowerOffer])
         );
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
     }

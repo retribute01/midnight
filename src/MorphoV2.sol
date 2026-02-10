@@ -112,10 +112,10 @@ contract MorphoV2 is IMorphoV2 {
         emit EventsLib.SetDefaultTradingFee(loanToken, index, newTradingFee);
     }
 
-    function setTradingFeeRecipient(address recipient) external {
+    function setTradingFeeRecipient(address feeRecipient) external {
         require(msg.sender == owner, "Only owner");
-        tradingFeeRecipient = recipient;
-        emit EventsLib.SetTradingFeeRecipient(recipient);
+        tradingFeeRecipient = feeRecipient;
+        emit EventsLib.SetTradingFeeRecipient(feeRecipient);
     }
 
     /// ENTRY-POINTS ///
@@ -132,12 +132,13 @@ contract MorphoV2 is IMorphoV2 {
         uint256 obligationUnits,
         uint256 obligationShares,
         address taker,
+        address takerCallback,
+        bytes memory takerCallbackData,
+        address receiverIfTakerIsSeller,
         Offer memory offer,
         Signature memory sig,
         bytes32 root,
-        bytes32[] memory proof,
-        address takerCallback,
-        bytes memory takerCallbackData
+        bytes32[] memory proof
     ) public returns (uint256, uint256, uint256, uint256) {
         require(taker == msg.sender || isAuthorized[taker][msg.sender], "UNAUTHORIZED");
         require(
@@ -163,10 +164,27 @@ contract MorphoV2 is IMorphoV2 {
             bytes memory buyerCallbackData,
             address seller,
             address sellerCallback,
-            bytes memory sellerCallbackData
+            bytes memory sellerCallbackData,
+            address receiver
         ) = offer.buy
-            ? (offer.maker, offer.callback, offer.callbackData, taker, takerCallback, takerCallbackData)
-            : (taker, takerCallback, takerCallbackData, offer.maker, offer.callback, offer.callbackData);
+            ? (
+                offer.maker,
+                offer.callback,
+                offer.callbackData,
+                taker,
+                takerCallback,
+                takerCallbackData,
+                receiverIfTakerIsSeller
+            )
+            : (
+                taker,
+                takerCallback,
+                takerCallbackData,
+                offer.maker,
+                offer.callback,
+                offer.callbackData,
+                offer.receiverIfMakerIsSeller
+            );
 
         uint256 offerPrice = TickLib.tickToPrice(offer.tick);
         uint256 timeToMaturity = UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp);
@@ -244,6 +262,7 @@ contract MorphoV2 is IMorphoV2 {
             obligationShares,
             buyerIsLender,
             sellerIsBorrower,
+            receiver,
             offer.group,
             newConsumed
         );
@@ -264,7 +283,7 @@ contract MorphoV2 is IMorphoV2 {
         SafeTransferLib.safeTransferFrom(
             offer.obligation.loanToken, buyer, tradingFeeRecipient, buyerAssets - sellerAssets
         );
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, seller, sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, receiver, sellerAssets);
 
         if (sellerCallback != address(0)) {
             ICallbacks(sellerCallback)
@@ -285,10 +304,13 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @dev Will revert if there is no withdrawable funds.
-    function withdraw(Obligation memory obligation, uint256 obligationUnits, uint256 shares, address onBehalf)
-        external
-        returns (uint256, uint256)
-    {
+    function withdraw(
+        Obligation memory obligation,
+        uint256 obligationUnits,
+        uint256 shares,
+        address onBehalf,
+        address receiver
+    ) external returns (uint256, uint256) {
         require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "UNAUTHORIZED");
         require(UtilsLib.atMostOneNonZero(obligationUnits, shares), "INCONSISTENT_INPUT");
         bytes32 id = touchObligation(obligation);
@@ -305,9 +327,9 @@ contract MorphoV2 is IMorphoV2 {
         _obligationState.totalShares -= UtilsLib.toUint128(shares);
         _obligationState.totalUnits -= UtilsLib.toUint128(obligationUnits);
 
-        emit EventsLib.Withdraw(msg.sender, id, obligationUnits, shares, onBehalf);
+        emit EventsLib.Withdraw(msg.sender, id, obligationUnits, shares, onBehalf, receiver);
 
-        SafeTransferLib.safeTransfer(obligation.loanToken, msg.sender, obligationUnits);
+        SafeTransferLib.safeTransfer(obligation.loanToken, receiver, obligationUnits);
 
         return (obligationUnits, shares);
     }
@@ -345,9 +367,13 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @dev This function does not call any oracle if all the collateral is withdrawn and the borrower has no debt.
-    function withdrawCollateral(Obligation memory obligation, uint256 collateralIndex, uint256 assets, address onBehalf)
-        external
-    {
+    function withdrawCollateral(
+        Obligation memory obligation,
+        uint256 collateralIndex,
+        uint256 assets,
+        address onBehalf,
+        address receiver
+    ) external {
         require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "UNAUTHORIZED");
         bytes32 id = touchObligation(obligation);
         address collateralToken = obligation.collaterals[collateralIndex].token;
@@ -364,9 +390,9 @@ contract MorphoV2 is IMorphoV2 {
             "Below min collateral"
         );
 
-        emit EventsLib.WithdrawCollateral(msg.sender, id, collateralToken, assets, onBehalf);
+        emit EventsLib.WithdrawCollateral(msg.sender, id, collateralToken, assets, onBehalf, receiver);
 
-        SafeTransferLib.safeTransfer(collateralToken, msg.sender, assets);
+        SafeTransferLib.safeTransfer(collateralToken, receiver, assets);
     }
 
     /// @dev At least one of `repaidUnits` or `seizedAssets` should be equal to zero.
