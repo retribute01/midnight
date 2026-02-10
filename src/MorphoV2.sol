@@ -13,6 +13,8 @@ import {
     MAX_FEE,
     MAX_LIF,
     TIME_TO_MAX_LIF,
+    MAX_COLLATERALS,
+    MAX_COLLATERALS_PER_BORROWER,
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH
 } from "./libraries/ConstantsLib.sol";
@@ -31,6 +33,7 @@ contract MorphoV2 is IMorphoV2 {
     mapping(bytes32 id => mapping(address user => uint256)) public sharesOf;
     mapping(bytes32 id => mapping(address user => uint256)) public debtOf;
     mapping(bytes32 id => mapping(address user => mapping(address collateralToken => uint256))) public collateralOf;
+    mapping(bytes32 id => mapping(address user => uint256)) public activatedCollaterals;
     mapping(bytes32 id => ObligationState) public obligationState;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
@@ -331,6 +334,12 @@ contract MorphoV2 is IMorphoV2 {
 
         collateralOf[id][onBehalf][collateralToken] += assets;
 
+        if (collateralOf[id][onBehalf][collateralToken] != 0) {
+            uint256 newBitmap = activatedCollaterals[id][onBehalf] | (1 << collateralIndex);
+            activatedCollaterals[id][onBehalf] = newBitmap;
+            require(UtilsLib.countBits(newBitmap) <= MAX_COLLATERALS_PER_BORROWER, "too many collaterals per borrower");
+        }
+
         address oracle = obligation.collaterals[collateralIndex].oracle;
         uint256 _collateralOf = collateralOf[id][onBehalf][collateralToken];
         require(
@@ -353,6 +362,9 @@ contract MorphoV2 is IMorphoV2 {
         address collateralToken = obligation.collaterals[collateralIndex].token;
 
         collateralOf[id][onBehalf][collateralToken] -= assets;
+        if (collateralOf[id][onBehalf][collateralToken] == 0) {
+            activatedCollaterals[id][onBehalf] &= ~(1 << collateralIndex);
+        }
 
         require(isHealthy(obligation, id, onBehalf), "Unhealthy borrower");
 
@@ -392,13 +404,16 @@ contract MorphoV2 is IMorphoV2 {
         uint256 repayableDebt;
         uint256 maxDebt;
         uint256 liquidatedCollateralPrice;
-        for (uint256 i = 0; i < obligation.collaterals.length; i++) {
+        uint256 bitmap = activatedCollaterals[id][borrower];
+        while (bitmap != 0) {
+            uint256 i = UtilsLib.ctz(bitmap);
             Collateral memory _collateral = obligation.collaterals[i];
             uint256 price = IOracle(_collateral.oracle).price();
             if (i == collateralIndex) liquidatedCollateralPrice = price;
             uint256 _collateralOf = collateralOf[id][borrower][_collateral.token];
             maxDebt += _collateralOf.mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(_collateral.lltv, WAD);
             repayableDebt += _collateralOf.mulDivUp(WAD, MAX_LIF).mulDivUp(price, ORACLE_PRICE_SCALE);
+            bitmap &= bitmap - 1;
         }
 
         uint256 originalDebt = debtOf[id][borrower];
@@ -435,6 +450,9 @@ contract MorphoV2 is IMorphoV2 {
             }
 
             collateralOf[id][borrower][liquidatedCollateralToken] -= seizedAssets;
+            if (collateralOf[id][borrower][liquidatedCollateralToken] == 0) {
+                activatedCollaterals[id][borrower] &= ~(1 << collateralIndex);
+            }
             _obligationState.withdrawable += repaidUnits;
             debtOf[id][borrower] -= repaidUnits;
         }
@@ -485,6 +503,7 @@ contract MorphoV2 is IMorphoV2 {
     function touchObligation(Obligation memory obligation) public returns (bytes32) {
         bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
         if (!obligationState[id].created) {
+            require(obligation.collaterals.length <= MAX_COLLATERALS, "too many collaterals");
             address previousCollateralToken;
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 address collateralToken = obligation.collaterals[i].token;
@@ -528,11 +547,14 @@ contract MorphoV2 is IMorphoV2 {
     function isHealthy(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
         uint256 debt = debtOf[id][borrower];
         uint256 maxDebt;
-        for (uint256 i = 0; i < obligation.collaterals.length && maxDebt < debt; i++) {
+        uint256 bitmap = activatedCollaterals[id][borrower];
+        while (bitmap != 0 && maxDebt < debt) {
+            uint256 i = UtilsLib.ctz(bitmap);
             Collateral memory collateral = obligation.collaterals[i];
             uint256 price = IOracle(collateral.oracle).price();
             maxDebt += collateralOf[id][borrower][collateral.token].mulDivDown(price, ORACLE_PRICE_SCALE)
                 .mulDivDown(collateral.lltv, WAD);
+            bitmap &= bitmap - 1;
         }
         return maxDebt >= debt;
     }

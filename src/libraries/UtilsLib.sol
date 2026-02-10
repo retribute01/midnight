@@ -67,4 +67,17 @@ library UtilsLib {
         // forge-lint: disable-next-item(unsafe-typecast) as x is less than type(uint128).max
         return uint128(x);
     }
+
+    function countBits(uint256 bitmap) internal pure returns (uint256 count) {
+        while (bitmap != 0) {
+            bitmap &= bitmap - 1;
+            count++;
+        }
+    }
+
+    function ctz(uint256 bitmap) internal pure returns (uint256 res) {
+        assembly {
+            res := sub(255, clz(and(bitmap, sub(0, bitmap))))
+        }
+    }
 }
