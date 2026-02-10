@@ -120,10 +120,10 @@ contract MorphoV2 is IMorphoV2 {
         emit EventsLib.SetDefaultTradingFee(loanToken, index, newTradingFee);
     }
 
-    function setTradingFeeRecipient(address receiver) external {
+    function setTradingFeeRecipient(address feeRecipient) external {
         require(msg.sender == owner, "Only owner");
-        tradingFeeRecipient = receiver;
-        emit EventsLib.SetTradingFeeRecipient(receiver);
+        tradingFeeRecipient = feeRecipient;
+        emit EventsLib.SetTradingFeeRecipient(feeRecipient);
     }
 
     /// ENTRY-POINTS ///

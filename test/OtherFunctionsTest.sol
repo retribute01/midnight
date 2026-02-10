@@ -161,7 +161,7 @@ contract OtherFunctionsTest is BaseTest {
         assertEq(returnedShares, shares, "returned shares");
     }
 
-    function testWithdrawToRecipient(uint256 units, uint256 withdraw) public {
+    function testWithdrawToReceiver(uint256 units, uint256 withdraw) public {
         units = bound(units, 1, MAX_TEST_AMOUNT);
         withdraw = bound(withdraw, 1, units);
         testRepay(units, withdraw);
@@ -174,7 +174,7 @@ contract OtherFunctionsTest is BaseTest {
         assertEq(loanToken.balanceOf(receiver), withdraw, "balance of receiver");
     }
 
-    function testWithdrawCollateralToRecipient(uint256 supply, uint256 withdraw) public {
+    function testWithdrawCollateralToReceiver(uint256 supply, uint256 withdraw) public {
         supply = bound(supply, 1, MAX_TEST_AMOUNT);
         withdraw = bound(withdraw, 1, supply);
         address collateralToken = address(new ERC20("collat", "c"));
