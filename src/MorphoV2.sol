@@ -357,7 +357,7 @@ contract MorphoV2 is IMorphoV2 {
         uint256 _collateralOf = collateralOf[id][onBehalf][collateralToken];
         require(
             _collateralOf == 0
-                || _collateralOf.mulDivDown(IOracle(oracle).price(), ORACLE_PRICE_SCALE) >= obligation.minCollateral,
+                || _collateralOf.mulDivDown(IOracle(oracle).price(), ORACLE_PRICE_SCALE) >= obligation.minCollatValue,
             "Below min collateral"
         );
 
@@ -386,7 +386,7 @@ contract MorphoV2 is IMorphoV2 {
         uint256 _collateralOf = collateralOf[id][onBehalf][collateralToken];
         require(
             _collateralOf == 0
-                || _collateralOf.mulDivDown(IOracle(oracle).price(), ORACLE_PRICE_SCALE) >= obligation.minCollateral,
+                || _collateralOf.mulDivDown(IOracle(oracle).price(), ORACLE_PRICE_SCALE) >= obligation.minCollatValue,
             "Below min collateral"
         );
 
