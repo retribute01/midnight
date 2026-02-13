@@ -68,9 +68,8 @@ library UtilsLib {
         return uint128(x);
     }
 
+    /// @dev Returns the number of set bits in x < 2^256-1, 0 otherwise.
     function countBits(uint256 x) internal pure returns (uint256) {
-        if (x == type(uint256).max) return 256;
-
         unchecked {
             x = x - ((x >> 1) & 0x5555555555555555555555555555555555555555555555555555555555555555);
             x = (x & 0x3333333333333333333333333333333333333333333333333333333333333333)
