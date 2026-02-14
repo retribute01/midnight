@@ -549,7 +549,7 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @dev This function should be called with the id corresponding to the obligation.
-    /// @dev This function does not call the oracle if debt is 0.
+    /// @dev This function does not call any oracle if debt is 0.
     function isHealthy(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
         uint256 debt = debtOf[id][borrower];
         uint256 maxDebt;
