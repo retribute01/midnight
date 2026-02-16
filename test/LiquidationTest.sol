@@ -300,7 +300,7 @@ contract LiquidationTest is BaseTest {
 
         (, uint256 _maxDebt) = _setupUnhealthy(units, oraclePrice);
 
-        uint256 maxR = (units - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivDown(obligation.collaterals[0].lltv, WAD));
+        uint256 maxR = (units - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(obligation.collaterals[0].lltv, WAD));
 
         repaid = bound(repaid, maxR + 1, units);
         vm.expectRevert("recovery close factor violated");
@@ -316,7 +316,7 @@ contract LiquidationTest is BaseTest {
 
         (, uint256 _maxDebt) = _setupUnhealthy(units, oraclePrice);
 
-        uint256 maxR = (units - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivDown(obligation.collaterals[0].lltv, WAD));
+        uint256 maxR = (units - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(obligation.collaterals[0].lltv, WAD));
 
         morphoV2.liquidate(obligation, 0, maxR, 0, borrower, "");
 
@@ -342,7 +342,7 @@ contract LiquidationTest is BaseTest {
         uint256 debtAfterBadDebt = repayableDebt;
 
         uint256 maxR =
-            (debtAfterBadDebt - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivDown(obligation.collaterals[0].lltv, WAD));
+            (debtAfterBadDebt - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(obligation.collaterals[0].lltv, WAD));
 
         assertGe(maxR, debtAfterBadDebt, "maxRepaid should cover all remaining debt with bad debt");
 
@@ -405,7 +405,7 @@ contract LiquidationTest is BaseTest {
         + otherCollat.mulDivDown(obligation.collaterals[otherIdx].lltv, WAD);
 
         uint256 maxR =
-            (units - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivDown(obligation.collaterals[liqIdx].lltv, WAD));
+            (units - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(obligation.collaterals[liqIdx].lltv, WAD));
 
         morphoV2.liquidate(obligation, liqIdx, maxR, 0, borrower, "");
     }
