@@ -296,19 +296,13 @@ contract OtherFunctionsTest is BaseTest {
         morphoV2.supplyCollateral(obligationWithRevertingOracle, 0, collateral, borrower);
 
         bytes32 _id = toId(obligationWithRevertingOracle);
-        assertEq(
-            morphoV2.collateralOf(_id, borrower, 0), collateral, "collateral should be set"
-        );
+        assertEq(morphoV2.collateralOf(_id, borrower, 0), collateral, "collateral should be set");
 
         revertingOracle.stopOracle();
 
         vm.prank(borrower);
         morphoV2.withdrawCollateral(obligationWithRevertingOracle, 0, collateral, borrower, borrower);
 
-        assertEq(
-            morphoV2.collateralOf(_id, borrower, 0),
-            0,
-            "collateral should be 0 after withdrawal"
-        );
+        assertEq(morphoV2.collateralOf(_id, borrower, 0), 0, "collateral should be 0 after withdrawal");
     }
 }
