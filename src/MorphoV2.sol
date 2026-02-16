@@ -396,7 +396,7 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     /// @dev At least one of `repaidUnits` or `seizedAssets` should be equal to zero.
-    /// @dev Accounts are liquidatable if they are unhealthy or if the maturity is reached.
+    /// @dev Accounts are liquidatable if they are unhealthy or if the maturity has passed.
     /// @dev Before maturity, the liquidation cannot put the borrower back into health (recovery close factor).
     /// @dev In that case, we want debtOf - repaidUnits >= maxDebt - repaidUnits*LIF*LLTV, which is equivalent to
     /// repaidUnits <= (debtOf-maxDebt) / (1 - LIF*LLTV).
