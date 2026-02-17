@@ -7,6 +7,6 @@ import {IdLib} from "../../src/libraries/IdLib.sol";
 
 contract Utils {
     function toId(Obligation memory obligation, uint256 chainId, address morphoV2) external pure returns (bytes32) {
-        return IdLib.toId(obligation, chainId, morphoV2);
+        return keccak256(IdLib.creationCode(obligation, chainId, morphoV2));
     }
 }
