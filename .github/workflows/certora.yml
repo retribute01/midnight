@@ -14,6 +14,7 @@ jobs:
       fail-fast: false
       matrix:
         conf:
+          - CreatedObligations
           - Hasher
           - MorphoV2
           - SharePrice
