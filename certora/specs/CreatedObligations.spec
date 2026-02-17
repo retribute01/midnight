@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-using Utils as Utils;
 using MorphoV2 as MorphoV2;
 
 methods {
@@ -8,7 +7,6 @@ methods {
     function _.price() external => NONDET;
 
     function MorphoV2.obligationCreated(bytes32) external returns (bool) envfree;
-    function Utils.toId(MorphoV2.Obligation, uint256, address) external returns (bytes32) envfree;
 
     function UtilsLib.mulDivDown(uint256, uint256, uint256) internal returns (uint256) => NONDET;
     function UtilsLib.mulDivUp(uint256, uint256, uint256) internal returns (uint256) => NONDET;
@@ -23,7 +21,7 @@ hook CHAINID() uint256 chainId {
 }
 
 function summaryToId(MorphoV2.Obligation obligation) returns (bytes32) {
-    return Utils.toId(obligation, ghostChainId, MorphoV2);
+    return UtilsLib.toId(obligation, ghostChainId, MorphoV2);
 }
 
 // Show that a created obligation has sorted collaterals.
