@@ -24,6 +24,10 @@ function summaryToId(MorphoV2.Obligation obligation) returns (bytes32) {
 invariant createdObligationsHaveSortedCollaterals(MorphoV2.Obligation obligation, uint256 i, uint256 j)
     MorphoV2.obligationCreated(summaryToId(obligation)) => i < j => j < obligation.collaterals.length => obligation.collaterals[i].token < obligation.collaterals[j].token;
 
+// Show that a created obligation has non-zero collaterals.
+invariant createdObligationsHaveNonZeroCollaterals(MorphoV2.Obligation obligation, uint256 i)
+    MorphoV2.obligationCreated(summaryToId(obligation)) => i < obligation.collaterals.length => obligation.collaterals[i].token != 0;
+
 // Show that a created obligation cannot be deleted.
 rule obligationCannotBeDeleted(env e, method f, calldataarg args, bytes32 id) {
     require MorphoV2.obligationCreated(id), "Assume that the obligation is created";
