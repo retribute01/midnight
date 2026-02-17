@@ -425,7 +425,7 @@ contract MorphoV2 is IMorphoV2 {
             if (i == collateralIndex) liquidatedCollatPrice = price;
             uint256 _collateralOf = collateralOf[id][borrower][_collateral.token];
             maxDebt += _collateralOf.mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(_collateral.lltv, WAD);
-            repayableDebt += _collateralOf.mulDivUp(WAD, MAX_LIF).mulDivUp(price, ORACLE_PRICE_SCALE);
+            repayableDebt += _collateralOf.mulDivDown(WAD, MAX_LIF).mulDivDown(price, ORACLE_PRICE_SCALE);
         }
 
         uint256 originalDebt = debtOf[id][borrower];
