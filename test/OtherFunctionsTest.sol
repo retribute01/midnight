@@ -9,7 +9,7 @@ import {ERC20} from "./helpers/ERC20.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 import {RevertingOracle} from "./helpers/RevertingOracle.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
-import {ORACLE_PRICE_SCALE, WAD, MAX_COLLATERALS, MAX_COLLATERALS_PER_BORROWER} from "../src/libraries/ConstantsLib.sol";
+import {ORACLE_PRICE_SCALE, MAX_COLLATERALS, MAX_COLLATERALS_PER_BORROWER} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 
 contract OtherFunctionsTest is BaseTest {
@@ -314,10 +314,7 @@ contract OtherFunctionsTest is BaseTest {
 
     // Bitmap tests.
 
-    function _createMultiCollateralObligation(uint256 numCollaterals)
-        internal
-        returns (Obligation memory _obligation)
-    {
+    function _createMultiCollateralObligation(uint256 numCollaterals) internal returns (Obligation memory _obligation) {
         Collateral[] memory collaterals = new Collateral[](numCollaterals);
         for (uint256 i = 0; i < numCollaterals; i++) {
             ERC20 token = new ERC20("", "");

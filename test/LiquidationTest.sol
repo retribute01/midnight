@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {MAX_LIF, WAD, ORACLE_PRICE_SCALE, TIME_TO_MAX_LIF, MAX_COLLATERALS_PER_BORROWER} from "../src/libraries/ConstantsLib.sol";
+import {MAX_LIF, WAD, ORACLE_PRICE_SCALE, TIME_TO_MAX_LIF} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Collateral} from "../src/interfaces/IMorphoV2.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {Oracle} from "./helpers/Oracle.sol";
