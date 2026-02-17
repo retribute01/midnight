@@ -30,7 +30,7 @@ persistent ghost mapping(bytes32 => mathint) sumDebtOf {
     init_state axiom (forall bytes32 id. sumDebtOf[id] == 0);
 }
 
-hook Sstore debtOf[KEY bytes32 id][KEY address owner] uint256 newDebt (uint256 oldDebt) {
+hook Sstore borrowerState[KEY bytes32 id][KEY address owner].debt uint128 newDebt (uint128 oldDebt) {
     sumDebtOf[id] = sumDebtOf[id] - oldDebt + newDebt;
 }
 
