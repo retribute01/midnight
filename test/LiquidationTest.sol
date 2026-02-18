@@ -109,7 +109,7 @@ contract LiquidationTest is BaseTest {
         uint256 debtAfterBadDebt = units > repayable ? repayable : units;
         repaid = bound(repaid, 0, debtAfterBadDebt);
 
-        (uint256 repaidUnits, uint256 seizedAssets) = morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
+        (uint256 seizedAssets, uint256 repaidUnits) = morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
 
         assertEq(repaidUnits, repaid, "repaid units");
         assertEq(
@@ -133,7 +133,7 @@ contract LiquidationTest is BaseTest {
         uint256 maxSeized = debtAfterBadDebt.mulDivDown(ORACLE_PRICE_SCALE, 1e36 - 1).mulDivDown(MAX_LIF, WAD);
         seized = bound(seized, 0, maxSeized > initialCollateral ? initialCollateral : maxSeized);
 
-        (uint256 repaidUnits, uint256 seizedAssets) = morphoV2.liquidate(obligation, 0, seized, 0, borrower, "");
+        (uint256 seizedAssets, uint256 repaidUnits) = morphoV2.liquidate(obligation, 0, seized, 0, borrower, "");
 
         assertEq(repaidUnits, seized.mulDivUp(WAD, MAX_LIF).mulDivUp(1e36 - 1, ORACLE_PRICE_SCALE), "repaid units");
         assertEq(seizedAssets, seized, "seized assets");
@@ -279,6 +279,7 @@ contract LiquidationTest is BaseTest {
         morphoV2.liquidate(obligation, 0, 0, repayableDebt, borrower, "");
 
         assertEq(morphoV2.debtOf(id, borrower), 0, "all remaining debt repaid");
+
     }
 
     // post maturity liquidation.
