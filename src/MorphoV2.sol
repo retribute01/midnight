@@ -631,8 +631,8 @@ contract MorphoV2 is IMorphoV2 {
     }
 
     function canLiquidate(Obligation calldata obligation, address account) public view returns (bool) {
-        return obligation.liquidatorGate == address(0)
-            || ILiquidatorGate(obligation.liquidatorGate).canLiquidate(account);
+        return
+            obligation.liquidatorGate == address(0) || ILiquidatorGate(obligation.liquidatorGate).canLiquidate(account);
     }
 
     function domainSeparator() internal view returns (bytes32) {
