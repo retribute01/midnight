@@ -97,7 +97,7 @@ library UtilsLib {
     /// 5f        PUSH0           [0, 11, len, len]  mem offset = 0
     /// 39        CODECOPY        [len]              mem[0:len] <- code[11:11+len]
     /// 5f        PUSH0           [0, len]           return offset = 0
-    /// f3        RETURN          []                 return mem[0:len]
+    /// f3        RETURN          []                 mem[0:len] is returned
     function sstore2Code(bytes memory data) internal pure returns (bytes memory) {
         require(data[0] == 0x00, "data must start with STOP");
         return abi.encodePacked(hex"600b380380600b5f395ff3", data);
