@@ -279,7 +279,6 @@ contract LiquidationTest is BaseTest {
         morphoV2.liquidate(obligation, 0, 0, repayableDebt, borrower, "");
 
         assertEq(morphoV2.debtOf(id, borrower), 0, "all remaining debt repaid");
-
     }
 
     // post maturity liquidation.
