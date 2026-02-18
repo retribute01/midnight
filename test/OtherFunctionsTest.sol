@@ -391,6 +391,7 @@ contract OtherFunctionsTest is BaseTest {
 
         bytes32 _id = toId(_obligation);
         uint256 bitmap = morphoV2.activatedCollaterals(_id, borrower);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(UtilsLib.countBits(uint128(bitmap)), k, "countBits should equal number of supplied collaterals");
         assertEq(UtilsLib.msb(bitmap), k - 1, "msb should equal number of supplied collaterals - 1");
     }
@@ -418,6 +419,7 @@ contract OtherFunctionsTest is BaseTest {
         morphoV2.withdrawCollateral(_obligation, collateralIndex, 1e18, borrower, borrower);
 
         uint256 bitmap = morphoV2.activatedCollaterals(_id, borrower);
+        // forge-lint: disable-next-line(unsafe-typecast)
         assertEq(UtilsLib.countBits(uint128(bitmap)), numCollaterals - 1, "one bit cleared");
         assertEq(bitmap & (1 << collateralIndex), 0, "withdrawn collateral bit should be cleared");
     }
