@@ -103,7 +103,7 @@ contract LiquidationTest is BaseTest {
         Oracle(obligation.collaterals[0].oracle).setPrice(oraclePrice);
         vm.warp(obligation.maturity + TIME_TO_MAX_LIF); // Warp to post-maturity to bypass recovery close factor.
 
-        (uint256 repaidUnits, uint256 seizedAssets) = morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
+        (uint256 seizedAssets, uint256 repaidUnits) = morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
 
         assertEq(repaidUnits, repaid, "repaid units");
         assertEq(
@@ -124,7 +124,7 @@ contract LiquidationTest is BaseTest {
         Oracle(obligation.collaterals[0].oracle).setPrice(oraclePrice);
         vm.warp(obligation.maturity + TIME_TO_MAX_LIF); // Warp to post-maturity to bypass recovery close factor.
 
-        (uint256 repaidUnits, uint256 seizedAssets) = morphoV2.liquidate(obligation, 0, seized, 0, borrower, "");
+        (uint256 seizedAssets, uint256 repaidUnits) = morphoV2.liquidate(obligation, 0, seized, 0, borrower, "");
 
         assertEq(repaidUnits, seized.mulDivUp(WAD, MAX_LIF).mulDivUp(oraclePrice, ORACLE_PRICE_SCALE), "repaid units");
         assertEq(seizedAssets, seized, "seized assets");
@@ -250,6 +250,7 @@ contract LiquidationTest is BaseTest {
         morphoV2.liquidate(obligation, 0, initialCollateral, 0, borrower, "");
 
         assertEq(morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token), 0);
+        assertEq(UtilsLib.countBits(morphoV2.activatedCollaterals(id, borrower)), 0, "no bits should be set");
     }
 
     // post maturity liquidation.
