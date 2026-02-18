@@ -2,15 +2,12 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMorphoV2.sol";
+import {Obligation, Offer, Collateral} from "../src/interfaces/IMorphoV2.sol";
 import {ILenderGate, IBorrowerGate, ILiquidatorGate} from "../src/interfaces/IGate.sol";
-import {MorphoV2} from "../src/MorphoV2.sol";
-import {WAD, ORACLE_PRICE_SCALE} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {TICK_RANGE} from "../src/libraries/TickLib.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
 import {Oracle} from "./helpers/Oracle.sol";
-import {ERC20} from "./helpers/ERC20.sol";
 
 contract WhitelistGate is ILenderGate, IBorrowerGate, ILiquidatorGate {
     mapping(address => bool) public whitelisted;
