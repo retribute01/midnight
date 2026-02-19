@@ -3,16 +3,37 @@
 pragma solidity ^0.8.0;
 
 import {Obligation} from "../interfaces/IMorphoV2.sol";
-import {UtilsLib} from "./UtilsLib.sol";
 
 library IdLib {
+    /// @dev Creation code that deploys data as runtime bytecode.
+    /// @dev Explanation of the prefix:
+    /// hex       opcode          stack              comments
+    /// ------------------------------------------------------------------------------
+    /// 60 0b     PUSH1 0x0b      [11]               11 = length(prefix)
+    /// 38        CODESIZE        [codesize, 11]
+    /// 03        SUB             [len]              with len = codesize - 11
+    /// 80        DUP1            [len, len]
+    /// 60 0b     PUSH1 0x0b      [11, len, len]     code offset = 11
+    /// 5f        PUSH0           [0, 11, len, len]  mem offset = 0
+    /// 39        CODECOPY        [len]              mem[0:len] <- code[11:11+len]
+    /// 5f        PUSH0           [0, len]           return offset = 0
+    /// f3        RETURN          []                 mem[0:len] is returned
+    bytes constant SSTORE2_PREFIX = hex"600b380380600b5f395ff3";
+
+    /// @dev Stores the data in the code of the contract at the given address.
+    /// @dev It is recommended to give data that starts with STOP (0x00).
+    function storeInCode(bytes memory data, uint256 salt) internal returns (address addr) {
+        bytes memory creationCode = abi.encodePacked(SSTORE2_PREFIX, data);
+        assembly ("memory-safe") {
+            addr := create2(0, add(creationCode, 0x20), mload(creationCode), salt)
+        }
+        require(addr != address(0), "create2 failed");
+    }
+
     function toId(Obligation memory obligation, uint256 chainId, address morphoV2) internal pure returns (bytes32) {
         return keccak256(
             abi.encodePacked(
-                uint8(0xff),
-                morphoV2,
-                chainId,
-                keccak256(abi.encodePacked(UtilsLib.SSTORE2_PREFIX, abi.encode(obligation)))
+                uint8(0xff), morphoV2, chainId, keccak256(abi.encodePacked(SSTORE2_PREFIX, abi.encode(obligation)))
             )
         );
     }
