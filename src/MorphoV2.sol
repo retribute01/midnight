@@ -40,7 +40,7 @@ contract MorphoV2 is IMorphoV2 {
 
     mapping(bytes32 id => mapping(address user => uint256)) public sharesOf;
     mapping(bytes32 id => mapping(address user => BorrowerState)) public borrowerState;
-    mapping(bytes32 id => mapping(address user => mapping(address collateralToken => uint256))) public collateralOf;
+    mapping(bytes32 id => mapping(address user => uint128[128])) public collateralOf;
     mapping(bytes32 id => ObligationState) public obligationState;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
@@ -361,8 +361,8 @@ contract MorphoV2 is IMorphoV2 {
         bytes32 id = touchObligation(obligation);
         address collateralToken = obligation.collaterals[collateralIndex].token;
 
-        uint256 newCollateralOf = collateralOf[id][onBehalf][collateralToken] + assets;
-        collateralOf[id][onBehalf][collateralToken] = newCollateralOf;
+        uint256 newCollateralOf = uint256(collateralOf[id][onBehalf][collateralIndex]) + assets;
+        collateralOf[id][onBehalf][collateralIndex] = UtilsLib.toUint128(newCollateralOf);
 
         if (newCollateralOf == assets && assets > 0) {
             // forge-lint: disable-next-item(unsafe-typecast) as collateralIndex < MAX_COLLATERALS (128)
@@ -396,8 +396,8 @@ contract MorphoV2 is IMorphoV2 {
         bytes32 id = touchObligation(obligation);
         address collateralToken = obligation.collaterals[collateralIndex].token;
 
-        uint256 newCollateralOf = collateralOf[id][onBehalf][collateralToken] - assets;
-        collateralOf[id][onBehalf][collateralToken] = newCollateralOf;
+        uint256 newCollateralOf = uint256(collateralOf[id][onBehalf][collateralIndex]) - assets;
+        collateralOf[id][onBehalf][collateralIndex] = UtilsLib.toUint128(newCollateralOf);
 
         if (newCollateralOf == 0 && assets > 0) {
             // forge-lint: disable-next-item(unsafe-typecast) as collateralIndex < MAX_COLLATERALS (128)
@@ -437,7 +437,6 @@ contract MorphoV2 is IMorphoV2 {
         require(UtilsLib.atMostOneNonZero(repaidUnits, seizedAssets), "INCONSISTENT_INPUT");
         bytes32 id = touchObligation(obligation);
         ObligationState storage _obligationState = obligationState[id];
-        address liquidatedCollatToken = obligation.collaterals[collateralIndex].token;
 
         uint256 maxDebt;
         uint256 liquidatedCollatPrice;
@@ -452,7 +451,7 @@ contract MorphoV2 is IMorphoV2 {
             Collateral memory _collateral = obligation.collaterals[i];
             uint256 price = IOracle(_collateral.oracle).price();
             if (i == collateralIndex) liquidatedCollatPrice = price;
-            uint256 _collateralOf = collateralOf[id][borrower][_collateral.token];
+            uint256 _collateralOf = collateralOf[id][borrower][i];
             maxDebt += _collateralOf.mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(_collateral.lltv, WAD);
             badDebt = badDebt.zeroFloorSub(_collateralOf.mulDivDown(WAD, MAX_LIF).mulDivDown(price, ORACLE_PRICE_SCALE));
             bitmap ^= (1 << i);
@@ -486,8 +485,8 @@ contract MorphoV2 is IMorphoV2 {
                 require(repaidUnits <= maxRepaid, "recovery close factor violated");
             }
 
-            collateralOf[id][borrower][liquidatedCollatToken] -= seizedAssets;
-            if (collateralOf[id][borrower][liquidatedCollatToken] == 0 && seizedAssets > 0) {
+            collateralOf[id][borrower][collateralIndex] -= UtilsLib.toUint128(seizedAssets);
+            if (collateralOf[id][borrower][collateralIndex] == 0 && seizedAssets > 0) {
                 // forge-lint: disable-next-item(unsafe-typecast) as collateralIndex < MAX_COLLATERALS (128)
                 _state.activatedCollaterals &= ~uint128(1 << collateralIndex);
             }
@@ -497,7 +496,7 @@ contract MorphoV2 is IMorphoV2 {
 
         emit EventsLib.Liquidate(msg.sender, id, collateralIndex, seizedAssets, repaidUnits, borrower, badDebt);
 
-        SafeTransferLib.safeTransfer(liquidatedCollatToken, msg.sender, seizedAssets);
+        SafeTransferLib.safeTransfer(obligation.collaterals[collateralIndex].token, msg.sender, seizedAssets);
 
         if (data.length > 0) {
             ICallbacks(msg.sender).onLiquidate(obligation, collateralIndex, seizedAssets, repaidUnits, borrower, data);
@@ -565,7 +564,7 @@ contract MorphoV2 is IMorphoV2 {
         return borrowerState[id][user].debt;
     }
 
-    function activatedCollaterals(bytes32 id, address user) external view returns (uint256) {
+    function activatedCollaterals(bytes32 id, address user) external view returns (uint128) {
         return borrowerState[id][user].activatedCollaterals;
     }
 
@@ -600,7 +599,7 @@ contract MorphoV2 is IMorphoV2 {
             uint256 i = UtilsLib.msb(bitmap);
             Collateral memory collateral = obligation.collaterals[i];
             uint256 price = IOracle(collateral.oracle).price();
-            maxDebt += collateralOf[id][borrower][collateral.token].mulDivDown(price, ORACLE_PRICE_SCALE)
+            maxDebt += uint256(collateralOf[id][borrower][i]).mulDivDown(price, ORACLE_PRICE_SCALE)
                 .mulDivDown(collateral.lltv, WAD);
             bitmap ^= (1 << i);
         }

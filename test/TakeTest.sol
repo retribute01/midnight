@@ -1251,11 +1251,11 @@ contract TakeTest is BaseTest {
         borrowerOffer.tick = TICK_RANGE;
         deal(address(loanToken), lender, assets);
         deal(obligation.collaterals[0].token, borrowerOffer.callback, collateral);
-        assertEq(morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token), 0);
+        assertEq(morphoV2.collateralOf(id, borrower, 0), 0);
 
         take(assets, 0, 0, 0, lender, borrowerOffer);
 
-        assertEq(morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token), collateral);
+        assertEq(morphoV2.collateralOf(id, borrower, 0), collateral);
         assertEq(BorrowCallback(borrowerOffer.callback).recordedData(), borrowerOffer.callbackData);
     }
 
@@ -1283,7 +1283,7 @@ contract TakeTest is BaseTest {
             root([lenderOffer]),
             proof([lenderOffer])
         );
-        assertEq(morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token), collateral);
+        assertEq(morphoV2.collateralOf(id, borrower, 0), collateral);
         assertEq(BorrowCallback(callback).recordedData(), abi.encode(0, collateral));
     }
 
