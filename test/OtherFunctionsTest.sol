@@ -44,12 +44,12 @@ contract OtherFunctionsTest is BaseTest {
         deal(collateralToken, address(this), additionalCollateral);
         morphoV2.supplyCollateral(obligation, 0, additionalCollateral, borrower);
         withdraw = bound(withdraw, 0, additionalCollateral);
-        uint256 initialCollateral = morphoV2.collateralOf(id, borrower, collateralToken);
+        uint256 initialCollateral = morphoV2.collateralOf(id, borrower, 0);
 
         vm.prank(borrower);
         morphoV2.withdrawCollateral(obligation, 0, withdraw, borrower, borrower);
 
-        assertEq(morphoV2.collateralOf(id, borrower, collateralToken), initialCollateral - withdraw, "collateral of");
+        assertEq(morphoV2.collateralOf(id, borrower, 0), initialCollateral - withdraw, "collateral of");
         assertEq(
             ERC20(collateralToken).balanceOf(address(morphoV2)), initialCollateral - withdraw, "balance of morphoV2"
         );
@@ -66,7 +66,7 @@ contract OtherFunctionsTest is BaseTest {
         setupObligation(obligation, units);
         deal(collateralToken, address(this), additionalCollateral);
         morphoV2.supplyCollateral(obligation, 0, additionalCollateral, borrower);
-        uint256 initialCollateral = morphoV2.collateralOf(id, borrower, collateralToken);
+        uint256 initialCollateral = morphoV2.collateralOf(id, borrower, 0);
         withdraw = bound(withdraw, additionalCollateral + 1, initialCollateral);
 
         vm.prank(borrower);
@@ -295,20 +295,14 @@ contract OtherFunctionsTest is BaseTest {
         morphoV2.supplyCollateral(obligationWithRevertingOracle, 0, collateral, borrower);
 
         bytes32 _id = toId(obligationWithRevertingOracle);
-        assertEq(
-            morphoV2.collateralOf(_id, borrower, address(collateralToken1)), collateral, "collateral should be set"
-        );
+        assertEq(morphoV2.collateralOf(_id, borrower, 0), collateral, "collateral should be set");
 
         revertingOracle.stopOracle();
 
         vm.prank(borrower);
         morphoV2.withdrawCollateral(obligationWithRevertingOracle, 0, collateral, borrower, borrower);
 
-        assertEq(
-            morphoV2.collateralOf(_id, borrower, address(collateralToken1)),
-            0,
-            "collateral should be 0 after withdrawal"
-        );
+        assertEq(morphoV2.collateralOf(_id, borrower, 0), 0, "collateral should be 0 after withdrawal");
     }
 
     // Bitmap tests.
