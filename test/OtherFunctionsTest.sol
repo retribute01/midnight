@@ -370,7 +370,7 @@ contract OtherFunctionsTest is BaseTest {
         ERC20(token).approve(address(morphoV2), 1e18);
         morphoV2.supplyCollateral(_obligation, collateralIndex, 1e18, borrower);
 
-        uint256 bitmap = morphoV2.activatedCollaterals(toId(_obligation), borrower);
+        uint128 bitmap = morphoV2.activatedCollaterals(toId(_obligation), borrower);
 
         assertEq(bitmap, 1 << collateralIndex, "bitmap should have only bit at collateralIndex");
         assertEq(UtilsLib.msb(bitmap), collateralIndex, "msb should equal collateralIndex");
@@ -389,7 +389,7 @@ contract OtherFunctionsTest is BaseTest {
         }
 
         bytes32 _id = toId(_obligation);
-        uint256 bitmap = morphoV2.activatedCollaterals(_id, borrower);
+        uint128 bitmap = morphoV2.activatedCollaterals(_id, borrower);
         assertEq(UtilsLib.countBits(bitmap), k, "countBits should equal number of supplied collaterals");
         assertEq(UtilsLib.msb(bitmap), k - 1, "msb should equal number of supplied collaterals - 1");
     }
@@ -414,7 +414,7 @@ contract OtherFunctionsTest is BaseTest {
         vm.prank(borrower);
         morphoV2.withdrawCollateral(_obligation, collateralIndex, 1e18, borrower, borrower);
 
-        uint256 bitmap = morphoV2.activatedCollaterals(_id, borrower);
+        uint128 bitmap = morphoV2.activatedCollaterals(_id, borrower);
         assertEq(UtilsLib.countBits(bitmap), numCollaterals - 1, "one bit cleared");
         assertEq(bitmap & (1 << collateralIndex), 0, "withdrawn collateral bit should be cleared");
     }

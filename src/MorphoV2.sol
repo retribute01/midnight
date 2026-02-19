@@ -564,7 +564,7 @@ contract MorphoV2 is IMorphoV2 {
         return borrowerState[id][user].debt;
     }
 
-    function activatedCollaterals(bytes32 id, address user) external view returns (uint256) {
+    function activatedCollaterals(bytes32 id, address user) external view returns (uint128) {
         return borrowerState[id][user].activatedCollaterals;
     }
 
