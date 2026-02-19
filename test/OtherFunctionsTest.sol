@@ -180,11 +180,11 @@ contract OtherFunctionsTest is BaseTest {
         }
     }
 
-    function testIdToObligation(Obligation memory _obligation) public {
+    function testToObligation(Obligation memory _obligation) public {
         _obligation = sortedAndUniqueCollateralsInObligation(_obligation);
 
         bytes32 _id = morphoV2.touchObligation(_obligation);
-        Obligation memory obligationFromId = IdLib.idToObligation(_id);
+        Obligation memory obligationFromId = IdLib.toObligation(_id);
         assertEq(_obligation.loanToken, obligationFromId.loanToken, "loanToken");
         assertEq(_obligation.maturity, obligationFromId.maturity, "maturity");
         assertEq(_obligation.collaterals.length, obligationFromId.collaterals.length, "collaterals length");
@@ -193,6 +193,19 @@ contract OtherFunctionsTest is BaseTest {
             assertEq(_obligation.collaterals[i].lltv, obligationFromId.collaterals[i].lltv, "lltv");
             assertEq(_obligation.collaterals[i].oracle, obligationFromId.collaterals[i].oracle, "oracle");
         }
+    }
+
+    function testToId(Obligation memory _obligation) public view {
+        _obligation = sortedAndUniqueCollateralsInObligation(_obligation);
+
+        bytes32 expected = toId(_obligation);
+        bytes32 actual = morphoV2.toId(_obligation);
+        assertEq(actual, expected, "toId mismatch");
+    }
+
+    function testToObligationRevertsIfNotCreated(bytes32 _id) public {
+        vm.expectRevert();
+        morphoV2.toObligation(_id);
     }
 
     function testSstore2CodeStartsWithStop(Obligation memory _obligation) public {
