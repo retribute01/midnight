@@ -16,8 +16,6 @@ library IdLib {
             )
         );
         return bytes20(uint160(uint256(create2Hash)));
-            )
-        );
     }
 
     /// @dev Attempts to decode the data at address(id) into an obligation.
