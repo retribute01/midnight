@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import {Obligation} from "../interfaces/IMorphoV2.sol";
 
 library IdLib {
-    /// @dev Creation code that returns the code after the prefix as runtime bytecode.
+    /// @dev Used as a prefix to some data, to give a creation code that deploys the data as runtime bytecode.
     /// @dev Explanation of the prefix:
     /// hex       opcode          stack              comments
     /// ------------------------------------------------------------------------------
@@ -18,25 +18,29 @@ library IdLib {
     /// 39        CODECOPY        [len]              mem[0:len] <- code[11:11+len]
     /// 5f        PUSH0           [0, len]           return offset = 0
     /// f3        RETURN          []                 mem[0:len] is returned
-    function creationCode(Obligation memory obligation) internal pure returns (bytes memory) {
-        return abi.encodePacked(hex"600b380380600b5f395ff3", abi.encode(obligation));
+    bytes constant SSTORE2_PREFIX = hex"600b380380600b5f395ff3";
+
+    function toId(Obligation memory obligation, uint256 chainId, address morphoV2) internal pure returns (bytes20) {
+        bytes32 create2Hash = keccak256(
+            abi.encodePacked(
+                uint8(0xff), morphoV2, chainId, keccak256(abi.encodePacked(SSTORE2_PREFIX, abi.encode(obligation)))
+            )
+        );
+        // forge-lint: disable-next-line(unsafe-typecast) unsafe casting made on purpose.
+        return bytes20(uint160(uint256(create2Hash)));
     }
 
-    function toId(Obligation memory obligation, uint256 chainId, address morphoV2) internal pure returns (bytes32) {
-        return keccak256(abi.encodePacked(uint8(0xff), morphoV2, bytes32(chainId), keccak256(creationCode(obligation))));
+    /// @dev Attempts to decode the data at address(id) into an obligation.
+    function toObligation(bytes20 id) internal view returns (Obligation memory) {
+        return abi.decode(address(id).code, (Obligation));
     }
 
-    function idToObligation(bytes32 id) internal view returns (Obligation memory) {
-        return abi.decode(address(uint160(uint256(id))).code, (Obligation));
-    }
-
-    /// @dev Deploys a contract with runtime code = abi.encode(obligation)
-    /// @dev The contract code begins with 0x00 (STOP), because the first word is the offset of the obligation.
-    function storeInCode(Obligation memory obligation) internal {
-        bytes memory _creationCode = creationCode(obligation);
-        address create2Address;
+    /// @dev Stores the data in the code of the contract at the given address.
+    /// @dev Uses the chain id as salt.
+    function storeInCode(Obligation memory obligation) internal returns (address create2Address) {
+        bytes memory creationCode = abi.encodePacked(SSTORE2_PREFIX, abi.encode(obligation));
         assembly ("memory-safe") {
-            create2Address := create2(0, add(_creationCode, 0x20), mload(_creationCode), chainid())
+            create2Address := create2(0, add(creationCode, 0x20), mload(creationCode), chainid())
         }
         require(create2Address != address(0), "Failed to create SStore2 contract");
     }
