@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import {Obligation} from "../interfaces/IMorphoV2.sol";
 
 library IdLib {
-    /// @dev Creation code that deploys data as runtime bytecode.
+    /// @dev Used as a prefix to some data, to give a creation code that deploys the data as runtime bytecode.
     /// @dev Explanation of the prefix:
     /// hex       opcode          stack              comments
     /// ------------------------------------------------------------------------------
