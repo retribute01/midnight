@@ -12,18 +12,3 @@ bytes32 constant EIP712_DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainI
 bytes32 constant ROOT_TYPEHASH = keccak256("Root(bytes32 root)");
 uint256 constant MAX_COLLATERALS = 128;
 uint256 constant MAX_COLLATERALS_PER_BORROWER = 10;
-
-/// @dev Creation code that deploys data as runtime bytecode.
-/// @dev Explanation of the prefix:
-/// hex       opcode          stack              comments
-/// ------------------------------------------------------------------------------
-/// 60 0b     PUSH1 0x0b      [11]               11 = length(prefix)
-/// 38        CODESIZE        [codesize, 11]
-/// 03        SUB             [len]              with len = codesize - 11
-/// 80        DUP1            [len, len]
-/// 60 0b     PUSH1 0x0b      [11, len, len]     code offset = 11
-/// 5f        PUSH0           [0, 11, len, len]  mem offset = 0
-/// 39        CODECOPY        [len]              mem[0:len] <- code[11:11+len]
-/// 5f        PUSH0           [0, len]           return offset = 0
-/// f3        RETURN          []                 mem[0:len] is returned
-bytes constant SSTORE2_PREFIX = hex"600b380380600b5f395ff3";

@@ -195,7 +195,7 @@ contract OtherFunctionsTest is BaseTest {
         }
     }
 
-    function testToId(Obligation memory _obligation) public {
+    function testToId(Obligation memory _obligation) public view {
         _obligation = sortedAndUniqueCollateralsInObligation(_obligation);
 
         bytes32 expected = toId(_obligation);

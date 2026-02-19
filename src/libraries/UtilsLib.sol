@@ -2,8 +2,6 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {SSTORE2_PREFIX} from "./ConstantsLib.sol";
-
 library UtilsLib {
     /// @dev Returns true if at most one of `x` and `y` is nonzero.
     function atMostOneNonZero(uint256 x, uint256 y) internal pure returns (bool z) {
@@ -90,6 +88,21 @@ library UtilsLib {
         }
         return 0;
     }
+
+    /// @dev Creation code that deploys data as runtime bytecode.
+    /// @dev Explanation of the prefix:
+    /// hex       opcode          stack              comments
+    /// ------------------------------------------------------------------------------
+    /// 60 0b     PUSH1 0x0b      [11]               11 = length(prefix)
+    /// 38        CODESIZE        [codesize, 11]
+    /// 03        SUB             [len]              with len = codesize - 11
+    /// 80        DUP1            [len, len]
+    /// 60 0b     PUSH1 0x0b      [11, len, len]     code offset = 11
+    /// 5f        PUSH0           [0, 11, len, len]  mem offset = 0
+    /// 39        CODECOPY        [len]              mem[0:len] <- code[11:11+len]
+    /// 5f        PUSH0           [0, len]           return offset = 0
+    /// f3        RETURN          []                 mem[0:len] is returned
+    bytes constant SSTORE2_PREFIX = hex"600b380380600b5f395ff3";
 
     /// @dev Stores the data in the code of the contract at the given address.
     /// @dev It is recommended to give data that starts with STOP (0x00).
