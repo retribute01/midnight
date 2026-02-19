@@ -15,6 +15,7 @@ library IdLib {
                 keccak256(abi.encodePacked(UtilsLib.SSTORE2_PREFIX, abi.encode(obligation)))
             )
         );
+        // forge-lint: disable-next-line(unsafe-typecast) unsafe casting made on purpose.
         return bytes20(uint160(uint256(create2Hash)));
     }
 
