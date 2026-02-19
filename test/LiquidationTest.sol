@@ -103,8 +103,8 @@ contract LiquidationTest is BaseTest {
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
         vm.warp(obligation.maturity + TIME_TO_MAX_LIF); // Warp to post-maturity to bypass recovery close factor.
 
-        uint256 repayable = _repayableDebt();
-        uint256 debtAfterBadDebt = units > repayable ? repayable : units;
+        uint256 badDebt = _badDebt();
+        uint256 debtAfterBadDebt = units - badDebt;
         repaid = bound(repaid, 0, debtAfterBadDebt);
 
         (uint256 seizedAssets, uint256 repaidUnits) = morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
@@ -130,8 +130,8 @@ contract LiquidationTest is BaseTest {
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
         vm.warp(obligation.maturity + TIME_TO_MAX_LIF); // Warp to post-maturity to bypass recovery close factor.
 
-        uint256 repayable = _repayableDebt();
-        uint256 debtAfterBadDebt = units > repayable ? repayable : units;
+        uint256 badDebt = _badDebt();
+        uint256 debtAfterBadDebt = units - badDebt;
         uint256 maxSeized = debtAfterBadDebt.mulDivDown(ORACLE_PRICE_SCALE, 1e36 - 1).mulDivDown(MAX_LIF, WAD);
         seized = bound(seized, 0, maxSeized > initialCollateral ? initialCollateral : maxSeized);
 
@@ -164,8 +164,8 @@ contract LiquidationTest is BaseTest {
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
         vm.warp(obligation.maturity + TIME_TO_MAX_LIF); // Warp to post-maturity to bypass recovery close factor.
 
-        uint256 repayable = _repayableDebt();
-        uint256 debtAfterBadDebt = units > repayable ? repayable : units;
+        uint256 badDebt = _badDebt();
+        uint256 debtAfterBadDebt = units - badDebt;
         repaid = bound(repaid, 0, debtAfterBadDebt);
 
         morphoV2.liquidate(obligation, 0, 0, repaid, borrower, data);
@@ -229,9 +229,9 @@ contract LiquidationTest is BaseTest {
         uint256 initialCollateral = morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token);
 
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
-        uint256 repayable = _repayableDebt();
-        vm.assume(repayable < units); // Ensure there is bad debt.
-        uint256 expectedBadDebt = units - repayable;
+        uint256 expectedBadDebt = _badDebt();
+        vm.assume(expectedBadDebt > 0); // Ensure there is bad debt.
+        uint256 repayable = units - expectedBadDebt;
         uint256 maxDebt = initialCollateral.mulDivDown(liquidationOraclePrice, ORACLE_PRICE_SCALE)
             .mulDivDown(obligation.collaterals[0].lltv, WAD);
         vm.assume(repayable > maxDebt); // So that some repayment is allowed by recovery close factor.
@@ -256,7 +256,8 @@ contract LiquidationTest is BaseTest {
         collateralize(obligation, borrower, units);
         setupObligation(obligation, units);
         Oracle(obligation.collaterals[0].oracle).setPrice(0.5e36);
-        uint256 repayableDebt = _repayableDebt();
+        uint256 expectedBadDebt = _badDebt();
+        uint256 repayableDebt = units - expectedBadDebt;
         uint256 collatAmount = morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token);
         uint256 maxDebt =
             collatAmount.mulDivDown(0.5e36, ORACLE_PRICE_SCALE).mulDivDown(obligation.collaterals[0].lltv, WAD);
@@ -265,7 +266,6 @@ contract LiquidationTest is BaseTest {
         repaid = bound(
             repaid, 0, repayableDebt > maxDebt ? (maxRepaid < repayableDebt - 1 ? maxRepaid : repayableDebt - 1) : 0
         );
-        uint256 expectedBadDebt = units - repayableDebt;
 
         morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
 
@@ -280,8 +280,9 @@ contract LiquidationTest is BaseTest {
         collateralize(obligation, borrower, units);
         setupObligation(obligation, units);
         Oracle(obligation.collaterals[0].oracle).setPrice(ORACLE_PRICE_SCALE / 2); // TODO fuzz
-        uint256 repayableDebt = _repayableDebt();
-        vm.assume(repayableDebt < units); // Ensure there is bad debt.
+        uint256 expectedBadDebt = _badDebt();
+        vm.assume(expectedBadDebt > 0); // Ensure there is bad debt.
+        uint256 repayableDebt = units - expectedBadDebt;
         uint256 collatAmount = morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token);
         uint256 maxDebt = collatAmount.mulDivDown(ORACLE_PRICE_SCALE / 2, ORACLE_PRICE_SCALE)
             .mulDivDown(obligation.collaterals[0].lltv, WAD);
@@ -314,7 +315,7 @@ contract LiquidationTest is BaseTest {
 
         uint256 initialCollateral = morphoV2.collateralOf(id, borrower, obligation.collaterals[0].token);
 
-        uint256 badDebt = morphoV2.debtOf(id, borrower).zeroFloorSub(_repayableDebt());
+        uint256 badDebt = _badDebt();
 
         repaid = bound(repaid, 0, units - badDebt);
 
@@ -526,15 +527,16 @@ contract LiquidationTest is BaseTest {
 
     // helpers.
 
-    /// @dev Repayable debt as computed in liquidate: sum over all collaterals with mulDivDown.
-    function _repayableDebt() internal view returns (uint256) {
-        uint256 sum = 0;
+    /// @dev Bad debt as computed in liquidate: debt minus repayable (sum over all collaterals with mulDivDown).
+    function _badDebt() internal view returns (uint256) {
+        uint256 debt = morphoV2.debtOf(id, borrower);
+        uint256 repayable = 0;
         for (uint256 i = 0; i < obligation.collaterals.length; i++) {
             uint256 collat = morphoV2.collateralOf(id, borrower, obligation.collaterals[i].token);
             uint256 price = Oracle(obligation.collaterals[i].oracle).price();
-            sum += collat.mulDivDown(WAD, MAX_LIF).mulDivDown(price, ORACLE_PRICE_SCALE);
+            repayable += collat.mulDivDown(WAD, MAX_LIF).mulDivDown(price, ORACLE_PRICE_SCALE);
         }
-        return sum;
+        return debt.zeroFloorSub(repayable);
     }
 
     /// @dev Minimum oracle price for collateral[0] such that there won't be bad debt.

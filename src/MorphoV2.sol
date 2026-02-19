@@ -439,10 +439,13 @@ contract MorphoV2 is IMorphoV2 {
         ObligationState storage _obligationState = obligationState[id];
         address liquidatedCollatToken = obligation.collaterals[collateralIndex].token;
 
-        uint256 repayableDebt;
         uint256 maxDebt;
         uint256 liquidatedCollatPrice;
+
         BorrowerState storage _state = borrowerState[id][borrower];
+        uint256 originalDebt = _state.debt;
+        uint256 badDebt = originalDebt;
+
         uint256 bitmap = _state.activatedCollaterals;
         while (bitmap != 0) {
             uint256 i = UtilsLib.msb(bitmap);
@@ -451,14 +454,12 @@ contract MorphoV2 is IMorphoV2 {
             if (i == collateralIndex) liquidatedCollatPrice = price;
             uint256 _collateralOf = collateralOf[id][borrower][_collateral.token];
             maxDebt += _collateralOf.mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(_collateral.lltv, WAD);
-            repayableDebt += _collateralOf.mulDivDown(WAD, MAX_LIF).mulDivDown(price, ORACLE_PRICE_SCALE);
+            badDebt = badDebt.zeroFloorSub(_collateralOf.mulDivDown(WAD, MAX_LIF).mulDivDown(price, ORACLE_PRICE_SCALE));
             bitmap ^= (1 << i);
         }
 
-        uint256 originalDebt = _state.debt;
         require(block.timestamp > obligation.maturity || originalDebt > maxDebt, "position is not liquidatable");
 
-        uint256 badDebt = originalDebt.zeroFloorSub(repayableDebt);
         if (badDebt > 0) {
             _state.debt -= UtilsLib.toUint128(badDebt);
             _obligationState.totalUnits -= UtilsLib.toUint128(badDebt);
