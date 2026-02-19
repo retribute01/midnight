@@ -228,8 +228,8 @@ contract LiquidationTest is BaseTest {
         collateralize(obligation, borrower, units);
         setupObligation(obligation, units);
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
-        uint256 repayableDebt = uint256(morphoV2.collateralOf(id, borrower, 0))
-            .mulDivUp(WAD, MAX_LIF).mulDivUp(liquidationOraclePrice, ORACLE_PRICE_SCALE);
+        uint256 repayableDebt = uint256(morphoV2.collateralOf(id, borrower, 0)).mulDivUp(WAD, MAX_LIF)
+            .mulDivUp(liquidationOraclePrice, ORACLE_PRICE_SCALE);
         // we cannot always repay everything because the bad debt is underestimated (thus the -1).
         repaid = bound(repaid, 0, repayableDebt.zeroFloorSub(1));
         uint256 expectedBadDebt = units - repayableDebt;
