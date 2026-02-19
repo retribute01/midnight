@@ -16,8 +16,10 @@ jobs:
         conf:
           - CreatedObligations
           - ExactMath
+          - Healthiness
           - Liquidate
           - Midnight
+          - MulDiv
           - OnlyAuthorizedCanDecreaseShares
           - SharePrice
           - Solvency

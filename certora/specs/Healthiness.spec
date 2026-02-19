@@ -16,8 +16,8 @@ methods {
     function _.price() external => summaryPrice(calledContract) expect(uint256);
     function TickLib.tickToPrice(uint256 tick) internal returns (uint256) => NONDET;
     function IdLib.toId(MorphoV2.Obligation memory obligation, uint256 chainId, address morpho) internal returns (bytes32) => summaryToId(obligation, chainId, morpho);
-    //function UtilsLib.mulDivDown(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivDown(x, y, d);
-    //function UtilsLib.mulDivUp(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivUp(x, y, d);
+    function UtilsLib.mulDivDown(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivDown(x, y, d);
+    function UtilsLib.mulDivUp(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivUp(x, y, d);
 
     function _.transferFrom(address from, address to, uint256 amount) external with(env e) => genericCallbackBool() expect (bool);
     function _.transfer(address to, uint256 amount) external with(env e) => genericCallbackBool() expect (bool);
@@ -29,14 +29,43 @@ methods {
 
 /// SUMMARY ///
 
+definition MAX_LIF() returns uint256 = 115 * 10^16;
+definition WAD() returns uint256 = 10^18;
+
 persistent ghost summaryPrice(address) returns uint256;
-persistent ghost summaryMulDivDown(uint256, uint256, uint256) returns uint256 {
-    axiom forall uint256 b. forall uint256 d. d > 0 =>
-        summaryMulDivDown(0, b, d) == 0;
-    axiom forall uint256 a1. forall uint256 a2. forall uint256 b. forall uint256 d. d > 0 && a1 <= a2 =>
-        summaryMulDivDown(a1, b, d) <= summaryMulDivDown(a2, b, d);
+persistent ghost summaryMulDivDownM(mathint,mathint,mathint) returns mathint {
+    axiom forall mathint b. forall mathint d. d > 0 =>
+        summaryMulDivDownM(0, b, d) == 0;
+    axiom forall mathint a1. forall mathint a2. forall mathint b. forall mathint d. d > 0 && a1 <= a2 =>
+        summaryMulDivDownM(a1, b, d) <= summaryMulDivDownM(a2, b, d);
+//    axiom forall mathint a1. forall mathint a2. forall mathint b. forall mathint d. d > 0 && a1 <= a2 =>
+//        summaryMulDivDownM(a2 - a1, b, d) <= summaryMulDivDownM(a2, b, d) - summaryMulDivDownM(a1, b, d);
 }
-persistent ghost summaryMulDivUp(uint256, uint256, uint256) returns uint256;
+persistent ghost summaryMulDivUpM(mathint,mathint,mathint) returns mathint {
+//    axiom forall mathint a. forall mathint b. forall mathint d. forall mathint x. b > 0 && d > 0 =>
+//        a <= summaryMulDivDownM(summaryMulDivUpM(a, b, d), d, b);
+    axiom forall mathint a. forall mathint b. forall mathint d. forall mathint x. b > 0 && d > 0 =>
+        a >= summaryMulDivUpM(summaryMulDivDownM(a, b, d), d, b);
+
+    axiom forall mathint a1. forall mathint a2. forall mathint b. forall mathint d. d > 0 && a1 <= a2 =>
+        summaryMulDivDownM(a2 - a1, b, d) >= summaryMulDivDownM(a2, b, d) - summaryMulDivUpM(a1, b, d);
+}
+
+function summaryMulDivDown(uint256 a, uint256 b, uint256 d) returns uint256 {
+    bool overflow;
+    if (overflow || d == 0) {
+        revert();
+    }
+    return require_uint256(summaryMulDivDownM(a, b, d));
+}
+function summaryMulDivUp(uint256 a, uint256 b, uint256 d) returns uint256 {
+    bool overflow;
+    if (overflow || d == 0) {
+        revert();
+    }
+    return require_uint256(summaryMulDivUpM(a, b, d));
+}
+
 
 //persistent ghost MorphoV2.Obligation globalObligation;
 persistent ghost address globalObligationLoanToken;
@@ -80,9 +109,6 @@ function genericCallback() {
     env e;
     MorphoV2.Obligation obligation;
 
-    require forall uint256 i. 0 <= i && i < globalObligationCollateralLength =>
-        obligation.collaterals[i].lltv * 115 * 10^16  < 10^36, "collateral lltv must be less then 1/MAX_LIF";
-
     require obligation.loanToken == globalObligationLoanToken;
     require obligation.collaterals.length == globalObligationCollateralLength;
     require forall uint256 i. 0 <= i && i < globalObligationCollateralLength =>
@@ -106,6 +132,15 @@ function genericCallbackBool() returns (bool) {
 
 rule stayHealthy(env e, method f, calldataarg args) {
     MorphoV2.Obligation obligation;
+
+    require forall uint256 a. forall uint256 lif. forall uint256 i. 
+        0 <= i && i < globalObligationCollateralLength && lif <= MAX_LIF() =>
+        summaryMulDivUpM(a, WAD(), lif)  >= summaryMulDivUpM(a, obligation.collaterals[i].lltv, WAD()),
+        "collateral lltv must be less then 1/MAX_LIF";
+
+//    require forall uint256 i. 0 <= i && i < globalObligationCollateralLength =>
+//        obligation.collaterals[i].lltv * 115 * 10^16  < 10^36, "collateral lltv must be less then 1/MAX_LIF";
+
     require obligation.loanToken == globalObligationLoanToken;
     require obligation.collaterals.length == globalObligationCollateralLength;
     require forall uint256 i. 0 <= i && i < globalObligationCollateralLength =>
