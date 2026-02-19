@@ -19,7 +19,6 @@ methods {
     function FlashLiquidateCallback.endFlashloan(address token, uint256 amount) internal => CVL_flashLoanEnd(token, amount);
 
     // Assume ERC20 tokens transfer correctly: no fee taking from sender or receiver, no rebasing, no blacklisting, no transfer limits.
-    function _.decimals() external => CVL_decimals(calledContract) expect(uint8);
     function _.balanceOf(address a) external => CVL_balanceOf(calledContract, a) expect(uint256);
     function _.transfer(address a, uint256 v) external with(env e) => CVL_transferFrom(e, calledContract, e.msg.sender, a, v) expect(bool);
     function _.transferFrom(address src, address a, uint256 v) external with(env e) => CVL_transferFrom(e, calledContract, src, a, v) expect(bool);
