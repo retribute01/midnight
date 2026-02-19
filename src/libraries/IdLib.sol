@@ -6,19 +6,25 @@ import {Obligation} from "../interfaces/IMorphoV2.sol";
 import {UtilsLib} from "./UtilsLib.sol";
 
 library IdLib {
-    function toId(Obligation memory obligation, uint256 chainId, address morphoV2) internal pure returns (bytes32) {
-        return keccak256(
-            abi.encodePacked(
-                uint8(0xff),
-                morphoV2,
-                chainId,
-                keccak256(abi.encodePacked(UtilsLib.SSTORE2_PREFIX, abi.encode(obligation)))
+    function toId(Obligation memory obligation, uint256 chainId, address morphoV2) internal pure returns (bytes20) {
+        return bytes20(
+            uint160(
+                uint256(
+                    keccak256(
+                        abi.encodePacked(
+                            uint8(0xff),
+                            morphoV2,
+                            chainId,
+                            keccak256(abi.encodePacked(UtilsLib.SSTORE2_PREFIX, abi.encode(obligation)))
+                        )
+                    )
+                )
             )
         );
     }
 
-    /// @dev Attempts to decode the data at the last 20 bytes of id into an obligation.
-    function toObligation(bytes32 id) internal view returns (Obligation memory) {
-        return abi.decode(address(uint160(uint256(id))).code, (Obligation));
+    /// @dev Attempts to decode the data at address(id) into an obligation.
+    function toObligation(bytes20 id) internal view returns (Obligation memory) {
+        return abi.decode(address(id).code, (Obligation));
     }
 }
