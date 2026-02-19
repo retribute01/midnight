@@ -12,6 +12,8 @@ methods {
 
     function UtilsLib.mulDivDown(uint256, uint256, uint256) internal returns (uint256) => NONDET;
     function UtilsLib.mulDivUp(uint256, uint256, uint256) internal returns (uint256) => NONDET;
+    function UtilsLib.msb(uint256) internal returns (uint256) => NONDET;
+    function UtilsLib.countBits(uint256) internal returns (uint256) => NONDET;
 
     // Summary is required because abi.encodePacked doesn't ensure injectivity of the hash function in CVL, for an unknown reason.
     function IdLib.toId(MorphoV2.Obligation memory obligation, uint256 chainId, address morphoV2) internal returns (bytes32) => summaryToId(obligation, chainId, morphoV2);
