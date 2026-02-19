@@ -551,7 +551,7 @@ contract MorphoV2 is IMorphoV2 {
 
             obligationState[id].created = true;
             obligationState[id].fees = defaultFees[obligation.loanToken];
-            UtilsLib.storeInCode(abi.encode(obligation), block.chainid);
+            IdLib.storeInCode(obligation);
 
             emit EventsLib.ObligationCreated(id, obligation);
         }
