@@ -25,12 +25,12 @@ hook CHAINID() uint256 chainId {
     require chainId == ghostChainId, "chain id is constant";
 }
 
-ghost rehash(bytes32) returns bytes20 {
-    axiom forall bytes32 h1. forall bytes32 h2. h1 != h2 => rehash(h1) != rehash(h2);
+ghost mapping(bytes32 => bytes20) rehash {
+    axiom forall bytes32 h1. forall bytes32 h2. h1 != h2 => rehash[h1] != rehash[h2];
 }
 
 function summaryToId(MorphoV2.Obligation obligation) returns (bytes20) {
-    return rehash(Utils.hashObligation(obligation));
+    return rehash[Utils.hashObligation(obligation)];
 }
 
 function obligationIsCreated(MorphoV2.Obligation obligation) returns (bool) {
