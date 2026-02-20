@@ -19,12 +19,7 @@ methods {
     function IdLib.toId(MorphoV2.Obligation memory obligation, uint256, address) internal returns (bytes20) => summaryToId(obligation);
 }
 
-persistent ghost uint256 ghostChainId;
-
-hook CHAINID() uint256 chainId {
-    require chainId == ghostChainId, "chain id is constant";
-}
-
+// Since the toId function returns a truncated hash, we need to rehash the obligation to ensure injectivity.
 persistent ghost mapping(bytes32 => bytes20) rehash {
     axiom forall bytes32 h1. forall bytes32 h2. h1 != h2 => rehash[h1] != rehash[h2];
 }
