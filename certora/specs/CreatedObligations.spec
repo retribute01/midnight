@@ -8,7 +8,7 @@ methods {
     function _.price() external => NONDET;
 
     function MorphoV2.obligationCreated(bytes20) external returns (bool) envfree;
-    function Utils.toId(MorphoV2.Obligation, uint256, address) external returns (bytes20) envfree;
+    function Utils.hashObligation(MorphoV2.Obligation) external returns (bytes32) envfree;
 
     function UtilsLib.mulDivDown(uint256, uint256, uint256) internal returns (uint256) => NONDET;
     function UtilsLib.mulDivUp(uint256, uint256, uint256) internal returns (uint256) => NONDET;
@@ -16,7 +16,7 @@ methods {
     function UtilsLib.countBits(uint128) internal returns (uint256) => NONDET;
 
     // Summary is required because abi.encodePacked doesn't ensure injectivity of the hash function in CVL, for an unknown reason.
-    function IdLib.toId(MorphoV2.Obligation memory obligation, uint256 chainId, address morphoV2) internal returns (bytes20) => summaryToId(obligation, chainId, morphoV2);
+    function IdLib.toId(MorphoV2.Obligation memory obligation, uint256, address) internal returns (bytes20) => summaryToId(obligation);
 }
 
 persistent ghost uint256 ghostChainId;
@@ -25,14 +25,16 @@ hook CHAINID() uint256 chainId {
     require chainId == ghostChainId, "chain id is constant";
 }
 
-function summaryToId(MorphoV2.Obligation obligation, uint256 chainId, address morphoV2) returns (bytes20) {
-    assert chainId == ghostChainId;
-    assert morphoV2 == MorphoV2;
-    return Utils.toId(obligation, ghostChainId, MorphoV2);
+ghost rehash(bytes32) returns bytes20 {
+    axiom forall bytes32 h1. forall bytes32 h2. h1 != h2 => rehash(h1) != rehash(h2);
+}
+
+function summaryToId(MorphoV2.Obligation obligation) returns (bytes20) {
+    return rehash(Utils.hashObligation(obligation));
 }
 
 function obligationIsCreated(MorphoV2.Obligation obligation) returns (bool) {
-    return MorphoV2.obligationCreated(summaryToId(obligation, ghostChainId, MorphoV2));
+    return MorphoV2.obligationCreated(summaryToId(obligation));
 }
 
 // Show that a created obligation has sorted collaterals.
