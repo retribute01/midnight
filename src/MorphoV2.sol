@@ -35,6 +35,7 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// @dev Obligations' collaterals must be sorted by token address.
 contract MorphoV2 is IMorphoV2 {
     using UtilsLib for uint256;
+    using UtilsLib for uint128;
 
     /// STORAGE ///
 
@@ -361,7 +362,7 @@ contract MorphoV2 is IMorphoV2 {
         bytes20 id = touchObligation(obligation);
         address collateralToken = obligation.collaterals[collateralIndex].token;
 
-        uint256 newCollateralOf = uint256(collateralOf[id][onBehalf][collateralIndex]) + assets;
+        uint256 newCollateralOf = collateralOf[id][onBehalf][collateralIndex] + assets;
         collateralOf[id][onBehalf][collateralIndex] = UtilsLib.toUint128(newCollateralOf);
 
         if (newCollateralOf == assets && assets > 0) {
@@ -388,7 +389,7 @@ contract MorphoV2 is IMorphoV2 {
         bytes20 id = touchObligation(obligation);
         address collateralToken = obligation.collaterals[collateralIndex].token;
 
-        uint256 newCollateralOf = uint256(collateralOf[id][onBehalf][collateralIndex]) - assets;
+        uint256 newCollateralOf = collateralOf[id][onBehalf][collateralIndex] - assets;
         collateralOf[id][onBehalf][collateralIndex] = UtilsLib.toUint128(newCollateralOf);
 
         if (newCollateralOf == 0 && assets > 0) {
@@ -464,14 +465,14 @@ contract MorphoV2 is IMorphoV2 {
 
             if (block.timestamp <= obligation.maturity) {
                 uint256 lltv = obligation.collaterals[collateralIndex].lltv;
-                uint256 _collateralOf = collateralOf[id][borrower][collateralIndex];
                 // Rounded up to avoid consecutive max liquidations.
                 // Acknowledged that the position could be slightly healthy after a liquidation.
                 uint256 maxRepaid = (_state.debt - maxDebt).mulDivUp(WAD, WAD - lif.mulDivUp(lltv, WAD));
                 require(
                     repaidUnits <= maxRepaid
-                        || _collateralOf.mulDivDown(liquidatedCollatPrice, ORACLE_PRICE_SCALE).mulDivDown(WAD, lif)
-                            .zeroFloorSub(maxRepaid) < obligation.rcfThreshold,
+                        || collateralOf[id][borrower][collateralIndex].mulDivDown(
+                                liquidatedCollatPrice, ORACLE_PRICE_SCALE
+                            ).mulDivDown(WAD, lif).zeroFloorSub(maxRepaid) < obligation.rcfThreshold,
                     "recovery close factor conditions violated"
                 );
             }
@@ -601,7 +602,7 @@ contract MorphoV2 is IMorphoV2 {
             uint256 i = UtilsLib.msb(bitmap);
             Collateral memory collateral = obligation.collaterals[i];
             uint256 price = IOracle(collateral.oracle).price();
-            maxDebt += uint256(collateralOf[id][borrower][i]).mulDivDown(price, ORACLE_PRICE_SCALE)
+            maxDebt += collateralOf[id][borrower][i].mulDivDown(price, ORACLE_PRICE_SCALE)
                 .mulDivDown(collateral.lltv, WAD);
             bitmap ^= (1 << i);
         }
@@ -624,7 +625,7 @@ contract MorphoV2 is IMorphoV2 {
     function tradingFee(bytes20 id, uint256 timeToMaturity) public view returns (uint256) {
         uint16[6] memory _fees = obligationState[id].fees;
 
-        if (timeToMaturity >= 180 days) return uint256(_fees[5]) * FEE_STEP;
+        if (timeToMaturity >= 180 days) return _fees[5] * FEE_STEP;
 
         // forgefmt: disable-start
         (uint256 index, uint256 start, uint256 end) =
@@ -635,8 +636,8 @@ contract MorphoV2 is IMorphoV2 {
                                        (4, 90 days, 180 days);
         // forgefmt: disable-end
 
-        uint256 feeLower = uint256(_fees[index]) * FEE_STEP;
-        uint256 feeUpper = uint256(_fees[index + 1]) * FEE_STEP;
+        uint256 feeLower = _fees[index] * FEE_STEP;
+        uint256 feeUpper = _fees[index + 1] * FEE_STEP;
 
         return (feeLower * (end - timeToMaturity) + feeUpper * (timeToMaturity - start)) / (end - start);
     }

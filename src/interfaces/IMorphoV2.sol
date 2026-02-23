@@ -7,7 +7,8 @@ struct Obligation {
     // Must be sorted by address.
     Collateral[] collaterals;
     uint256 maturity;
-    // If a collateral's value is not enough to repay rcfThreshold, RCF is deactivated for this collateral.
+    // If a collateral's value (quoted in loan token) is not enough to repay rcfThreshold, RCF is deactivated for this
+    // collateral.
     uint256 rcfThreshold;
 }
 
