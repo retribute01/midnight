@@ -7,7 +7,7 @@ struct Obligation {
     // Must be sorted by address.
     Collateral[] collaterals;
     uint256 maturity;
-    // If liquidating back to health brings the debt below this threshold, full liquidation is allowed.
+    // If a collateral's value is not enough to repay rcfThreshold, RCF is deactivated for this collateral.
     uint256 rcfThreshold;
 }
 

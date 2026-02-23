@@ -405,8 +405,8 @@ contract MorphoV2 is IMorphoV2 {
 
     /// @dev At least one of `seizedAssets` or `repaidUnits` should be equal to zero.
     /// @dev Accounts are liquidatable if they are unhealthy or if the maturity has passed.
-    /// @dev Before maturity, the liquidation cannot put the borrower back into health (recovery close factor),
-    /// @dev unless doing so would bring the debt below the rcfThreshold.
+    /// @dev Before maturity, the liquidation cannot put the borrower back into health (recovery close factor), unless
+    /// the collateral's value is not enough to repay rcfThreshold.
     /// @dev Recovery close factor means that debtOf - repaidUnits >= maxDebt - repaidUnits*LIF*LLTV, which is
     /// equivalent to repaidUnits <= (debtOf-maxDebt) / (1 - LIF*LLTV).
     /// @dev If an account is healthy, the LIF grows linearly from 1 at maturity to MAX_LIF at maturity +
