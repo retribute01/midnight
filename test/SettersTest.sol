@@ -161,8 +161,7 @@ contract SettersTest is BaseTest {
 
     function testSetDefaultTradingFeeValidation(address loanToken, uint256 feeTooHigh, uint256 index) public {
         index = bound(index, 0, 5);
-        uint256 maxFee = maxTradingFee(index);
-        feeTooHigh = bound(feeTooHigh, maxFee + 1, maxFee + 0.01e18);
+        feeTooHigh = bound(feeTooHigh, maxTradingFee(index) + 1, 1e18);
         vm.expectRevert("value too high");
         morphoV2.setDefaultTradingFee(loanToken, index, feeTooHigh);
     }
@@ -171,12 +170,12 @@ contract SettersTest is BaseTest {
         address loanToken = makeAddr("loanToken");
 
         // Use max fees at each breakpoint (rounded down to FEE_STEP)
-        uint256 fee0 = maxTradingFee(0) / 1e12 * 1e12; // 0
-        uint256 fee1 = maxTradingFee(1) / 1e12 * 1e12;
-        uint256 fee2 = maxTradingFee(2) / 1e12 * 1e12;
-        uint256 fee3 = maxTradingFee(3) / 1e12 * 1e12;
-        uint256 fee4 = maxTradingFee(4) / 1e12 * 1e12;
-        uint256 fee5 = maxTradingFee(5) / 1e12 * 1e12;
+        uint256 fee0 = maxTradingFee(0);
+        uint256 fee1 = maxTradingFee(1);
+        uint256 fee2 = maxTradingFee(2);
+        uint256 fee3 = maxTradingFee(3);
+        uint256 fee4 = maxTradingFee(4);
+        uint256 fee5 = maxTradingFee(5);
 
         morphoV2.setDefaultTradingFee(loanToken, 0, fee0);
         morphoV2.setDefaultTradingFee(loanToken, 1, fee1);
