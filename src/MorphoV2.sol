@@ -202,7 +202,9 @@ contract MorphoV2 is IMorphoV2 {
         uint256 sellerPrice = offer.buy ? offerPrice - _tradingFee : offerPrice;
         uint256 buyerPrice = sellerPrice + _tradingFee;
 
-        bool roundDownShares = borrowerState[id][buyer].debt == 0 && sharesOf[id][seller] == 0;
+        bool buyerIsLender = borrowerState[id][buyer].debt == 0;
+        bool sellerIsBorrower = sharesOf[id][seller] == 0;
+        bool roundDownShares = buyerIsLender && sellerIsBorrower;
         if (buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
             sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
@@ -241,8 +243,6 @@ contract MorphoV2 is IMorphoV2 {
             require(newConsumed <= offer.obligationShares, "consumed");
         }
 
-        bool buyerIsLender = (borrowerState[id][buyer].debt == 0);
-        bool sellerIsBorrower = (sharesOf[id][seller] == 0);
         if (buyerIsLender && sellerIsBorrower) {
             // Lender enters + borrower enters.
             sharesOf[id][buyer] += obligationShares;
