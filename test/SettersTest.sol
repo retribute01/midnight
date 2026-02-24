@@ -3,10 +3,14 @@
 pragma solidity ^0.8.0;
 
 import {BaseTest} from "./BaseTest.sol";
-import {MAX_FEE} from "../src/libraries/ConstantsLib.sol";
+import {MAX_FEE_RATE, REFERENCE_DURATION} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Collateral} from "../src/interfaces/IMorphoV2.sol";
 
 contract SettersTest is BaseTest {
+    function maxTradingFee(uint256 index) internal pure returns (uint256) {
+        return MAX_FEE_RATE * [uint256(0), 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION;
+    }
+
     function testInitialOwner() public view {
         assertEq(morphoV2.owner(), address(this), "deployer should be initial owner");
     }
@@ -44,12 +48,12 @@ contract SettersTest is BaseTest {
         uint256 ninetyDaysFee,
         uint256 oneEightyDaysFee
     ) public {
-        zeroSecondsFee = bound(zeroSecondsFee, 0, MAX_FEE) / 1e12 * 1e12;
-        oneDayFee = bound(oneDayFee, zeroSecondsFee, MAX_FEE) / 1e12 * 1e12;
-        sevenDaysFee = bound(sevenDaysFee, oneDayFee, MAX_FEE) / 1e12 * 1e12;
-        thirtyDaysFee = bound(thirtyDaysFee, sevenDaysFee, MAX_FEE) / 1e12 * 1e12;
-        ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, MAX_FEE) / 1e12 * 1e12;
-        oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, MAX_FEE) / 1e12 * 1e12;
+        zeroSecondsFee = bound(zeroSecondsFee, 0, maxTradingFee(0)) / 1e12 * 1e12;
+        oneDayFee = bound(oneDayFee, zeroSecondsFee, maxTradingFee(1)) / 1e12 * 1e12;
+        sevenDaysFee = bound(sevenDaysFee, oneDayFee, maxTradingFee(2)) / 1e12 * 1e12;
+        thirtyDaysFee = bound(thirtyDaysFee, sevenDaysFee, maxTradingFee(3)) / 1e12 * 1e12;
+        ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, maxTradingFee(4)) / 1e12 * 1e12;
+        oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, maxTradingFee(5)) / 1e12 * 1e12;
 
         // first set the default trading fee for this loan token
         morphoV2.setDefaultTradingFee(loanToken, 0, zeroSecondsFee);
@@ -124,12 +128,12 @@ contract SettersTest is BaseTest {
         uint256 ninetyDaysFee,
         uint256 oneEightyDaysFee
     ) public {
-        postMaturityFee = bound(postMaturityFee, 0, MAX_FEE) / 1e12 * 1e12;
-        oneDayFee = bound(oneDayFee, postMaturityFee, MAX_FEE) / 1e12 * 1e12;
-        sevenDaysFee = bound(sevenDaysFee, oneDayFee, MAX_FEE) / 1e12 * 1e12;
-        thirtyDaysFee = bound(thirtyDaysFee, sevenDaysFee, MAX_FEE) / 1e12 * 1e12;
-        ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, MAX_FEE) / 1e12 * 1e12;
-        oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, MAX_FEE) / 1e12 * 1e12;
+        postMaturityFee = bound(postMaturityFee, 0, maxTradingFee(0)) / 1e12 * 1e12;
+        oneDayFee = bound(oneDayFee, postMaturityFee, maxTradingFee(1)) / 1e12 * 1e12;
+        sevenDaysFee = bound(sevenDaysFee, oneDayFee, maxTradingFee(2)) / 1e12 * 1e12;
+        thirtyDaysFee = bound(thirtyDaysFee, sevenDaysFee, maxTradingFee(3)) / 1e12 * 1e12;
+        ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, maxTradingFee(4)) / 1e12 * 1e12;
+        oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, maxTradingFee(5)) / 1e12 * 1e12;
 
         morphoV2.setDefaultTradingFee(loanToken, 0, postMaturityFee);
         morphoV2.setDefaultTradingFee(loanToken, 1, oneDayFee);
@@ -165,21 +169,31 @@ contract SettersTest is BaseTest {
         morphoV2.setDefaultTradingFee(loanToken, 0, 0);
     }
 
-    function testSetDefaultTradingFeeValidation(address loanToken, uint256 feeTooHigh) public {
-        feeTooHigh = bound(feeTooHigh, MAX_FEE + 1, 2 * MAX_FEE);
+    function testSetDefaultTradingFeeValidation(address loanToken, uint256 feeTooHigh, uint256 index) public {
+        index = bound(index, 0, 5);
+        uint256 maxFee = maxTradingFee(index);
+        feeTooHigh = bound(feeTooHigh, maxFee + 1, maxFee + 0.01e18);
         vm.expectRevert("Trading fee too high");
-        morphoV2.setDefaultTradingFee(loanToken, 0, feeTooHigh);
+        morphoV2.setDefaultTradingFee(loanToken, index, feeTooHigh);
     }
 
     function testDefaultTradingFeeTTMBuckets() public {
         address loanToken = makeAddr("loanToken");
 
-        morphoV2.setDefaultTradingFee(loanToken, 0, 0.001e18);
-        morphoV2.setDefaultTradingFee(loanToken, 1, 0.002e18);
-        morphoV2.setDefaultTradingFee(loanToken, 2, 0.003e18);
-        morphoV2.setDefaultTradingFee(loanToken, 3, 0.005e18);
-        morphoV2.setDefaultTradingFee(loanToken, 4, 0.007e18);
-        morphoV2.setDefaultTradingFee(loanToken, 5, 0.01e18);
+        // Use max fees at each breakpoint
+        uint256 fee0 = maxTradingFee(0) / 1e12 * 1e12;
+        uint256 fee1 = maxTradingFee(1) / 1e12 * 1e12;
+        uint256 fee2 = maxTradingFee(2) / 1e12 * 1e12;
+        uint256 fee3 = maxTradingFee(3) / 1e12 * 1e12;
+        uint256 fee4 = maxTradingFee(4) / 1e12 * 1e12;
+        uint256 fee5 = maxTradingFee(5) / 1e12 * 1e12;
+
+        morphoV2.setDefaultTradingFee(loanToken, 0, fee0);
+        morphoV2.setDefaultTradingFee(loanToken, 1, fee1);
+        morphoV2.setDefaultTradingFee(loanToken, 2, fee2);
+        morphoV2.setDefaultTradingFee(loanToken, 3, fee3);
+        morphoV2.setDefaultTradingFee(loanToken, 4, fee4);
+        morphoV2.setDefaultTradingFee(loanToken, 5, fee5);
 
         // touch obligation with this loan token
         Obligation memory obligation = Obligation({
@@ -192,38 +206,45 @@ contract SettersTest is BaseTest {
         morphoV2.touchObligation(obligation);
 
         // Test breakpoint 0: 0 days (post maturity)
-        assertEq(morphoV2.tradingFee(id, 0), 0.001e18, "0 days");
+        assertEq(morphoV2.tradingFee(id, 0), fee0, "0 days");
 
         // Test breakpoint 1: 1 day
-        assertEq(morphoV2.tradingFee(id, 1 days), 0.002e18, "1 day");
+        assertEq(morphoV2.tradingFee(id, 1 days), fee1, "1 day");
 
         // Test breakpoint 2: 7 days
-        assertEq(morphoV2.tradingFee(id, 7 days), 0.003e18, "7 days");
+        assertEq(morphoV2.tradingFee(id, 7 days), fee2, "7 days");
 
         // Test breakpoint 3: 30 days
-        assertEq(morphoV2.tradingFee(id, 30 days), 0.005e18, "30 days");
+        assertEq(morphoV2.tradingFee(id, 30 days), fee3, "30 days");
 
         // Test breakpoint 4: 90 days
-        assertEq(morphoV2.tradingFee(id, 90 days), 0.007e18, "90 days");
+        assertEq(morphoV2.tradingFee(id, 90 days), fee4, "90 days");
 
         // Test breakpoint 5: 180 days
-        assertEq(morphoV2.tradingFee(id, 180 days), 0.01e18, "180 days");
+        assertEq(morphoV2.tradingFee(id, 180 days), fee5, "180 days");
 
         // Test beyond 180 days (should use breakpoint 5 fee)
-        assertEq(morphoV2.tradingFee(id, 365 days), 0.01e18, "365 days");
-        assertEq(morphoV2.tradingFee(id, 1000 days), 0.01e18, "1000 days");
+        assertEq(morphoV2.tradingFee(id, 365 days), fee5, "365 days");
+        assertEq(morphoV2.tradingFee(id, 1000 days), fee5, "1000 days");
     }
 
     function testLinearInterpolation() public {
         address loanToken = makeAddr("loanToken");
 
-        // Fees scaled to fit within 1% cap (values /10 from original)
-        morphoV2.setDefaultTradingFee(loanToken, 0, 0.001e18); // 0d: 0.1%
-        morphoV2.setDefaultTradingFee(loanToken, 1, 0.002e18); // 1d: 0.2%
-        morphoV2.setDefaultTradingFee(loanToken, 2, 0.004e18); // 7d: 0.4%
-        morphoV2.setDefaultTradingFee(loanToken, 3, 0.006e18); // 30d: 0.6%
-        morphoV2.setDefaultTradingFee(loanToken, 4, 0.008e18); // 90d: 0.8%
-        morphoV2.setDefaultTradingFee(loanToken, 5, 0.01e18); // 180d: 1%
+        // Use max fees at each breakpoint (rounded down to FEE_STEP)
+        uint256 fee0 = maxTradingFee(0) / 1e12 * 1e12; // 0
+        uint256 fee1 = maxTradingFee(1) / 1e12 * 1e12;
+        uint256 fee2 = maxTradingFee(2) / 1e12 * 1e12;
+        uint256 fee3 = maxTradingFee(3) / 1e12 * 1e12;
+        uint256 fee4 = maxTradingFee(4) / 1e12 * 1e12;
+        uint256 fee5 = maxTradingFee(5) / 1e12 * 1e12;
+
+        morphoV2.setDefaultTradingFee(loanToken, 0, fee0);
+        morphoV2.setDefaultTradingFee(loanToken, 1, fee1);
+        morphoV2.setDefaultTradingFee(loanToken, 2, fee2);
+        morphoV2.setDefaultTradingFee(loanToken, 3, fee3);
+        morphoV2.setDefaultTradingFee(loanToken, 4, fee4);
+        morphoV2.setDefaultTradingFee(loanToken, 5, fee5);
 
         // touch obligation with this loan token
         Obligation memory obligation = Obligation({
@@ -236,19 +257,23 @@ contract SettersTest is BaseTest {
         morphoV2.touchObligation(obligation);
 
         // Test exact breakpoints
-        assertEq(morphoV2.tradingFee(id, 0), 0.001e18, "0 days");
-        assertEq(morphoV2.tradingFee(id, 1 days), 0.002e18, "1 day");
-        assertEq(morphoV2.tradingFee(id, 7 days), 0.004e18, "7 days");
-        assertEq(morphoV2.tradingFee(id, 30 days), 0.006e18, "30 days");
-        assertEq(morphoV2.tradingFee(id, 90 days), 0.008e18, "90 days");
-        assertEq(morphoV2.tradingFee(id, 180 days), 0.01e18, "180 days");
+        assertEq(morphoV2.tradingFee(id, 0), fee0, "0 days");
+        assertEq(morphoV2.tradingFee(id, 1 days), fee1, "1 day");
+        assertEq(morphoV2.tradingFee(id, 7 days), fee2, "7 days");
+        assertEq(morphoV2.tradingFee(id, 30 days), fee3, "30 days");
+        assertEq(morphoV2.tradingFee(id, 90 days), fee4, "90 days");
+        assertEq(morphoV2.tradingFee(id, 180 days), fee5, "180 days");
 
-        // Test interpolation midpoints
-        assertEq(morphoV2.tradingFee(id, 0.5 days), 0.0015e18, "Midpoint 0-1d");
-        assertEq(morphoV2.tradingFee(id, 4 days), 0.003e18, "Midpoint 1-7d");
+        // Test interpolation midpoint (0.5 days is between index 0 and 1)
+        uint256 expectedMidpoint = (fee0 * (1 days - 0.5 days) + fee1 * (0.5 days)) / 1 days;
+        assertEq(morphoV2.tradingFee(id, 0.5 days), expectedMidpoint, "Midpoint 0-1d");
+
+        // Test interpolation midpoint (4 days is between index 1 and 2)
+        uint256 expectedMid4d = (fee1 * (7 days - 4 days) + fee2 * (4 days - 1 days)) / (7 days - 1 days);
+        assertEq(morphoV2.tradingFee(id, 4 days), expectedMid4d, "Midpoint 1-7d");
 
         // Test beyond 180 days
-        assertEq(morphoV2.tradingFee(id, 365 days), 0.01e18, "365 days");
-        assertEq(morphoV2.tradingFee(id, 1000 days), 0.01e18, "1000 days");
+        assertEq(morphoV2.tradingFee(id, 365 days), fee5, "365 days");
+        assertEq(morphoV2.tradingFee(id, 1000 days), fee5, "1000 days");
     }
 }

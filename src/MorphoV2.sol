@@ -10,7 +10,8 @@ import {
     WAD,
     ORACLE_PRICE_SCALE,
     FEE_STEP,
-    MAX_FEE,
+    MAX_FEE_RATE,
+    REFERENCE_DURATION,
     MAX_LIF,
     TIME_TO_MAX_LIF,
     MAX_COLLATERALS,
@@ -104,9 +105,12 @@ contract MorphoV2 is IMorphoV2 {
     function setObligationTradingFee(bytes20 id, uint256 index, uint256 newTradingFee) external {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(index <= 5, "Invalid index");
-        require(newTradingFee <= MAX_FEE, "Trading fee too high");
+        require(
+            newTradingFee <= MAX_FEE_RATE * [0, 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION,
+            "Trading fee too high"
+        );
         require(newTradingFee % FEE_STEP == 0, "fee should be a multiple of FEE_STEP");
-        // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee is less than MAX_FEE
+        // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee is less than maxTradingFee
         obligationState[id].fees[index] = uint16(newTradingFee / FEE_STEP);
         emit EventsLib.SetObligationTradingFee(id, index, newTradingFee);
     }
@@ -115,9 +119,12 @@ contract MorphoV2 is IMorphoV2 {
     function setDefaultTradingFee(address loanToken, uint256 index, uint256 newTradingFee) external {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(index <= 5, "Invalid index");
-        require(newTradingFee <= MAX_FEE, "Trading fee too high");
+        require(
+            newTradingFee <= MAX_FEE_RATE * [0, 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION,
+            "Trading fee too high"
+        );
         require(newTradingFee % FEE_STEP == 0, "fee should be a multiple of FEE_STEP");
-        // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee is less than MAX_FEE
+        // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee is less than maxTradingFee
         defaultFees[loanToken][index] = uint16(newTradingFee / FEE_STEP);
         emit EventsLib.SetDefaultTradingFee(loanToken, index, newTradingFee);
     }

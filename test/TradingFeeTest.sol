@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {WAD, MAX_FEE} from "../src/libraries/ConstantsLib.sol";
+import {WAD, MAX_FEE_RATE, REFERENCE_DURATION} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {TickLib, TICK_RANGE} from "../src/libraries/TickLib.sol";
 import {Obligation, Offer, Collateral} from "../src/interfaces/IMorphoV2.sol";
@@ -14,6 +14,10 @@ contract TradingFeeTest is BaseTest {
 
     function min(uint256 a, uint256 b) internal pure returns (uint256) {
         return a < b ? a : b;
+    }
+
+    function maxTradingFee(uint256 index) internal pure returns (uint256) {
+        return MAX_FEE_RATE * [uint256(0), 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION;
     }
 
     Obligation internal obligation;
@@ -61,7 +65,7 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), 1 ether - sellerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         borrowerOffer.tick = sellerTick;
 
@@ -80,7 +84,7 @@ contract TradingFeeTest is BaseTest {
         buyerTick = bound(buyerTick, 0, TICK_RANGE);
         uint256 buyerPrice = TickLib.tickToPrice(buyerTick);
         vm.assume(buyerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, buyerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), buyerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         lenderOffer.tick = buyerTick;
 
@@ -101,7 +105,7 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), 1 ether - sellerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         borrowerOffer.tick = sellerTick;
 
@@ -120,7 +124,7 @@ contract TradingFeeTest is BaseTest {
         buyerTick = bound(buyerTick, 0, TICK_RANGE);
         uint256 buyerPrice = TickLib.tickToPrice(buyerTick);
         vm.assume(buyerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, buyerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), buyerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         lenderOffer.tick = buyerTick;
 
@@ -139,7 +143,7 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.01e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), 1 ether - sellerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         borrowerOffer.tick = sellerTick;
 
@@ -159,7 +163,7 @@ contract TradingFeeTest is BaseTest {
         buyerTick = bound(buyerTick, 0, TICK_RANGE);
         uint256 buyerPrice = TickLib.tickToPrice(buyerTick);
         vm.assume(buyerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, buyerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), buyerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         lenderOffer.tick = buyerTick;
 
@@ -179,7 +183,7 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), 1 ether - sellerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         borrowerOffer.tick = sellerTick;
 
@@ -199,7 +203,7 @@ contract TradingFeeTest is BaseTest {
         buyerTick = bound(buyerTick, 0, TICK_RANGE);
         uint256 buyerPrice = TickLib.tickToPrice(buyerTick);
         vm.assume(buyerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, buyerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), buyerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         lenderOffer.tick = buyerTick;
 
@@ -219,7 +223,7 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.5e18);
-        tradingFee = bound(tradingFee, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        tradingFee = bound(tradingFee, 0, min(maxTradingFee(1), 1 ether - sellerPrice)) / 1e12 * 1e12;
         morphoV2.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         borrowerOffer.tick = sellerTick;
 
@@ -238,8 +242,8 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.5e18);
-        fee1Day = bound(fee1Day, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
-        fee7Days = bound(fee7Days, fee1Day, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        fee1Day = bound(fee1Day, 0, min(maxTradingFee(1), 1 ether - sellerPrice)) / 1e12 * 1e12;
+        fee7Days = bound(fee7Days, fee1Day, min(maxTradingFee(2), 1 ether - sellerPrice)) / 1e12 * 1e12;
 
         obligation.maturity = block.timestamp + 3 days;
         id = toId(obligation);
@@ -269,7 +273,7 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.5e18);
-        fee0Day = bound(fee0Day, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        fee0Day = bound(fee0Day, 0, min(maxTradingFee(0), 1 ether - sellerPrice)) / 1e12 * 1e12;
         maturity = bound(maturity, 0, block.timestamp - 1);
         obligation.maturity = maturity;
         id = toId(obligation);
@@ -296,7 +300,7 @@ contract TradingFeeTest is BaseTest {
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
         vm.assume(sellerPrice >= 0.5e18);
-        fee180Days = bound(fee180Days, 0, min(MAX_FEE, 1 ether - sellerPrice)) / 1e12 * 1e12;
+        fee180Days = bound(fee180Days, 0, min(maxTradingFee(5), 1 ether - sellerPrice)) / 1e12 * 1e12;
         maturity = bound(maturity, block.timestamp + 180 days, block.timestamp + 36500 days);
 
         obligation.maturity = maturity;
