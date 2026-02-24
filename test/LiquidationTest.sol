@@ -291,8 +291,7 @@ contract LiquidationTest is BaseTest {
             .mulDivDown(obligation.collaterals[0].lltv, WAD);
         uint256 maxRepaid = debtAfterBadDebt.zeroFloorSub(maxDebt)
             .mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(obligation.collaterals[0].lltv, WAD));
-        repaid = bound(repaid, 0, debtAfterBadDebt);
-        repaid = bound(repaid, 0, maxRepaid);
+        repaid = bound(repaid, 0, UtilsLib.min(maxRepaid, debtAfterBadDebt));
 
         morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
 
@@ -321,11 +320,8 @@ contract LiquidationTest is BaseTest {
         uint256 maxCollateralRepayable =
             collatAmount.mulDivDown(liquidationOraclePrice, ORACLE_PRICE_SCALE).mulDivDown(WAD, MAX_LIF);
 
-        uint256 repaidAmount = debtAfterBadDebt;
-        repaidAmount = repaidAmount > maxRepaid ? maxRepaid : repaidAmount; // capped by the recovery close factor
-        repaidAmount = repaidAmount > maxCollateralRepayable ? maxCollateralRepayable : repaidAmount; // capped by the
-        // collateral amount
-
+        uint256 repaidAmount = UtilsLib.min(UtilsLib.min(debtAfterBadDebt, maxRepaid), maxCollateralRepayable); // capped by the debt, the recovery close factor and the collateral amount
+        
         morphoV2.liquidate(obligation, 0, 0, repaidAmount, borrower, "");
 
         assertEq(morphoV2.debtOf(id, borrower), debtAfterBadDebt - repaidAmount, "all remaining debt repaid");
@@ -428,33 +424,6 @@ contract LiquidationTest is BaseTest {
             .mulDivDown(obligation.collaterals[0].lltv, WAD);
         // After max repayment the position should be just healthy or almost healthy (within rounding tolerance).
         assertLe(remainingDebt, newMaxDebt + 3, "position should be approximately just healthy after max repayment");
-    }
-
-    /// @dev When price is low enough to create bad debt, maxRepaid >= debtAfterBadDebt,
-    /// so repaying all remaining debt is allowed.
-    function testMaxRepaidWithBadDebt(uint256 units, uint256 liquidationOraclePrice) public {
-        units = bound(units, 100, MAX_TEST_AMOUNT);
-        vm.assume(liquidationOraclePrice <= ORACLE_PRICE_SCALE); // Avoid overflow in _setupUnhealthy.
-        liquidationOraclePrice = bound(liquidationOraclePrice, badDebtPriceDown() / 2, badDebtPriceDown());
-
-        (uint256 collatAmount, uint256 _maxDebt) = _setupUnhealthy(units, liquidationOraclePrice);
-
-        uint256 repayableDebt =
-            collatAmount.mulDivDown(WAD, MAX_LIF).mulDivDown(liquidationOraclePrice, ORACLE_PRICE_SCALE);
-        vm.assume(repayableDebt < units); // Ensure there is bad debt.
-
-        uint256 debtAfterBadDebt = repayableDebt;
-        vm.assume(debtAfterBadDebt > _maxDebt); // So (debtAfterBadDebt - _maxDebt) does not underflow.
-
-        uint256 maxR =
-            (debtAfterBadDebt - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(obligation.collaterals[0].lltv, WAD));
-
-        vm.assume(maxR >= debtAfterBadDebt); // Recovery close factor allows repaying all in one go (rounding-safe).
-
-        // Repay all remaining debt
-        morphoV2.liquidate(obligation, 0, 0, debtAfterBadDebt, borrower, "");
-
-        assertEq(morphoV2.debtOf(id, borrower), 0, "all remaining debt repaid");
     }
 
     /// @dev When rcfThreshold > remaining debt after max repayment, full liquidation is allowed pre-maturity.
