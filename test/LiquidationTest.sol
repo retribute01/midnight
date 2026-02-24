@@ -189,8 +189,6 @@ contract LiquidationTest is BaseTest {
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
         vm.warp(obligation.maturity + TIME_TO_MAX_LIF); // Warp to post-maturity to bypass recovery close factor.
 
-        repaid = bound(repaid, 0, units);
-
         morphoV2.liquidate(obligation, 0, 0, repaid, borrower, data);
 
         assertEq(recordedRepaidUnits, repaid, "repaid units");
@@ -336,6 +334,7 @@ contract LiquidationTest is BaseTest {
         uint256 liquidationOraclePrice
     ) public {
         units = bound(units, 1, MAX_TEST_AMOUNT);
+        repaid = bound(repaid, 0, units);
         delay = bound(delay, 0, 100 weeks);
         
         collateralize(obligation, borrower, units);
@@ -348,7 +347,7 @@ contract LiquidationTest is BaseTest {
 
         uint256 initialCollateral = morphoV2.collateralOf(id, borrower, 0);
 
-        repaid = bound(repaid, 0, units);
+
 
         morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
 
