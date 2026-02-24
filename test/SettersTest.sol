@@ -7,7 +7,7 @@ import {Obligation, Collateral} from "../src/interfaces/IMorphoV2.sol";
 
 contract SettersTest is BaseTest {
     function maxTradingFee(uint256 index) internal pure returns (uint256) {
-        return [uint256(0.000014e18), 0.000014e18, 0.0001e18, 0.0005e18, 0.00125e18, 0.0025e18][index];
+        return [uint256(0.000014e18), 0.000014e18, 0.000097e18, 0.000417e18, 0.00125e18, 0.0025e18][index];
     }
 
     function testInitialOwner() public view {
