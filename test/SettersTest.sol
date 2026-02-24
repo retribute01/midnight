@@ -3,12 +3,11 @@
 pragma solidity ^0.8.0;
 
 import {BaseTest} from "./BaseTest.sol";
-import {MAX_FEE_RATE, REFERENCE_DURATION} from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Collateral} from "../src/interfaces/IMorphoV2.sol";
 
 contract SettersTest is BaseTest {
     function maxTradingFee(uint256 index) internal pure returns (uint256) {
-        return MAX_FEE_RATE * [uint256(0), 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION;
+        return [uint256(0.000014e18), 0.000014e18, 0.0001e18, 0.0005e18, 0.00125e18, 0.0025e18][index];
     }
 
     function testInitialOwner() public view {
@@ -173,7 +172,7 @@ contract SettersTest is BaseTest {
         index = bound(index, 0, 5);
         uint256 maxFee = maxTradingFee(index);
         feeTooHigh = bound(feeTooHigh, maxFee + 1, maxFee + 0.01e18);
-        vm.expectRevert("Trading fee too high");
+        vm.expectRevert("value too high");
         morphoV2.setDefaultTradingFee(loanToken, index, feeTooHigh);
     }
 

@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {WAD, MAX_FEE_RATE, REFERENCE_DURATION} from "../src/libraries/ConstantsLib.sol";
+import {WAD} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {TickLib, TICK_RANGE} from "../src/libraries/TickLib.sol";
 import {Obligation, Offer, Collateral} from "../src/interfaces/IMorphoV2.sol";
@@ -17,7 +17,7 @@ contract TradingFeeTest is BaseTest {
     }
 
     function maxTradingFee(uint256 index) internal pure returns (uint256) {
-        return MAX_FEE_RATE * [uint256(0), 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION;
+        return [uint256(0.000014e18), 0.000014e18, 0.0001e18, 0.0005e18, 0.00125e18, 0.0025e18][index];
     }
 
     Obligation internal obligation;

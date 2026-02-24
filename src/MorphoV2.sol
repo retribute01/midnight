@@ -10,8 +10,6 @@ import {
     WAD,
     ORACLE_PRICE_SCALE,
     FEE_STEP,
-    MAX_FEE_RATE,
-    REFERENCE_DURATION,
     MAX_LIF,
     TIME_TO_MAX_LIF,
     MAX_COLLATERALS,
@@ -106,8 +104,8 @@ contract MorphoV2 is IMorphoV2 {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(index <= 5, "Invalid index");
         require(
-            newTradingFee <= MAX_FEE_RATE * [0, 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION,
-            "Trading fee too high"
+            newTradingFee <= [0.000014e18, 0.000014e18, 0.000097e18, 0.000417e18, 0.00125e18, 0.0025e18][index],
+            "value too high"
         );
         require(newTradingFee % FEE_STEP == 0, "fee should be a multiple of FEE_STEP");
         // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee is less than maxTradingFee
@@ -120,8 +118,8 @@ contract MorphoV2 is IMorphoV2 {
         require(msg.sender == feeSetter, "Only feeSetter");
         require(index <= 5, "Invalid index");
         require(
-            newTradingFee <= MAX_FEE_RATE * [0, 1 days, 7 days, 30 days, 90 days, 180 days][index] / REFERENCE_DURATION,
-            "Trading fee too high"
+            newTradingFee <= [0.000014e18, 0.000014e18, 0.000097e18, 0.000417e18, 0.00125e18, 0.0025e18][index],
+            "value too high"
         );
         require(newTradingFee % FEE_STEP == 0, "fee should be a multiple of FEE_STEP");
         // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee is less than maxTradingFee
