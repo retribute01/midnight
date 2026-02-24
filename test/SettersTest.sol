@@ -6,10 +6,6 @@ import {BaseTest} from "./BaseTest.sol";
 import {Obligation, Collateral} from "../src/interfaces/IMorphoV2.sol";
 
 contract SettersTest is BaseTest {
-    function maxTradingFee(uint256 index) internal pure returns (uint256) {
-        return [uint256(0.000014e18), 0.000014e18, 0.000097e18, 0.000417e18, 0.00125e18, 0.0025e18][index];
-    }
-
     function testInitialOwner() public view {
         assertEq(morphoV2.owner(), address(this), "deployer should be initial owner");
     }
@@ -47,12 +43,12 @@ contract SettersTest is BaseTest {
         uint256 ninetyDaysFee,
         uint256 oneEightyDaysFee
     ) public {
-        postMaturityFee = bound(postMaturityFee, 0, maxTradingFee(0)) / 1e12 * 1e12;
-        oneDayFee = bound(oneDayFee, 0, maxTradingFee(1)) / 1e12 * 1e12;
-        sevenDaysFee = bound(sevenDaysFee, 0, maxTradingFee(2)) / 1e12 * 1e12;
-        thirtyDaysFee = bound(thirtyDaysFee, 0, maxTradingFee(3)) / 1e12 * 1e12;
-        ninetyDaysFee = bound(ninetyDaysFee, 0, maxTradingFee(4)) / 1e12 * 1e12;
-        oneEightyDaysFee = bound(oneEightyDaysFee, 0, maxTradingFee(5)) / 1e12 * 1e12;
+        postMaturityFee = bound(postMaturityFee, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
+        oneDayFee = bound(oneDayFee, 0, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
+        sevenDaysFee = bound(sevenDaysFee, 0, morphoV2.maxTradingFee(2)) / 1e12 * 1e12;
+        thirtyDaysFee = bound(thirtyDaysFee, 0, morphoV2.maxTradingFee(3)) / 1e12 * 1e12;
+        ninetyDaysFee = bound(ninetyDaysFee, 0, morphoV2.maxTradingFee(4)) / 1e12 * 1e12;
+        oneEightyDaysFee = bound(oneEightyDaysFee, 0, morphoV2.maxTradingFee(5)) / 1e12 * 1e12;
 
         Obligation memory obligation = Obligation({
             loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: new Collateral[](0), rcfThreshold: 0
@@ -115,12 +111,12 @@ contract SettersTest is BaseTest {
         uint256 ninetyDaysFee,
         uint256 oneEightyDaysFee
     ) public {
-        postMaturityFee = bound(postMaturityFee, 0, maxTradingFee(0)) / 1e12 * 1e12;
-        oneDayFee = bound(oneDayFee, postMaturityFee, maxTradingFee(1)) / 1e12 * 1e12;
-        sevenDaysFee = bound(sevenDaysFee, oneDayFee, maxTradingFee(2)) / 1e12 * 1e12;
-        thirtyDaysFee = bound(thirtyDaysFee, sevenDaysFee, maxTradingFee(3)) / 1e12 * 1e12;
-        ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, maxTradingFee(4)) / 1e12 * 1e12;
-        oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, maxTradingFee(5)) / 1e12 * 1e12;
+        postMaturityFee = bound(postMaturityFee, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
+        oneDayFee = bound(oneDayFee, postMaturityFee, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
+        sevenDaysFee = bound(sevenDaysFee, oneDayFee, morphoV2.maxTradingFee(2)) / 1e12 * 1e12;
+        thirtyDaysFee = bound(thirtyDaysFee, sevenDaysFee, morphoV2.maxTradingFee(3)) / 1e12 * 1e12;
+        ninetyDaysFee = bound(ninetyDaysFee, thirtyDaysFee, morphoV2.maxTradingFee(4)) / 1e12 * 1e12;
+        oneEightyDaysFee = bound(oneEightyDaysFee, ninetyDaysFee, morphoV2.maxTradingFee(5)) / 1e12 * 1e12;
 
         morphoV2.setDefaultTradingFee(loanToken, 0, postMaturityFee);
         morphoV2.setDefaultTradingFee(loanToken, 1, oneDayFee);
@@ -155,35 +151,33 @@ contract SettersTest is BaseTest {
 
     function testSetDefaultTradingFeeValidation(address loanToken, uint256 feeTooHigh, uint256 index) public {
         index = bound(index, 0, 5);
-        feeTooHigh = bound(feeTooHigh, maxTradingFee(index) + 1, 1e18);
+        feeTooHigh = bound(feeTooHigh, morphoV2.maxTradingFee(index) + 1, 1e18);
         vm.expectRevert("value too high");
         morphoV2.setDefaultTradingFee(loanToken, index, feeTooHigh);
     }
 
-    function testLinearInterpolation() public {
-        address loanToken = makeAddr("loanToken");
+    function testLinearInterpolation(uint256 fee0, uint256 fee1, uint256 fee2, uint256 fee3, uint256 fee4, uint256 fee5)
+        public
+    {
+        fee0 = bound(fee0, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
+        fee1 = bound(fee1, 0, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
+        fee2 = bound(fee2, 0, morphoV2.maxTradingFee(2)) / 1e12 * 1e12;
+        fee3 = bound(fee3, 0, morphoV2.maxTradingFee(3)) / 1e12 * 1e12;
+        fee4 = bound(fee4, 0, morphoV2.maxTradingFee(4)) / 1e12 * 1e12;
+        fee5 = bound(fee5, 0, morphoV2.maxTradingFee(5)) / 1e12 * 1e12;
 
-        // Use max fees at each breakpoint (rounded down to FEE_STEP)
-        uint256 fee0 = maxTradingFee(0);
-        uint256 fee1 = maxTradingFee(1);
-        uint256 fee2 = maxTradingFee(2);
-        uint256 fee3 = maxTradingFee(3);
-        uint256 fee4 = maxTradingFee(4);
-        uint256 fee5 = maxTradingFee(5);
-
-        morphoV2.setDefaultTradingFee(loanToken, 0, fee0);
-        morphoV2.setDefaultTradingFee(loanToken, 1, fee1);
-        morphoV2.setDefaultTradingFee(loanToken, 2, fee2);
-        morphoV2.setDefaultTradingFee(loanToken, 3, fee3);
-        morphoV2.setDefaultTradingFee(loanToken, 4, fee4);
-        morphoV2.setDefaultTradingFee(loanToken, 5, fee5);
-
-        // touch obligation with this loan token
         Obligation memory obligation = Obligation({
-            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: new Collateral[](0), rcfThreshold: 0
+            loanToken: address(0), maturity: block.timestamp + 1 days, collaterals: new Collateral[](0), rcfThreshold: 0
         });
         bytes20 id = toId(obligation);
         morphoV2.touchObligation(obligation);
+
+        morphoV2.setObligationTradingFee(id, 0, fee0);
+        morphoV2.setObligationTradingFee(id, 1, fee1);
+        morphoV2.setObligationTradingFee(id, 2, fee2);
+        morphoV2.setObligationTradingFee(id, 3, fee3);
+        morphoV2.setObligationTradingFee(id, 4, fee4);
+        morphoV2.setObligationTradingFee(id, 5, fee5);
 
         // Test exact breakpoints
         assertEq(morphoV2.tradingFee(id, 0), fee0, "0 days");
