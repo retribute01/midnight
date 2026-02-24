@@ -92,7 +92,7 @@ rule obligationIsCreatedAfterLiquidate(env e, MorphoV2.Obligation obligation, ui
 invariant obligationStateIsEmptyIfNotCreated(bytes20 id)
     !MorphoV2.obligationCreated(id) => obligationStateIsEmpty(id);
 
-function obligationStateIsEmptyExceptFees(bytes20 id) returns (bool) {
+function obligationStateIsEmpty(bytes20 id) returns (bool) {
     if (MorphoV2.totalUnits(id) != 0) return false;
     if (MorphoV2.totalShares(id) != 0) return false;
     if (MorphoV2.withdrawable(id) != 0) return false;
