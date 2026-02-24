@@ -205,8 +205,9 @@ contract MorphoV2 is IMorphoV2 {
 
         bool buyerIsLender = borrowerState[id][buyer].debt == 0;
         bool sellerIsBorrower = sharesOf[id][seller] == 0;
-        // To ensure the share price increases, the shares should be rounded down when buyerIsLender & sellerIsBorrower,
-        // and rounded up when !buyerIsLender & !sellerIsBorrower, so buyerIsLender discriminates between the two cases.
+        // To ensure that the share price does not decrease, shares should be overestimated when
+        // buyerIsLender & sellerIsBorrower, and underestimated when !buyerIsLender & !sellerIsBorrower.
+        // The variable buyerIsLender is used to discriminate between the two cases.
         if (buyerAssets > 0) {
             obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
             sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
