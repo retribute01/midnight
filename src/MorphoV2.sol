@@ -440,7 +440,6 @@ contract MorphoV2 is IMorphoV2 {
 
         uint256 maxDebt;
         uint256 liquidatedCollatPrice;
-
         BorrowerState storage _state = borrowerState[id][borrower];
         uint256 originalDebt = _state.debt;
         uint256 badDebt = originalDebt;
