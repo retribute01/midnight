@@ -163,7 +163,7 @@ contract AuthorizationTest is BaseTest {
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.assets = assets;
+        offer.buyerAssets = assets;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
@@ -175,9 +175,7 @@ contract AuthorizationTest is BaseTest {
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("UNAUTHORIZED");
-        morphoV2.take(
-            assets, 0, 0, 0, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer])
-        );
+        morphoV2.take(assets, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
     }
 
     function testTakeAuthorized() public {
@@ -188,7 +186,7 @@ contract AuthorizationTest is BaseTest {
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.assets = assets;
+        offer.buyerAssets = assets;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
@@ -202,9 +200,7 @@ contract AuthorizationTest is BaseTest {
 
         // Operator can take on behalf of taker
         vm.prank(operator);
-        morphoV2.take(
-            assets, 0, 0, 0, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer])
-        );
+        morphoV2.take(assets, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
 
         assertEq(morphoV2.debtOf(id, taker), assets);
     }
@@ -215,7 +211,7 @@ contract AuthorizationTest is BaseTest {
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.assets = assets;
+        offer.buyerAssets = assets;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
@@ -224,7 +220,7 @@ contract AuthorizationTest is BaseTest {
         collateralize(obligation, borrower, assets);
 
         // Borrower can take for themselves (no authorization needed)
-        take(assets, 0, 0, 0, borrower, offer);
+        take(assets, borrower, offer);
 
         assertEq(morphoV2.debtOf(id, borrower), assets);
     }

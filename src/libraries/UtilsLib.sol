@@ -42,6 +42,15 @@ library UtilsLib {
         return (x * y) / d;
     }
 
+    /// @dev Returns (`x` * `y`) / `d` rounded down, saturating to type(uint256).max on overflow.
+    function mulDivDownSaturating(uint256 x, uint256 y, uint256 d) internal pure returns (uint256) {
+        unchecked {
+            uint256 product = x * y;
+            if (x != 0 && product / x != y) return type(uint256).max;
+            return product / d;
+        }
+    }
+
     /// @dev Returns (`x` * `y`) / `d` rounded up.
     function mulDivUp(uint256 x, uint256 y, uint256 d) internal pure returns (uint256) {
         return (x * y + (d - 1)) / d;

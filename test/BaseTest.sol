@@ -85,31 +85,15 @@ abstract contract BaseTest is Test {
     }
 
     // hardcodes the right root, signature, proof, and callback (no callback)
-    function take(
-        uint256 buyerAssets,
-        uint256 sellerAssets,
-        uint256 obligationUnits,
-        uint256 obligationShares,
-        address taker,
-        Offer memory offer
-    ) internal returns (uint256, uint256, uint256, uint256) {
+    function take(uint256 shares, address taker, Offer memory offer)
+        internal
+        returns (uint256, uint256, uint256, uint256)
+    {
         // receiverIfTakerIsSeller param is for taker (when offer.buy == true)
         // offer.receiverIfMakerIsSeller is for maker (when offer.buy == false)
         vm.prank(taker);
-        return morphoV2.take(
-            buyerAssets,
-            sellerAssets,
-            obligationUnits,
-            obligationShares,
-            taker,
-            address(0),
-            hex"",
-            taker,
-            offer,
-            sig([offer]),
-            root([offer]),
-            proof([offer])
-        );
+        return
+            morphoV2.take(shares, taker, address(0), hex"", taker, offer, sig([offer]), root([offer]), proof([offer]));
     }
 
     function setupOtherUsers(Obligation memory obligation, uint256 units) internal {
@@ -119,13 +103,13 @@ abstract contract BaseTest is Test {
         lenderOffer.obligation = obligation;
         lenderOffer.buy = true;
         lenderOffer.maker = otherLender;
-        lenderOffer.assets = units;
+        lenderOffer.obligationUnits = units;
         lenderOffer.group = keccak256(abi.encode("non zero group"));
         lenderOffer.expiry = block.timestamp + 200;
         lenderOffer.tick = TICK_RANGE;
 
         collateralize(obligation, otherBorrower, units);
-        take(0, 0, units, 0, otherBorrower, lenderOffer);
+        take(units, otherBorrower, lenderOffer);
     }
 
     function createBadDebt(Obligation memory obligation) internal {
@@ -140,7 +124,7 @@ abstract contract BaseTest is Test {
         badBorrowerOffer.buy = false;
         badBorrowerOffer.maker = badBorrower;
         badBorrowerOffer.receiverIfMakerIsSeller = badBorrower;
-        badBorrowerOffer.assets = 100;
+        badBorrowerOffer.sellerAssets = 100;
         badBorrowerOffer.start = block.timestamp;
         badBorrowerOffer.expiry = block.timestamp + 200;
         badBorrowerOffer.tick = TICK_RANGE;
@@ -150,7 +134,7 @@ abstract contract BaseTest is Test {
 
         deal(address(loanToken), unluckyLender, 100);
 
-        take(100, 0, 0, 0, unluckyLender, badBorrowerOffer);
+        take(100, unluckyLender, badBorrowerOffer);
 
         Oracle(obligation.collaterals[0].oracle).setPrice(ORACLE_PRICE_SCALE / 4);
         morphoV2.liquidate(obligation, 0, 0, 0, badBorrower, "");
@@ -251,17 +235,14 @@ abstract contract BaseTest is Test {
         borrowerOffer.buy = false;
         borrowerOffer.maker = borrower;
         borrowerOffer.receiverIfMakerIsSeller = borrower;
-        borrowerOffer.assets = obligationUnits;
+        borrowerOffer.obligationUnits = obligationUnits;
         borrowerOffer.start = block.timestamp;
         borrowerOffer.expiry = block.timestamp;
         borrowerOffer.tick = TICK_RANGE;
 
         vm.prank(lender);
         morphoV2.take(
-            0,
-            0,
             obligationUnits,
-            0,
             lender,
             address(0),
             hex"",

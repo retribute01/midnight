@@ -21,7 +21,8 @@ struct Offer {
     Obligation obligation;
     bool buy;
     address maker;
-    uint256 assets;
+    uint256 buyerAssets;
+    uint256 sellerAssets;
     uint256 obligationUnits;
     uint256 obligationShares;
     uint256 start;

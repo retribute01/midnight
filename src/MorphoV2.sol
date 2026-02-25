@@ -137,10 +137,7 @@ contract MorphoV2 is IMorphoV2 {
     /// @dev Neither the taker nor the maker can pass from having shares to having debt in one take.
     /// @dev The taker might not get the price they expected if the trading fee was just changed.
     function take(
-        uint256 buyerAssets,
-        uint256 sellerAssets,
-        uint256 obligationUnits,
-        uint256 obligationShares,
+        uint256 obligationSharesInput,
         address taker,
         address takerCallback,
         bytes memory takerCallbackData,
@@ -152,11 +149,9 @@ contract MorphoV2 is IMorphoV2 {
     ) external returns (uint256, uint256, uint256, uint256) {
         require(taker == msg.sender || isAuthorized[taker][msg.sender], "UNAUTHORIZED");
         require(
-            UtilsLib.atMostOneNonZero(buyerAssets, sellerAssets, obligationUnits, obligationShares),
-            "inconsistent input"
-        );
-        require(
-            UtilsLib.atMostOneNonZero(offer.assets, offer.obligationUnits, offer.obligationShares),
+            UtilsLib.atMostOneNonZero(
+                offer.buyerAssets, offer.sellerAssets, offer.obligationUnits, offer.obligationShares
+            ),
             "inconsistent offer input"
         );
         require(block.timestamp >= offer.start, "offer not started");
@@ -202,63 +197,70 @@ contract MorphoV2 is IMorphoV2 {
         uint256 sellerPrice = offer.buy ? offerPrice - _tradingFee : offerPrice;
         uint256 buyerPrice = sellerPrice + _tradingFee;
 
-        if (buyerAssets > 0) {
-            obligationUnits = buyerAssets.mulDivDown(WAD, buyerPrice);
-            sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
-            obligationShares =
-                obligationUnits.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
-        } else if (sellerAssets > 0) {
-            obligationUnits = sellerAssets.mulDivDown(WAD, sellerPrice);
-            buyerAssets = sellerAssets.mulDivDown(buyerPrice, sellerPrice);
-            obligationShares =
-                obligationUnits.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
-        } else if (obligationUnits > 0) {
-            buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-            sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
-            obligationShares =
-                obligationUnits.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
-        } else {
-            obligationUnits =
-                obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
-            buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-            sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
-        }
-
-        uint256 newConsumed;
-        if (offer.assets > 0) {
-            newConsumed = consumed[offer.maker][offer.group] += offer.buy ? buyerAssets : sellerAssets;
-            require(newConsumed <= offer.assets, "consumed");
+        // Cap input shares by the offer's remaining capacity (converted to shares).
+        uint256 remainingShares;
+        if (offer.buyerAssets > 0) {
+            remainingShares = offer.buyerAssets.zeroFloorSub(consumed[offer.maker][offer.group])
+                .mulDivDown(WAD, buyerPrice)
+                .mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
+        } else if (offer.sellerAssets > 0) {
+            remainingShares = offer.sellerAssets.zeroFloorSub(consumed[offer.maker][offer.group])
+                .mulDivDown(WAD, sellerPrice)
+                .mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
         } else if (offer.obligationUnits > 0) {
-            newConsumed = consumed[offer.maker][offer.group] += obligationUnits;
-            require(newConsumed <= offer.obligationUnits, "consumed");
-        } else {
-            newConsumed = consumed[offer.maker][offer.group] += obligationShares;
-            require(newConsumed <= offer.obligationShares, "consumed");
+            remainingShares = offer.obligationUnits.zeroFloorSub(consumed[offer.maker][offer.group])
+                .mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
+        } else if (offer.obligationShares > 0) {
+            remainingShares = offer.obligationShares.zeroFloorSub(consumed[offer.maker][offer.group]);
         }
 
+        uint256 obligationShares = UtilsLib.min(obligationSharesInput, remainingShares);
+
+        // Derive obligationUnits from shares with branch-appropriate rounding, then update state.
+        uint256 obligationUnits;
         bool buyerIsLender = (borrowerState[id][buyer].debt == 0);
         bool sellerIsBorrower = (sharesOf[id][seller] == 0);
         if (buyerIsLender && sellerIsBorrower) {
             // Lender enters + borrower enters.
+            obligationUnits =
+                obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
             sharesOf[id][buyer] += obligationShares;
             borrowerState[id][seller].debt += UtilsLib.toUint128(obligationUnits);
             _obligationState.totalShares += UtilsLib.toUint128(obligationShares);
             _obligationState.totalUnits += UtilsLib.toUint128(obligationUnits);
         } else if (buyerIsLender && !sellerIsBorrower) {
             // Lender enters + lender exits.
+            obligationUnits =
+                obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
             sharesOf[id][buyer] += obligationShares;
             sharesOf[id][seller] -= obligationShares;
         } else if (!buyerIsLender && sellerIsBorrower) {
             // Borrower exits + borrower enters.
+            obligationUnits =
+                obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
             borrowerState[id][buyer].debt -= UtilsLib.toUint128(obligationUnits);
             borrowerState[id][seller].debt += UtilsLib.toUint128(obligationUnits);
         } else {
             // Borrower exits + lender exits.
+            obligationUnits =
+                obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
             borrowerState[id][buyer].debt -= UtilsLib.toUint128(obligationUnits);
             sharesOf[id][seller] -= obligationShares;
             _obligationState.totalShares -= UtilsLib.toUint128(obligationShares);
             _obligationState.totalUnits -= UtilsLib.toUint128(obligationUnits);
         }
+
+        // Derive assets from units.
+        uint256 buyerAssets = obligationUnits.mulDivUp(buyerPrice, WAD);
+        uint256 sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
+
+        // Update consumed in the offer's native dimension.
+        uint256 consumedDelta;
+        if (offer.buyerAssets > 0) consumedDelta = buyerAssets;
+        else if (offer.sellerAssets > 0) consumedDelta = sellerAssets;
+        else if (offer.obligationUnits > 0) consumedDelta = obligationUnits;
+        else if (offer.obligationShares > 0) consumedDelta = obligationShares;
+        consumed[offer.maker][offer.group] += consumedDelta;
 
         emit EventsLib.Take(
             msg.sender,
@@ -274,7 +276,7 @@ contract MorphoV2 is IMorphoV2 {
             sellerIsBorrower,
             receiver,
             offer.group,
-            newConsumed
+            consumedDelta
         );
 
         if (buyerCallback != address(0)) {
