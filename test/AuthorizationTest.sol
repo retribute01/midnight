@@ -157,42 +157,42 @@ contract AuthorizationTest is BaseTest {
     }
 
     function testTakeUnauthorized() public {
-        uint256 assets = 1000;
+        uint256 shares = 1000;
         address taker = makeAddr("taker");
 
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.buyerAssets = assets;
+        offer.obligationShares = shares;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
 
-        deal(address(loanToken), lender, assets);
-        collateralize(obligation, borrower, assets);
+        deal(address(loanToken), lender, shares);
+        collateralize(obligation, borrower, shares);
 
         // Attacker tries to take on behalf of taker
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("UNAUTHORIZED");
-        morphoV2.take(assets, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
+        morphoV2.take(shares, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
     }
 
     function testTakeAuthorized() public {
-        uint256 assets = 1000;
+        uint256 shares = 1000;
         address taker = makeAddr("taker");
         address operator = makeAddr("operator");
 
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.buyerAssets = assets;
+        offer.obligationShares = shares;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
 
-        deal(address(loanToken), lender, assets);
-        collateralize(obligation, taker, assets);
+        deal(address(loanToken), lender, shares);
+        collateralize(obligation, taker, shares);
 
         // Taker authorizes operator
         vm.prank(taker);
@@ -200,28 +200,28 @@ contract AuthorizationTest is BaseTest {
 
         // Operator can take on behalf of taker
         vm.prank(operator);
-        morphoV2.take(assets, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
+        morphoV2.take(shares, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
 
-        assertEq(morphoV2.debtOf(id, taker), assets);
+        assertEq(morphoV2.debtOf(id, taker), shares);
     }
 
     function testTakeSelf() public {
-        uint256 assets = 1000;
+        uint256 shares = 1000;
 
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.buyerAssets = assets;
+        offer.obligationShares = shares;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
 
-        deal(address(loanToken), lender, assets);
-        collateralize(obligation, borrower, assets);
+        deal(address(loanToken), lender, shares);
+        collateralize(obligation, borrower, shares);
 
         // Borrower can take for themselves (no authorization needed)
-        take(assets, borrower, offer);
+        take(shares, borrower, offer);
 
-        assertEq(morphoV2.debtOf(id, borrower), assets);
+        assertEq(morphoV2.debtOf(id, borrower), shares);
     }
 }

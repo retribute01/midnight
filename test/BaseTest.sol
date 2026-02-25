@@ -7,7 +7,7 @@ import {ERC20} from "./helpers/ERC20.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {IdLib} from "../src/libraries/IdLib.sol";
-import {TICK_RANGE} from "../src/libraries/TickLib.sol";
+import {TickLib, TICK_RANGE} from "../src/libraries/TickLib.sol";
 import {
     WAD,
     ORACLE_PRICE_SCALE,
@@ -85,31 +85,38 @@ abstract contract BaseTest is Test {
     }
 
     // hardcodes the right root, signature, proof, and callback (no callback)
-    function take(uint256 shares, address taker, Offer memory offer)
+    function take(uint256 obligationShares, address taker, Offer memory offer)
         internal
         returns (uint256, uint256, uint256, uint256)
     {
         // receiverIfTakerIsSeller param is for taker (when offer.buy == true)
         // offer.receiverIfMakerIsSeller is for maker (when offer.buy == false)
         vm.prank(taker);
-        return
-            morphoV2.take(shares, taker, address(0), hex"", taker, offer, sig([offer]), root([offer]), proof([offer]));
+        return morphoV2.take(
+            obligationShares, taker, address(0), hex"", taker, offer, sig([offer]), root([offer]), proof([offer])
+        );
     }
 
-    function setupOtherUsers(Obligation memory obligation, uint256 units) internal {
-        deal(address(loanToken), otherLender, units); // assets = units because price is 1.
+    function setupOtherUsers(Obligation memory obligation, uint256 shares) internal {
+        bytes20 _id = toId(obligation);
+        uint256 totalUnits = morphoV2.totalUnits(_id);
+        uint256 totalShares = morphoV2.totalShares(_id);
+        uint256 units = shares.mulDivUp(totalUnits + 1, totalShares + 1);
+        uint256 price = TickLib.tickToPrice(TICK_RANGE);
+        uint256 assets = units.mulDivUp(price, WAD);
+        deal(address(loanToken), otherLender, assets);
 
         Offer memory lenderOffer;
         lenderOffer.obligation = obligation;
         lenderOffer.buy = true;
         lenderOffer.maker = otherLender;
-        lenderOffer.obligationUnits = units;
+        lenderOffer.obligationShares = shares;
         lenderOffer.group = keccak256(abi.encode("non zero group"));
         lenderOffer.expiry = block.timestamp + 200;
         lenderOffer.tick = TICK_RANGE;
 
         collateralize(obligation, otherBorrower, units);
-        take(units, otherBorrower, lenderOffer);
+        take(shares, otherBorrower, lenderOffer);
     }
 
     function createBadDebt(Obligation memory obligation) internal {
@@ -124,7 +131,7 @@ abstract contract BaseTest is Test {
         badBorrowerOffer.buy = false;
         badBorrowerOffer.maker = badBorrower;
         badBorrowerOffer.receiverIfMakerIsSeller = badBorrower;
-        badBorrowerOffer.sellerAssets = 100;
+        badBorrowerOffer.obligationShares = 100;
         badBorrowerOffer.start = block.timestamp;
         badBorrowerOffer.expiry = block.timestamp + 200;
         badBorrowerOffer.tick = TICK_RANGE;
@@ -227,22 +234,22 @@ abstract contract BaseTest is Test {
         return obligation;
     }
 
-    function setupObligation(Obligation memory obligation, uint256 obligationUnits) internal {
-        deal(address(loanToken), lender, obligationUnits);
+    function setupObligation(Obligation memory obligation, uint256 obligationShares) internal {
+        deal(address(loanToken), lender, obligationShares); // at tick TICK_RANGE, price is 1.
 
         Offer memory borrowerOffer;
         borrowerOffer.obligation = obligation;
         borrowerOffer.buy = false;
         borrowerOffer.maker = borrower;
         borrowerOffer.receiverIfMakerIsSeller = borrower;
-        borrowerOffer.obligationUnits = obligationUnits;
+        borrowerOffer.obligationShares = obligationShares;
         borrowerOffer.start = block.timestamp;
         borrowerOffer.expiry = block.timestamp;
         borrowerOffer.tick = TICK_RANGE;
 
         vm.prank(lender);
         morphoV2.take(
-            obligationUnits,
+            obligationShares,
             lender,
             address(0),
             hex"",
