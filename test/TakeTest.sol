@@ -222,7 +222,8 @@ contract TakeTest is BaseTest {
     }
 
     function testCannotCrossBottomUp(uint256 obligationShares, uint256 otherShares) public {
-        otherShares = bound(otherShares, 1, maxAssets - 1);
+        // Lower bound ensures shares map to non-zero units after bad debt.
+        otherShares = bound(otherShares, initialShares / initialUnits + 1, maxAssets - 1);
         obligationShares = bound(obligationShares, otherShares + 1, maxAssets);
         setupOtherUsers(obligation, otherShares);
 
