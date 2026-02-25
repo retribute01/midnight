@@ -251,7 +251,6 @@ contract LiquidationTest is BaseTest {
 
         collateralize(obligation, borrower, units);
         setupObligation(obligation, units);
-        uint256 initialCollateral = morphoV2.collateralOf(id, borrower, 0);
 
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
 
@@ -310,8 +309,9 @@ contract LiquidationTest is BaseTest {
         uint256 maxCollateralRepayable =
             collatAmount.mulDivDown(liquidationOraclePrice, ORACLE_PRICE_SCALE).mulDivDown(WAD, MAX_LIF);
 
-        uint256 repaidAmount = UtilsLib.min(UtilsLib.min(debtAfterBadDebt, maxRepaid), maxCollateralRepayable); // capped by the debt, the recovery close factor and the collateral amount
-        
+        uint256 repaidAmount = UtilsLib.min(UtilsLib.min(debtAfterBadDebt, maxRepaid), maxCollateralRepayable); // capped
+        // by the debt, the recovery close factor and the collateral amount
+
         morphoV2.liquidate(obligation, 0, 0, repaidAmount, borrower, "");
 
         assertEq(morphoV2.debtOf(id, borrower), debtAfterBadDebt - repaidAmount, "all remaining debt repaid");
