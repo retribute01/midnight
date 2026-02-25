@@ -32,6 +32,13 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 
 /// OBLIGATIONS
 /// @dev Obligations' collaterals must be sorted by token address.
+///
+/// TRADING FEES
+/// @dev Trading fee breakpoints indices: 0=0d, 1=1d, 2=7d, 3=30d, 4=90d, 5=180d, 6=360d.
+/// @dev For TTM > 360d, the trading fee is the one of the 360d breakpoint.
+/// @dev Post-maturity, the trading fee is the one of the 0d breakpoint.
+/// @dev Trading fees are stored divided by FEE_STEP (1e12) to fit in 16 bits.
+/// @dev Max trading fee is defined per index (see maxTradingFee function).
 contract MorphoV2 is IMorphoV2 {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
