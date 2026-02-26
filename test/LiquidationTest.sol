@@ -282,7 +282,12 @@ contract LiquidationTest is BaseTest {
         morphoV2.liquidate(obligation, 0, 0, UtilsLib.min(maxRepaid, debtAfterBadDebt), borrower, "");
 
         assertApproxEqAbs(morphoV2.debtOf(id, borrower), 0, 1e3, "all remaining debt repaid");
-        assertApproxEqAbs(morphoV2.collateralOf(id, borrower, 0), 0, 1e3, "all remaining collateral seized");
+        assertApproxEqAbs(
+            morphoV2.collateralOf(id, borrower, 0).mulDivDown(liquidationOraclePrice, ORACLE_PRICE_SCALE),
+            0,
+            1e3,
+            "all remaining collateral seized"
+        );
     }
 
     // post maturity liquidation.
@@ -571,7 +576,7 @@ contract LiquidationTest is BaseTest {
         uint256 lltv = obligation.collaterals[0].lltv;
         uint256 collatAmount = units.mulDivUp(WAD, lltv);
         uint256 _maxDebt = collatAmount.mulDivDown(oraclePrice, ORACLE_PRICE_SCALE).mulDivDown(lltv, WAD);
-        return debt.zeroFloorSub(_maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(lltv, WAD));
+        return (debt - _maxDebt).mulDivUp(WAD, WAD - MAX_LIF.mulDivUp(lltv, WAD));
     }
 
     function _setupUnhealthy(uint256 units, uint256 liquidationOraclePrice)
