@@ -107,10 +107,11 @@ contract UtilsLibTest is Test {
         assertTrue(UtilsLib.isLeaf(root, x, proof));
     }
 
+    /// forge-config: default.allow_internal_expect_revert = true
     function testToUint128Overflow(uint256 x) public {
         x = bound(x, uint256(type(uint128).max) + 1, type(uint256).max);
         vm.expectRevert("uint256 overflows uint128");
-        this.toUint128(x);
+        UtilsLib.toUint128(x);
     }
 
     function mulDivDown(uint256 x, uint256 y, uint256 d) external pure {
@@ -119,10 +120,6 @@ contract UtilsLibTest is Test {
 
     function mulDivUp(uint256 x, uint256 y, uint256 d) external pure {
         UtilsLib.mulDivUp(x, y, d);
-    }
-
-    function toUint128(uint256 x) external pure {
-        UtilsLib.toUint128(x);
     }
 
     function testWExp() public pure {
