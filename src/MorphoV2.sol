@@ -114,6 +114,7 @@ contract MorphoV2 is IMorphoV2 {
         require(index <= 6, "Invalid index");
         require(newTradingFee <= maxTradingFee(index), "value too high");
         require(newTradingFee % FEE_STEP == 0, "fee should be a multiple of FEE_STEP");
+        require(obligationState[id].created, "Obligation not created");
         // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee is less than maxTradingFee
         obligationState[id].fees[index] = uint16(newTradingFee / FEE_STEP);
         emit EventsLib.SetObligationTradingFee(id, index, newTradingFee);
