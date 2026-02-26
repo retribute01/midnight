@@ -13,6 +13,7 @@ import {stdError} from "../lib/forge-std/src/StdError.sol";
 
 contract LiquidationTest is BaseTest {
     using UtilsLib for uint256;
+    using UtilsLib for uint128;
 
     Obligation internal obligation;
     bytes20 internal id;
@@ -571,8 +572,8 @@ contract LiquidationTest is BaseTest {
             uint256 i = UtilsLib.msb(bitmap);
             Collateral memory _collateral = obligation.collaterals[i];
             uint256 price = IOracle(_collateral.oracle).price();
-            uint256 _collateralOf = morphoV2.collateralOf(id, borrower, i);
-            badDebt = badDebt.zeroFloorSub(_collateralOf.mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(WAD, MAX_LIF));
+            uint256 collateralQuoted = morphoV2.collateralOf(id, borrower, i).mulDivDown(price, ORACLE_PRICE_SCALE);
+            badDebt = badDebt.zeroFloorSub(collateralQuoted.mulDivDown(WAD, MAX_LIF));
             bitmap ^= (1 << i);
         }
         return badDebt;
