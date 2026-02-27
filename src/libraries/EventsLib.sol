@@ -24,20 +24,12 @@ library EventsLib {
         uint256 buyerAssets,
         uint256 sellerAssets,
         uint256 obligationUnits,
-        uint256 obligationShares,
-        bool buyerIsLender,
-        bool sellerIsBorrower,
         address sellerReceiver,
         bytes32 group,
         uint256 consumed
     );
     event Withdraw(
-        address caller,
-        bytes20 indexed id_,
-        uint256 obligationUnits,
-        uint256 shares,
-        address indexed onBehalf,
-        address indexed receiver
+        address caller, bytes20 indexed id_, uint256 obligationUnits, address indexed onBehalf, address indexed receiver
     );
     event Repay(address indexed caller, bytes20 indexed id_, uint256 obligationUnits, address indexed onBehalf);
     event SupplyCollateral(

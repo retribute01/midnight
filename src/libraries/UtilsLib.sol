@@ -91,4 +91,9 @@ library UtilsLib {
         }
         return 0;
     }
+
+    function negativePart(int256 x) internal pure returns (uint256) {
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return x < 0 ? uint256(-x) : 0;
+    }
 }

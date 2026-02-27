@@ -8,7 +8,6 @@ methods {
     function _.price() external => NONDET;
 
     function MorphoV2.totalUnits(bytes20) external returns (uint256) envfree;
-    function MorphoV2.totalShares(bytes20) external returns (uint256) envfree;
     function MorphoV2.withdrawable(bytes20) external returns (uint256) envfree;
     function MorphoV2.fees(bytes20) external returns (uint16[7]) envfree;
     function MorphoV2.obligationCreated(bytes20) external returns (bool) envfree;
@@ -58,13 +57,13 @@ rule obligationIsCreatedAfterTouchObligation(env e, MorphoV2.Obligation obligati
     assert obligationIsCreated(obligation);
 }
 
-rule obligationIsCreatedAfterTake(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, MorphoV2.Offer offer, MorphoV2.Signature signature, bytes32 root, bytes32[] proof) {
-    MorphoV2.take(e, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
+rule obligationIsCreatedAfterTake(env e, uint256 obligationUnits, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, MorphoV2.Offer offer, MorphoV2.Signature signature, bytes32 root, bytes32[] proof) {
+    MorphoV2.take(e, obligationUnits, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
     assert obligationIsCreated(offer.obligation);
 }
 
-rule obligationIsCreatedAfterWithdraw(env e, MorphoV2.Obligation obligation, uint256 obligationUnits, uint256 shares, address onBehalf, address receiver) {
-    MorphoV2.withdraw(e, obligation, obligationUnits, shares, onBehalf, receiver);
+rule obligationIsCreatedAfterWithdraw(env e, MorphoV2.Obligation obligation, uint256 obligationUnits, address onBehalf, address receiver) {
+    MorphoV2.withdraw(e, obligation, obligationUnits, onBehalf, receiver);
     assert obligationIsCreated(obligation);
 }
 
@@ -94,7 +93,6 @@ invariant obligationStateIsEmptyIfNotCreated(bytes20 id)
 
 function obligationStateIsEmpty(bytes20 id) returns (bool) {
     if (MorphoV2.totalUnits(id) != 0) return false;
-    if (MorphoV2.totalShares(id) != 0) return false;
     if (MorphoV2.withdrawable(id) != 0) return false;
 
     uint16[7] fees = MorphoV2.fees(id);

@@ -200,7 +200,7 @@ contract LiquidationTest is BaseTest {
         vm.warp(obligation.maturity + TIME_TO_MAX_LIF); // Warp to post-maturity to bypass recovery close factor.
         Oracle(obligation.collaterals[0].oracle).setPrice(liquidationOraclePrice);
 
-        vm.expectRevert(stdError.arithmeticError);
+        vm.expectRevert();
         morphoV2.liquidate(obligation, 0, 0, repaid, borrower, "");
     }
 
@@ -231,7 +231,7 @@ contract LiquidationTest is BaseTest {
 
         assertEq(morphoV2.debtOf(id, borrower), units - expectedBadDebt, "debt");
         assertEq(morphoV2.totalUnits(id), units - expectedBadDebt, "total units");
-        assertEq(morphoV2.totalShares(id), units, "total shares");
+        assertEq(morphoV2.balanceOf(id, lender), int256(units), "lender units");
     }
 
     function testLiquidateWithBadDebtSeizedInput(uint256 units, uint256 seized, uint256 liquidationOraclePrice) public {
@@ -249,7 +249,7 @@ contract LiquidationTest is BaseTest {
 
         assertEq(morphoV2.debtOf(id, borrower), debtAfterBadDebt - repaid, "debt");
         assertEq(morphoV2.totalUnits(id), debtAfterBadDebt, "total units");
-        assertEq(morphoV2.totalShares(id), units, "total shares");
+        assertEq(morphoV2.balanceOf(id, lender), int256(units), "lender units");
     }
 
     function testLiquidateWithBadDebtRepaidInput(uint256 units, uint256 repaid, uint256 liquidationOraclePrice) public {
@@ -266,7 +266,7 @@ contract LiquidationTest is BaseTest {
 
         assertEq(morphoV2.debtOf(id, borrower), debtAfterBadDebt - repaid, "debt");
         assertEq(morphoV2.totalUnits(id), debtAfterBadDebt, "total units");
-        assertEq(morphoV2.totalShares(id), units, "total shares");
+        assertEq(morphoV2.balanceOf(id, lender), int256(units), "lender units");
     }
 
     // Check that if there is bad debt it is possible to repay almost all debt and seize almost all collateral.
@@ -478,11 +478,11 @@ contract LiquidationTest is BaseTest {
         units = bound(units, maxDebt, repayableDebt);
         vm.assume(units > maxDebt);
 
-        // Write the debt first, supply collateral later, so that the activated collaterals are not overwritten.
-        uint256 mappingSlot = 1;
+        // Write the debt as a negative balance.
+        uint256 mappingSlot = 0;
         bytes32 intermediateSlot = keccak256(abi.encode(id, mappingSlot));
         bytes32 borrowerSlot = keccak256(abi.encode(borrower, intermediateSlot));
-        vm.store(address(morphoV2), borrowerSlot, bytes32(units));
+        vm.store(address(morphoV2), borrowerSlot, bytes32(uint256(-int256(units))));
 
         assertEq(morphoV2.debtOf(id, borrower), units, "debt");
 

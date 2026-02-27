@@ -57,7 +57,7 @@ contract AuthorizationTest is BaseTest {
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("UNAUTHORIZED");
-        morphoV2.withdraw(obligation, units, 0, lender, lender);
+        morphoV2.withdraw(obligation, units, lender, lender);
     }
 
     function testWithdrawCollateralUnauthorized() public {
@@ -94,7 +94,7 @@ contract AuthorizationTest is BaseTest {
 
         // Operator can withdraw on behalf of lender
         vm.prank(operator);
-        morphoV2.withdraw(obligation, units, 0, lender, operator);
+        morphoV2.withdraw(obligation, units, lender, operator);
 
         assertEq(loanToken.balanceOf(operator), units);
     }
@@ -131,9 +131,9 @@ contract AuthorizationTest is BaseTest {
         vm.prank(borrower);
         morphoV2.repay(obligation, units, borrower);
 
-        // Lender can withdraw their own shares (no authorization needed)
+        // Lender can withdraw their own units (no authorization needed)
         vm.prank(lender);
-        morphoV2.withdraw(obligation, units, 0, lender, lender);
+        morphoV2.withdraw(obligation, units, lender, lender);
 
         assertEq(loanToken.balanceOf(lender), units);
     }
@@ -163,7 +163,7 @@ contract AuthorizationTest is BaseTest {
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.obligationShares = shares;
+        offer.obligationUnits = shares;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
@@ -186,7 +186,7 @@ contract AuthorizationTest is BaseTest {
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.obligationShares = shares;
+        offer.obligationUnits = shares;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
@@ -211,7 +211,7 @@ contract AuthorizationTest is BaseTest {
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.obligationShares = shares;
+        offer.obligationUnits = shares;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
