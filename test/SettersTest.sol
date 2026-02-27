@@ -54,9 +54,8 @@ contract SettersTest is BaseTest {
 
         Collateral[] memory c = new Collateral[](1);
         c[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
-        Obligation memory obligation = Obligation({
-            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: c, rcfThreshold: 0
-        });
+        Obligation memory obligation =
+            Obligation({loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: c, rcfThreshold: 0});
         bytes20 id = toId(obligation);
         morphoV2.touchObligation(obligation);
 
@@ -225,9 +224,8 @@ contract SettersTest is BaseTest {
 
         Collateral[] memory cols = new Collateral[](1);
         cols[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
-        Obligation memory obligation = Obligation({
-            loanToken: address(0), maturity: block.timestamp + 1 days, collaterals: cols, rcfThreshold: 0
-        });
+        Obligation memory obligation =
+            Obligation({loanToken: address(0), maturity: block.timestamp + 1 days, collaterals: cols, rcfThreshold: 0});
         bytes20 id = toId(obligation);
         morphoV2.touchObligation(obligation);
 
