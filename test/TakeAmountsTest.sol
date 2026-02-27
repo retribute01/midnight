@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import {Obligation, Offer, Collateral} from "../src/interfaces/IMorphoV2.sol";
+import {WAD} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {TickLib, TICK_RANGE} from "../src/libraries/TickLib.sol";
 import {BaseTest} from "./BaseTest.sol";
@@ -57,7 +58,7 @@ contract TakeAmountsTest is BaseTest {
     // offer.buy = false: buyer = taker (lender), seller = maker (borrower).
     // sellerPrice = price, buyerPrice = price + fee.
 
-    function testUnitsToShares(uint256 targetUnits, uint256 tick, uint256 fee0, uint256 fee1) public {
+    function testUnitsToSharesSellOffer(uint256 targetUnits, uint256 tick, uint256 fee0, uint256 fee1) public {
         fee0 = bound(fee0, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
         fee1 = bound(fee1, 0, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
         targetUnits = bound(targetUnits, 1, 1e30);
@@ -75,7 +76,7 @@ contract TakeAmountsTest is BaseTest {
         assertEq(obligationUnits, targetUnits, "e2e units");
     }
 
-    function testBuyerAssetsToShares(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1) public {
+    function testBuyerAssetsToSharesSellOffer(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1) public {
         fee0 = bound(fee0, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
         fee1 = bound(fee1, 0, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
         targetBuyerAssets = bound(targetBuyerAssets, 1, 1e30);
@@ -96,7 +97,7 @@ contract TakeAmountsTest is BaseTest {
         assertEq(buyerAssets, targetBuyerAssets, "e2e buyerAssets");
     }
 
-    function testSellerAssetsToShares(uint256 targetSellerAssets, uint256 tick, uint256 fee0, uint256 fee1) public {
+    function testSellerAssetsToSharesSellOffer(uint256 targetSellerAssets, uint256 tick, uint256 fee0, uint256 fee1) public {
         fee0 = bound(fee0, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
         fee1 = bound(fee1, 0, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
         targetSellerAssets = bound(targetSellerAssets, 1, 1e30);
@@ -179,8 +180,11 @@ contract TakeAmountsTest is BaseTest {
         deal(address(loanToken), lender, type(uint256).max);
         lenderOffer.tick = tick;
         uint256 sellerPrice = TickLib.tickToPrice(tick) - _tradingFee;
+        // Ensure targetUnits = targetSellerAssets * WAD / sellerPrice fits in uint128.
+        vm.assume(targetSellerAssets <= uint256(type(uint128).max).mulDivDown(sellerPrice, WAD));
         uint256 shares =
             TakeAmountsLib.sellerAssetsToShares(targetSellerAssets, initialUnits, initialShares, sellerPrice, true);
+        vm.assume(shares <= type(uint128).max);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
 
         (, uint256 sellerAssets,,) = take(shares, borrower, lenderOffer);
