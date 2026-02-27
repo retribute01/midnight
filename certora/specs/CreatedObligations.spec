@@ -36,6 +36,10 @@ function obligationIsCreated(MorphoV2.Obligation obligation) returns (bool) {
     return MorphoV2.obligationCreated(summaryToId(obligation));
 }
 
+// Show that a created obligation has at least one collateral.
+invariant createdObligationsHaveNonEmptyCollaterals(MorphoV2.Obligation obligation)
+    obligationIsCreated(obligation) => obligation.collaterals.length > 0;
+
 // Show that a created obligation has sorted collaterals.
 invariant createdObligationsHaveSortedCollaterals(MorphoV2.Obligation obligation, uint256 i, uint256 j)
     obligationIsCreated(obligation) => i < j => j < obligation.collaterals.length => obligation.collaterals[i].token < obligation.collaterals[j].token;

@@ -52,8 +52,10 @@ contract SettersTest is BaseTest {
         oneEightyDaysFee = bound(oneEightyDaysFee, 0, morphoV2.maxTradingFee(5)) / 1e12 * 1e12;
         threeSixtyDaysFee = bound(threeSixtyDaysFee, 0, morphoV2.maxTradingFee(6)) / 1e12 * 1e12;
 
+        Collateral[] memory c = new Collateral[](1);
+        c[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
         Obligation memory obligation = Obligation({
-            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: new Collateral[](0), rcfThreshold: 0
+            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: c, rcfThreshold: 0
         });
         bytes20 id = toId(obligation);
         morphoV2.touchObligation(obligation);
@@ -171,8 +173,10 @@ contract SettersTest is BaseTest {
         morphoV2.setDefaultTradingFee(loanToken, 6, threeSixtyDaysFee);
 
         // touch obligation with this loan token
+        Collateral[] memory collaterals = new Collateral[](1);
+        collaterals[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
         Obligation memory obligation = Obligation({
-            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: new Collateral[](0), rcfThreshold: 0
+            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: collaterals, rcfThreshold: 0
         });
         bytes20 id = toId(obligation);
         morphoV2.touchObligation(obligation);
@@ -219,8 +223,10 @@ contract SettersTest is BaseTest {
         fee5 = bound(fee5, 0, morphoV2.maxTradingFee(5)) / 1e12 * 1e12;
         fee6 = bound(fee6, 0, morphoV2.maxTradingFee(6)) / 1e12 * 1e12;
 
+        Collateral[] memory cols = new Collateral[](1);
+        cols[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
         Obligation memory obligation = Obligation({
-            loanToken: address(0), maturity: block.timestamp + 1 days, collaterals: new Collateral[](0), rcfThreshold: 0
+            loanToken: address(0), maturity: block.timestamp + 1 days, collaterals: cols, rcfThreshold: 0
         });
         bytes20 id = toId(obligation);
         morphoV2.touchObligation(obligation);
