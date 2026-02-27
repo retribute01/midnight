@@ -66,6 +66,7 @@ contract TakeAmountsTest is BaseTest {
 
         morphoV2.setObligationTradingFee(id, 0, fee0);
         morphoV2.setObligationTradingFee(id, 1, fee1);
+        vm.assume(TickLib.tickToPrice(tick) + morphoV2.tradingFee(id, obligation.maturity - block.timestamp) <= WAD);
         uint256 shares = TakeAmountsLib.unitsToShares(targetUnits, initialUnits, initialShares, true);
         deal(address(loanToken), lender, type(uint256).max);
         collateralize(obligation, borrower, targetUnits);
@@ -90,6 +91,7 @@ contract TakeAmountsTest is BaseTest {
         borrowerOffer.tick = tick;
         // borrowerOffer.buy = false → buyerPrice = price + fee.
         uint256 buyerPrice = TickLib.tickToPrice(tick) + morphoV2.tradingFee(id, obligation.maturity - block.timestamp);
+        vm.assume(buyerPrice <= WAD);
         uint256 shares =
             TakeAmountsLib.buyerAssetsToShares(targetBuyerAssets, initialUnits, initialShares, buyerPrice, true);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
@@ -109,6 +111,7 @@ contract TakeAmountsTest is BaseTest {
 
         morphoV2.setObligationTradingFee(id, 0, fee0);
         morphoV2.setObligationTradingFee(id, 1, fee1);
+        vm.assume(TickLib.tickToPrice(tick) + morphoV2.tradingFee(id, obligation.maturity - block.timestamp) <= WAD);
         deal(address(loanToken), lender, type(uint256).max);
         borrowerOffer.tick = tick;
         // borrowerOffer.buy = false → sellerPrice = price.

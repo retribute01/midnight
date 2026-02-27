@@ -62,6 +62,7 @@ contract TradingFeeTest is BaseTest {
         borrowerOffer.tick = sellerTick;
 
         uint256 buyerPrice = sellerPrice + tradingFee;
+        vm.assume(buyerPrice <= WAD);
         uint256 expectedBuyerAssets = obligationShares.mulDivDown(buyerPrice, WAD);
         uint256 expectedSellerAssets = obligationShares.mulDivDown(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
@@ -102,6 +103,7 @@ contract TradingFeeTest is BaseTest {
         borrowerOffer.tick = sellerTick;
 
         uint256 buyerPrice = sellerPrice + tradingFee;
+        vm.assume(buyerPrice <= WAD);
         uint256 expectedBuyerAssets = obligationShares.mulDivDown(buyerPrice, WAD);
         uint256 expectedSellerAssets = obligationShares.mulDivDown(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
@@ -136,6 +138,7 @@ contract TradingFeeTest is BaseTest {
         uint256 tradingFee = fee1Day + (fee7Days - fee1Day) * 2 / 6;
 
         uint256 buyerPrice = sellerPrice + tradingFee;
+        vm.assume(buyerPrice <= WAD);
         uint256 expectedBuyerAssets = obligationShares.mulDivDown(buyerPrice, WAD);
         uint256 expectedSellerAssets = obligationShares.mulDivDown(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
@@ -166,6 +169,7 @@ contract TradingFeeTest is BaseTest {
         uint256 tradingFee = fee0Day;
 
         uint256 buyerPrice = sellerPrice + tradingFee;
+        vm.assume(buyerPrice <= WAD);
         uint256 expectedBuyerAssets = obligationShares.mulDivDown(buyerPrice, WAD);
         uint256 expectedSellerAssets = obligationShares.mulDivDown(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
@@ -195,6 +199,7 @@ contract TradingFeeTest is BaseTest {
         uint256 tradingFee = fee360Days;
 
         uint256 buyerPrice = sellerPrice + tradingFee;
+        vm.assume(buyerPrice <= WAD);
         uint256 expectedBuyerAssets = obligationShares.mulDivDown(buyerPrice, WAD);
         uint256 expectedSellerAssets = obligationShares.mulDivDown(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
