@@ -76,7 +76,9 @@ contract TakeAmountsTest is BaseTest {
         assertEq(obligationUnits, targetUnits, "e2e units");
     }
 
-    function testBuyerAssetsToSharesSellOffer(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1) public {
+    function testBuyerAssetsToSharesSellOffer(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1)
+        public
+    {
         fee0 = bound(fee0, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
         fee1 = bound(fee1, 0, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
         targetBuyerAssets = bound(targetBuyerAssets, 1, 1e30);
@@ -97,7 +99,9 @@ contract TakeAmountsTest is BaseTest {
         assertEq(buyerAssets, targetBuyerAssets, "e2e buyerAssets");
     }
 
-    function testSellerAssetsToSharesSellOffer(uint256 targetSellerAssets, uint256 tick, uint256 fee0, uint256 fee1) public {
+    function testSellerAssetsToSharesSellOffer(uint256 targetSellerAssets, uint256 tick, uint256 fee0, uint256 fee1)
+        public
+    {
         fee0 = bound(fee0, 0, morphoV2.maxTradingFee(0)) / 1e12 * 1e12;
         fee1 = bound(fee1, 0, morphoV2.maxTradingFee(1)) / 1e12 * 1e12;
         targetSellerAssets = bound(targetSellerAssets, 1, 1e30);
