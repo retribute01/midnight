@@ -21,6 +21,14 @@ persistent ghost mapping(bytes20 => mathint) sumBalanceOf {
     init_state axiom (forall bytes20 id. sumBalanceOf[id] == 0);
 }
 
+function negativePart(mathint x) returns mathint {
+    return x < 0 ? -x : 0;
+}
+
+function positivePart(mathint x) returns mathint {
+    return x > 0 ? x : 0;
+}
+
 hook Sstore balanceOf[KEY bytes20 id][KEY address owner] int256 newBalance (int256 oldBalance) {
     sumBalanceOf[id] = sumBalanceOf[id] - oldBalance + newBalance;
 }
@@ -80,4 +88,7 @@ rule liquidateInputOutputConsistency(env e, MorphoV2.Obligation obligation, uint
 /// INVARIANTS ///
 
 strong invariant totalUnitsEqualsSumNegativeBalancePlusWithdrawable(bytes20 id)
-    to_mathint(totalUnits(id)) == -sumBalanceOf[id] + to_mathint(withdrawable(id));
+    to_mathint(totalUnits(id)) == negativePart(sumBalanceOf[id]) + to_mathint(withdrawable(id));
+
+strong invariant totalUnitsEqualsSumPositiveBalance(bytes20 id)
+    to_mathint(totalUnits(id)) == positivePart(sumBalanceOf[id]);
