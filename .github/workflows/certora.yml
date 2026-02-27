@@ -18,7 +18,6 @@ jobs:
           - Hasher
           - Liquidate
           - MorphoV2
-          - SharePrice
           - Solvency
 
     steps:

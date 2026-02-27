@@ -177,9 +177,7 @@ contract TakeTest is BaseTest {
 
         // otherLender crossed from lender to borrower.
         assertEq(
-            morphoV2.balanceOf(id, otherLender),
-            otherLenderBalance - int256(obligationUnits),
-            "otherLender balance"
+            morphoV2.balanceOf(id, otherLender), otherLenderBalance - int256(obligationUnits), "otherLender balance"
         );
         assertEq(morphoV2.balanceOf(id, lender), int256(obligationUnits), "lender balance");
     }
@@ -263,10 +261,7 @@ contract TakeTest is BaseTest {
         take(obligationUnits, otherBorrower, otherLenderOffer);
 
         assertApproxEqAbs(
-            morphoV2.balanceOf(id, otherLender),
-            otherLenderUnitsVal - int256(obligationUnits),
-            1,
-            "otherLender units"
+            morphoV2.balanceOf(id, otherLender), otherLenderUnitsVal - int256(obligationUnits), 1, "otherLender units"
         );
         assertApproxEqAbs(
             morphoV2.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, 1, "otherBorrower debt"
@@ -292,10 +287,7 @@ contract TakeTest is BaseTest {
         take(obligationUnits, otherLender, otherBorrowerOffer);
 
         assertApproxEqAbs(
-            morphoV2.balanceOf(id, otherLender),
-            otherLenderUnitsVal - int256(obligationUnits),
-            1,
-            "otherLender units"
+            morphoV2.balanceOf(id, otherLender), otherLenderUnitsVal - int256(obligationUnits), 1, "otherLender units"
         );
         assertApproxEqAbs(
             morphoV2.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, 1, "otherBorrower debt"
