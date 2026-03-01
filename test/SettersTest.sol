@@ -52,10 +52,10 @@ contract SettersTest is BaseTest {
         oneEightyDaysFee = bound(oneEightyDaysFee, 0, midnight.maxTradingFee(5)) / 1e12 * 1e12;
         threeSixtyDaysFee = bound(threeSixtyDaysFee, 0, midnight.maxTradingFee(6)) / 1e12 * 1e12;
 
-        Collateral[] memory c = new Collateral[](1);
-        c[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
+        Collateral[] memory collaterals = new Collateral[](1);
+        collaterals[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
         Obligation memory obligation =
-            Obligation({loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: c, rcfThreshold: 0});
+            Obligation({loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: collaterals, rcfThreshold: 0});
         bytes20 id = toId(obligation);
         midnight.touchObligation(obligation);
 
