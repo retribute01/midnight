@@ -37,7 +37,7 @@ function obligationIsCreated(Midnight.Obligation obligation) returns (bool) {
 }
 
 // Show that a created obligation has at least one collateral.
-invariant createdObligationsHaveNonEmptyCollaterals(MorphoV2.Obligation obligation)
+invariant createdObligationsHaveNonEmptyCollaterals(Midnight.Obligation obligation)
     obligationIsCreated(obligation) => obligation.collaterals.length > 0;
 
 // Show that a created obligation has sorted collaterals.

@@ -291,7 +291,7 @@ contract OtherFunctionsTest is BaseTest {
         _obligation.maturity = block.timestamp + 100;
         _obligation.collaterals = new Collateral[](0);
         vm.expectRevert("no collaterals");
-        morphoV2.touchObligation(_obligation);
+        midnight.touchObligation(_obligation);
     }
 
     function testMaxCollaterals(uint256 numCollaterals) public {
