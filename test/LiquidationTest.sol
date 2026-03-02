@@ -11,7 +11,7 @@ import {ERC20} from "./helpers/ERC20.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
 import {stdError} from "../lib/forge-std/src/StdError.sol";
 
-// Collateral = units / lltv (~1.33x). With two collaterals and different lltvs, up to ~1.6x.
+// Collateral = units / lltv (up to ~1.33x for lltv=0.75).
 // To keep collateral within uint128, we cap amounts at type(uint128).max / 2.
 uint256 constant MAX_UNITS = MAX_TEST_AMOUNT / 2;
 
