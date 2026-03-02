@@ -796,6 +796,7 @@ contract TakeTest is BaseTest {
 
         assertEq(midnight.sharesOf(id, lender), obligationShares, "lender shares");
         assertEq(midnight.debtOf(id, borrower), expectedUnits, "borrower debt");
+        assertEq(midnight.consumed(borrower, borrowerOffer.group), expectedUnits, "consumed");
     }
 
     function testSellUnitInput(uint256 targetUnits, uint256 tick) public {
@@ -818,6 +819,7 @@ contract TakeTest is BaseTest {
 
         assertEq(midnight.sharesOf(id, lender), obligationShares, "lender shares");
         assertEq(midnight.debtOf(id, borrower), expectedUnits, "borrower debt");
+        assertEq(midnight.consumed(lender, lenderOffer.group), expectedUnits, "consumed");
     }
 
     function testUnitInputInconsistent() public {
