@@ -26,6 +26,7 @@ library TakeAmountsLib {
         uint256 buyerPrice,
         bool buyerIsLender
     ) internal pure returns (uint256) {
+        require(buyerPrice <= WAD, "buyerPrice");
         uint256 targetUnits = targetBuyerAssets.mulDivUp(WAD, buyerPrice);
         return unitsToShares(targetUnits, totalUnits, totalShares, buyerIsLender);
     }
