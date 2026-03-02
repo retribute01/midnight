@@ -19,10 +19,8 @@ methods {
     function UtilsLib.msb(uint256) internal returns (uint256) => NONDET;
 
     function isHealthy(Midnight.Obligation memory, bytes20, address) internal returns (bool) => NONDET;
-    
 }
 
-// Share/asset ratio is never above 1: totalShares >= totalUnits at all times.
-
+// Check the ratio of units over shares is below or equal to 1.
 strong invariant sharePriceBelowOrEqOne(bytes20 id)
     totalShares(id) >= totalUnits(id);
