@@ -52,7 +52,7 @@ contract TradingFeeTest is BaseTest {
         midnight.setTradingFeeRecipient(feeRecipient);
     }
 
-    function testBuyObligationShares(uint256 tradingFee, uint256 sellerTick, uint256 obligationUnits) public {
+    function testBuyObligationUnits(uint256 tradingFee, uint256 sellerTick, uint256 obligationUnits) public {
         obligationUnits = bound(obligationUnits, 0, MAX_TEST_AMOUNT);
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
@@ -73,7 +73,7 @@ contract TradingFeeTest is BaseTest {
         assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
     }
 
-    function testSellObligationShares(uint256 tradingFee, uint256 buyerTick, uint256 obligationUnits) public {
+    function testSellObligationUnits(uint256 tradingFee, uint256 buyerTick, uint256 obligationUnits) public {
         obligationUnits = bound(obligationUnits, 0, MAX_TEST_AMOUNT);
         buyerTick = bound(buyerTick, 0, TICK_RANGE);
         uint256 buyerPrice = TickLib.tickToPrice(buyerTick);

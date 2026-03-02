@@ -53,7 +53,7 @@ contract AuthorizationTest is BaseTest {
         vm.prank(borrower);
         midnight.repay(obligation, units, borrower);
 
-        // Attacker tries to withdraw lender's shares
+        // Attacker tries to withdraw lender's units
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("UNAUTHORIZED");
@@ -157,42 +157,42 @@ contract AuthorizationTest is BaseTest {
     }
 
     function testTakeUnauthorized() public {
-        uint256 shares = 1000;
+        uint256 units = 1000;
         address taker = makeAddr("taker");
 
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.obligationUnits = shares;
+        offer.obligationUnits = units;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
 
-        deal(address(loanToken), lender, shares);
-        collateralize(obligation, borrower, shares);
+        deal(address(loanToken), lender, units);
+        collateralize(obligation, borrower, units);
 
         // Attacker tries to take on behalf of taker
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
         vm.expectRevert("UNAUTHORIZED");
-        midnight.take(shares, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
+        midnight.take(units, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
     }
 
     function testTakeAuthorized() public {
-        uint256 shares = 1000;
+        uint256 units = 1000;
         address taker = makeAddr("taker");
         address operator = makeAddr("operator");
 
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.obligationUnits = shares;
+        offer.obligationUnits = units;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
 
-        deal(address(loanToken), lender, shares);
-        collateralize(obligation, taker, shares);
+        deal(address(loanToken), lender, units);
+        collateralize(obligation, taker, units);
 
         // Taker authorizes operator
         vm.prank(taker);
@@ -200,28 +200,28 @@ contract AuthorizationTest is BaseTest {
 
         // Operator can take on behalf of taker
         vm.prank(operator);
-        midnight.take(shares, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
+        midnight.take(units, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
 
-        assertEq(midnight.debtOf(id, taker), shares);
+        assertEq(midnight.debtOf(id, taker), units);
     }
 
     function testTakeSelf() public {
-        uint256 shares = 1000;
+        uint256 units = 1000;
 
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.obligationUnits = shares;
+        offer.obligationUnits = units;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
         offer.tick = TICK_RANGE;
 
-        deal(address(loanToken), lender, shares);
-        collateralize(obligation, borrower, shares);
+        deal(address(loanToken), lender, units);
+        collateralize(obligation, borrower, units);
 
         // Borrower can take for themselves (no authorization needed)
-        take(shares, borrower, offer);
+        take(units, borrower, offer);
 
-        assertEq(midnight.debtOf(id, borrower), shares);
+        assertEq(midnight.debtOf(id, borrower), units);
     }
 }
