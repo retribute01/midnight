@@ -44,3 +44,8 @@ rule inverseMulDiv(uint256 a, uint256 b, uint256 d) {
     assert mulDivUp(mulDivDown(a, b, d), d, b) <= a;
 }
 
+rule lltvVsLifMulDiv(uint256 lltv, uint256 lif, uint256 a, uint256 WAD) {
+    require lltv * lif < WAD * WAD;
+    assert mulDivUp(a, lltv, WAD) <= mulDivUp(a, WAD, lif);
+}
+
