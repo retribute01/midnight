@@ -52,8 +52,7 @@ contract Midnight is IMidnight {
     mapping(bytes20 id => ObligationState) public obligationState;
 
     /// @dev Groups are useful to have a global offered amount shared accross multiple offers ("OCO").
-    /// @dev To work as expected, all offers in a same group should have the same assets, obligationUnits,
-    /// obligationShares and loan token.
+    /// @dev To work as expected, all offers in a same group should have the same obligationShares and loan token.
     mapping(address user => mapping(bytes32 group => uint256)) public consumed;
 
     /// @dev Offers should have the current session to be valid.
@@ -203,9 +202,9 @@ contract Midnight is IMidnight {
 
         bool buyerIsLender = borrowerState[id][buyer].debt == 0;
         bool sellerIsBorrower = sharesOf[id][seller] == 0;
-        // To ensure that the share price does not decrease, shares should be rounded down (units should be rounded up)
-        // when buyerIsLender & sellerIsBorrower, and rounded up (units should be rounded down) when !buyerIsLender &
-        // !sellerIsBorrower. The variable buyerIsLender is used to discriminate between the two cases.
+        // To ensure that the share price does not decrease, units should be rounded up when buyerIsLender &
+        // sellerIsBorrower, and rounded down when !buyerIsLender & !sellerIsBorrower. The variable buyerIsLender is
+        // used to discriminate, as the remaining two cases do not change total units and total shares.
         uint256 obligationUnits =
             obligationShares.mulDiv(_obligationState.totalUnits + 1, _obligationState.totalShares + 1, !buyerIsLender);
         uint256 buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);

@@ -99,6 +99,7 @@ contract TakeTest is BaseTest {
         assertEq(midnight.totalShares(id), initialShares + obligationShares, "total shares");
         assertEq(loanToken.balanceOf(borrower), expectedAssets, "borrower balance");
         assertEq(loanToken.balanceOf(lender), 0, "lender balance");
+        assertEq(midnight.consumed(borrower, borrowerOffer.group), obligationShares, "consumed");
     }
 
     function testSell1(uint256 obligationShares, uint256 tick) public {
@@ -120,6 +121,7 @@ contract TakeTest is BaseTest {
         assertEq(midnight.totalShares(id), initialShares + obligationShares, "total shares");
         assertEq(loanToken.balanceOf(borrower), expectedAssets, "borrower balance");
         assertEq(loanToken.balanceOf(lender), 0, "lender balance");
+        assertEq(midnight.consumed(lender, lenderOffer.group), obligationShares, "consumed");
     }
 
     // path 2: Lender enters + lender exits.
@@ -702,6 +704,18 @@ contract TakeTest is BaseTest {
             proof([borrowerOffer])
         );
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
+    }
+
+    function testBuyerPriceExceedsWad() public {
+        midnight.setObligationTradingFee(id, 0, 0.000014e18);
+        midnight.setObligationTradingFee(id, 1, 0.000014e18);
+        borrowerOffer.tick = TICK_RANGE;
+        borrowerOffer.obligationShares = 100;
+        collateralize(obligation, borrower, 100);
+        deal(address(loanToken), lender, 100);
+
+        vm.expectRevert("price");
+        take(100, lender, borrowerOffer);
     }
 
     // Summary of zero price tests:
