@@ -159,6 +159,7 @@ contract Midnight is IMidnight {
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(offer.maker != taker, "buyer and seller cannot be the same");
+        require(UtilsLib.atMostOneNonZero(offer.obligationUnits, offer.obligationShares), "INCONSISTENT_INPUT");
         require(signer(root, sig) == offer.maker, "invalid signature");
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
@@ -209,8 +210,15 @@ contract Midnight is IMidnight {
             obligationShares.mulDiv(_obligationState.totalUnits + 1, _obligationState.totalShares + 1, !buyerIsLender);
         uint256 buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
         uint256 sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
-        uint256 newConsumed = consumed[offer.maker][offer.group] += obligationShares;
-        require(newConsumed <= offer.obligationShares, "consumed");
+
+        uint256 newConsumed;
+        if (offer.obligationUnits > 0) {
+            newConsumed = consumed[offer.maker][offer.group] += obligationUnits;
+            require(newConsumed <= offer.obligationUnits, "consumed");
+        } else {
+            newConsumed = consumed[offer.maker][offer.group] += obligationShares;
+            require(newConsumed <= offer.obligationShares, "consumed");
+        }
 
         if (buyerIsLender && sellerIsBorrower) {
             // Lender enters + borrower enters.

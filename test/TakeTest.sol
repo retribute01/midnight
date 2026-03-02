@@ -772,6 +772,62 @@ contract TakeTest is BaseTest {
         assertEq(midnight.sharesOf(id, lender), shares, "sharesOf");
         assertEq(midnight.debtOf(id, borrower), expectedUnits, "debtOf");
     }
+
+    // unit input tests.
+
+    function testBuyUnitInput(uint256 targetUnits, uint256 tick) public {
+        targetUnits = bound(targetUnits, 1, maxAssets);
+        tick = bound(tick, 0, TICK_RANGE);
+        uint256 price = TickLib.tickToPrice(tick);
+        vm.assume(price > 0.01 ether);
+        // Convert target units to shares (the taker still specifies shares).
+        uint256 obligationShares = targetUnits.mulDiv(initialShares + 1, initialUnits + 1, true);
+        uint256 expectedUnits = obligationShares.mulDivUp(initialUnits + 1, initialShares + 1);
+        uint256 expectedAssets = expectedUnits.mulDivDown(price, WAD);
+        deal(address(loanToken), lender, expectedAssets);
+        collateralize(obligation, borrower, expectedUnits);
+
+        // Maker specifies offer in units.
+        borrowerOffer.obligationUnits = targetUnits;
+        borrowerOffer.obligationShares = 0;
+        borrowerOffer.tick = tick;
+
+        take(obligationShares, lender, borrowerOffer);
+
+        assertEq(midnight.sharesOf(id, lender), obligationShares, "lender shares");
+        assertEq(midnight.debtOf(id, borrower), expectedUnits, "borrower debt");
+    }
+
+    function testSellUnitInput(uint256 targetUnits, uint256 tick) public {
+        targetUnits = bound(targetUnits, 1, maxAssets);
+        tick = bound(tick, 0, TICK_RANGE);
+        uint256 price = TickLib.tickToPrice(tick);
+        vm.assume(price > 0.01 ether);
+        uint256 obligationShares = targetUnits.mulDiv(initialShares + 1, initialUnits + 1, true);
+        uint256 expectedUnits = obligationShares.mulDivUp(initialUnits + 1, initialShares + 1);
+        uint256 expectedAssets = expectedUnits.mulDivDown(price, WAD);
+        deal(address(loanToken), lender, expectedAssets);
+        collateralize(obligation, borrower, expectedUnits);
+
+        // Maker specifies offer in units.
+        lenderOffer.obligationUnits = targetUnits;
+        lenderOffer.obligationShares = 0;
+        lenderOffer.tick = tick;
+
+        take(obligationShares, borrower, lenderOffer);
+
+        assertEq(midnight.sharesOf(id, lender), obligationShares, "lender shares");
+        assertEq(midnight.debtOf(id, borrower), expectedUnits, "borrower debt");
+    }
+
+    function testUnitInputInconsistent() public {
+        borrowerOffer.obligationUnits = 100;
+        borrowerOffer.obligationShares = 100;
+        borrowerOffer.tick = TICK_RANGE;
+
+        vm.expectRevert("INCONSISTENT_INPUT");
+        take(100, lender, borrowerOffer);
+    }
 }
 
 contract BorrowCallback is ICallbacks {
