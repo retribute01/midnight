@@ -42,7 +42,7 @@ struct Signature {
 struct ObligationState {
     uint128 totalUnits;
     uint256 withdrawable;
-    uint256 slashingIndex;
+    uint256 slashingLevel;
     bool created;
     uint16[7] fees;
 }
