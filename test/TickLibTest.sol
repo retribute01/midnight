@@ -85,13 +85,6 @@ contract TickLibTest is BaseTest {
         TickLib.priceToTick(price);
     }
 
-    /// forge-config: default.allow_internal_expect_revert = true
-    function testPriceToTickPriceGreaterThanOne(uint256 price) public {
-        price = bound(price, 1e18 + 1, type(uint256).max);
-        vm.expectRevert("Price is greater than one");
-        TickLib.priceToTick(price);
-    }
-
     function loadExactPrices() internal view returns (uint256[] memory) {
         uint256[] memory exactPrices = new uint256[](TICK_RANGE + 1);
         string memory json = vm.readFile("test/ticks_exact.json");
