@@ -4,30 +4,39 @@ pragma solidity 0.8.31;
 
 import {Midnight} from "../Midnight.sol";
 import {Offer, Signature} from "../interfaces/IMidnight.sol";
+import {UtilsLib} from "../libraries/UtilsLib.sol";
 
 contract TakeBundler {
     /// @dev Iterates through orders, filling up to `targetShares` obligation shares total.
     /// @dev Assumes all offers share the same obligation id so that obligation shares are comparable.
+    /// @dev The taker must have authorized this bundler and the msg.sender (if different from the taker) on Midnight.
+    /// @dev The bundler skips every reason why `take` can revert (including ones that are not asynchrony related).
+    /// @dev If taking an offer reverts with shares = min(targetShares - filled, obligationShares[i]), the bundler will
+    /// completely skip this offer (even if a smaller could have been takeable).
     function bundleTake(
-        Midnight morpho,
+        Midnight midnight,
         uint256 targetShares,
         address taker,
         address takerCallback,
         bytes calldata takerCallbackData,
         address receiverIfTakerIsSeller,
+        uint256[] calldata obligationShares,
         Offer[] calldata offers,
         Signature[] calldata sigs,
         bytes32[] calldata roots,
         bytes32[][] calldata proofs
     ) external {
-        require(taker == msg.sender || morpho.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
+        require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
+        require(
+            obligationShares.length == offers.length && offers.length == sigs.length && offers.length == roots.length
+                && offers.length == proofs.length,
+            "length mismatch"
+        );
 
         uint256 filled;
-
-        uint256 i;
-        while (i < offers.length && filled < targetShares) {
-            try morpho.take(
-                targetShares - filled,
+        for (uint256 i; i < offers.length && filled < targetShares; i++) {
+            try midnight.take(
+                UtilsLib.min(targetShares - filled, obligationShares[i]),
                 taker,
                 takerCallback,
                 takerCallbackData,
@@ -37,12 +46,10 @@ contract TakeBundler {
                 roots[i],
                 proofs[i]
             ) returns (
-                uint256, uint256, uint256, uint256 obligationShares
+                uint256, uint256, uint256, uint256 filledShares
             ) {
-                filled += obligationShares;
+                filled += filledShares;
             } catch {}
-
-            ++i;
         }
 
         require(filled >= targetShares, "insufficient liquidity");
