@@ -88,12 +88,12 @@ contract BundlerTest is BaseTest {
         Signature[] memory sigs = new Signature[](1);
         bytes32[] memory roots = new bytes32[](1);
         bytes32[][] memory proofs = new bytes32[][](1);
-        uint256[] memory amounts = new uint256[](1);
+        uint256[] memory obligationShares = new uint256[](1);
 
         vm.prank(address(0xdead));
         vm.expectRevert("UNAUTHORIZED");
         takeBundler.bundleTakeShares(
-            midnight, 100, borrower, address(0), hex"", address(0), amounts, _offers, sigs, roots, proofs
+            midnight, 100, borrower, address(0), hex"", address(0), obligationShares, _offers, sigs, roots, proofs
         );
     }
 
@@ -103,15 +103,15 @@ contract BundlerTest is BaseTest {
         uint256 units = 1000;
         collateralize(obligation, borrower, units);
 
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = offers[0].obligationShares;
-        amounts[1] = offers[1].obligationShares;
+        uint256[] memory obligationShares = new uint256[](2);
+        obligationShares[0] = offers[0].obligationShares;
+        obligationShares[1] = offers[1].obligationShares;
 
         _authorizeBundler();
 
         vm.prank(borrower);
         takeBundler.bundleTakeShares(
-            midnight, units, borrower, address(0), hex"", address(0), amounts, offers, sigs, roots, proofs
+            midnight, units, borrower, address(0), hex"", address(0), obligationShares, offers, sigs, roots, proofs
         );
 
         assertEq(midnight.debtOf(id, borrower), units, "debt");
@@ -125,15 +125,15 @@ contract BundlerTest is BaseTest {
         uint256 units = 1000;
         collateralize(obligation, borrower, units);
 
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = type(uint256).max;
-        amounts[1] = type(uint256).max;
+        uint256[] memory obligationShares = new uint256[](2);
+        obligationShares[0] = type(uint256).max;
+        obligationShares[1] = type(uint256).max;
 
         _authorizeBundler();
 
         vm.prank(borrower);
         takeBundler.bundleTakeUnits(
-            midnight, units, borrower, address(0), hex"", address(0), amounts, offers, sigs, roots, proofs
+            midnight, units, borrower, address(0), hex"", address(0), obligationShares, offers, sigs, roots, proofs
         );
 
         assertEq(midnight.debtOf(id, borrower), units, "debt");
@@ -149,15 +149,25 @@ contract BundlerTest is BaseTest {
         uint256 price = TickLib.tickToPrice(TICK_RANGE);
         uint256 targetBuyerAssets = units.mulDivDown(price, WAD);
 
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = type(uint256).max;
-        amounts[1] = type(uint256).max;
+        uint256[] memory obligationShares = new uint256[](2);
+        obligationShares[0] = type(uint256).max;
+        obligationShares[1] = type(uint256).max;
 
         _authorizeBundler();
 
         vm.prank(borrower);
         takeBundler.bundleTakeBuyerAssets(
-            midnight, targetBuyerAssets, borrower, address(0), hex"", address(0), amounts, offers, sigs, roots, proofs
+            midnight,
+            targetBuyerAssets,
+            borrower,
+            address(0),
+            hex"",
+            address(0),
+            obligationShares,
+            offers,
+            sigs,
+            roots,
+            proofs
         );
 
         assertEq(midnight.debtOf(id, borrower), units, "debt");
@@ -173,15 +183,25 @@ contract BundlerTest is BaseTest {
         uint256 price = TickLib.tickToPrice(TICK_RANGE);
         uint256 targetSellerAssets = units.mulDivDown(price, WAD);
 
-        uint256[] memory amounts = new uint256[](2);
-        amounts[0] = type(uint256).max;
-        amounts[1] = type(uint256).max;
+        uint256[] memory obligationShares = new uint256[](2);
+        obligationShares[0] = type(uint256).max;
+        obligationShares[1] = type(uint256).max;
 
         _authorizeBundler();
 
         vm.prank(borrower);
         takeBundler.bundleTakeSellerAssets(
-            midnight, targetSellerAssets, borrower, address(0), hex"", address(0), amounts, offers, sigs, roots, proofs
+            midnight,
+            targetSellerAssets,
+            borrower,
+            address(0),
+            hex"",
+            address(0),
+            obligationShares,
+            offers,
+            sigs,
+            roots,
+            proofs
         );
 
         assertEq(midnight.debtOf(id, borrower), units, "debt");

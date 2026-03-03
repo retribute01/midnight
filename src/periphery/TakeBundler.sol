@@ -15,7 +15,7 @@ contract TakeBundler {
     /// @dev The taker must have authorized this bundler and the msg.sender (if different from the taker) on Midnight.
     /// @dev The bundler skips every reason why `take` can revert (including ones that are not asynchrony related).
     /// @dev If taking an offer reverts, the bundler will completely skip this offer.
-    /// @dev Assumes amounts, offers, sigs, roots, and proofs all have the same length.
+    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     function bundleTakeShares(
         Midnight midnight,
         uint256 targetShares,
@@ -23,7 +23,7 @@ contract TakeBundler {
         address takerCallback,
         bytes calldata takerCallbackData,
         address receiverIfTakerIsSeller,
-        uint256[] calldata amounts,
+        uint256[] calldata obligationShares,
         Offer[] calldata offers,
         Signature[] calldata sigs,
         bytes32[] calldata roots,
@@ -34,7 +34,7 @@ contract TakeBundler {
         uint256 filled;
         for (uint256 i; i < offers.length && filled < targetShares; i++) {
             try midnight.take(
-                UtilsLib.min(targetShares - filled, amounts[i]),
+                UtilsLib.min(targetShares - filled, obligationShares[i]),
                 taker,
                 takerCallback,
                 takerCallbackData,
@@ -50,10 +50,10 @@ contract TakeBundler {
             } catch {}
         }
 
-        require(filled >= targetShares, "insufficient liquidity");
+        require(filled == targetShares, "insufficient liquidity");
     }
 
-    /// @dev Assumes amounts, offers, sigs, roots, and proofs all have the same length.
+    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     /// @dev Same as bundleTakeShares but targets obligation units.
     function bundleTakeUnits(
         Midnight midnight,
@@ -62,20 +62,20 @@ contract TakeBundler {
         address takerCallback,
         bytes calldata takerCallbackData,
         address receiverIfTakerIsSeller,
-        uint256[] calldata amounts,
+        uint256[] calldata obligationShares,
         Offer[] calldata offers,
         Signature[] calldata sigs,
         bytes32[] calldata roots,
         bytes32[][] calldata proofs
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
-        bytes20 id = midnight.toId(offers[0].obligation);
+        bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
 
         uint256 filled;
         for (uint256 i; i < offers.length && filled < targetUnits; i++) {
             try midnight.take(
                 TakeAmountsLib.unitsToShares(
-                    midnight, id, taker, offers[i], UtilsLib.min(targetUnits - filled, amounts[i])
+                    midnight, id, taker, offers[i], UtilsLib.min(targetUnits - filled, obligationShares[i])
                 ),
                 taker,
                 takerCallback,
@@ -95,7 +95,7 @@ contract TakeBundler {
         require(filled >= targetUnits, "insufficient liquidity");
     }
 
-    /// @dev Assumes amounts, offers, sigs, roots, and proofs all have the same length.
+    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     /// @dev Same as bundleTakeShares but targets buyer assets.
     function bundleTakeBuyerAssets(
         Midnight midnight,
@@ -104,20 +104,20 @@ contract TakeBundler {
         address takerCallback,
         bytes calldata takerCallbackData,
         address receiverIfTakerIsSeller,
-        uint256[] calldata amounts,
+        uint256[] calldata obligationShares,
         Offer[] calldata offers,
         Signature[] calldata sigs,
         bytes32[] calldata roots,
         bytes32[][] calldata proofs
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
-        bytes20 id = midnight.toId(offers[0].obligation);
+        bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
 
         uint256 filled;
         for (uint256 i; i < offers.length && filled < targetBuyerAssets; i++) {
             try midnight.take(
                 TakeAmountsLib.buyerAssetsToShares(
-                    midnight, id, taker, offers[i], UtilsLib.min(targetBuyerAssets - filled, amounts[i])
+                    midnight, id, taker, offers[i], UtilsLib.min(targetBuyerAssets - filled, obligationShares[i])
                 ),
                 taker,
                 takerCallback,
@@ -137,7 +137,7 @@ contract TakeBundler {
         require(filled >= targetBuyerAssets, "insufficient liquidity");
     }
 
-    /// @dev Assumes amounts, offers, sigs, roots, and proofs all have the same length.
+    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     /// @dev Same as bundleTakeShares but targets seller assets.
     function bundleTakeSellerAssets(
         Midnight midnight,
@@ -146,20 +146,20 @@ contract TakeBundler {
         address takerCallback,
         bytes calldata takerCallbackData,
         address receiverIfTakerIsSeller,
-        uint256[] calldata amounts,
+        uint256[] calldata obligationShares,
         Offer[] calldata offers,
         Signature[] calldata sigs,
         bytes32[] calldata roots,
         bytes32[][] calldata proofs
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
-        bytes20 id = midnight.toId(offers[0].obligation);
+        bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
 
         uint256 filled;
         for (uint256 i; i < offers.length && filled < targetSellerAssets; i++) {
             try midnight.take(
                 TakeAmountsLib.sellerAssetsToShares(
-                    midnight, id, taker, offers[i], UtilsLib.min(targetSellerAssets - filled, amounts[i])
+                    midnight, id, taker, offers[i], UtilsLib.min(targetSellerAssets - filled, obligationShares[i])
                 ),
                 taker,
                 takerCallback,

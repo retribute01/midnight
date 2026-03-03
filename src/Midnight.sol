@@ -601,6 +601,8 @@ contract Midnight is IMidnight {
 
     /// @dev Returns the trading fee using piecewise linear interpolation between breakpoints.
     function tradingFee(bytes20 id, uint256 timeToMaturity) public view returns (uint256) {
+        require(obligationState[id].created, "not created");
+
         uint16[7] memory _fees = obligationState[id].fees;
 
         if (timeToMaturity >= 360 days) return _fees[6] * FEE_STEP;
