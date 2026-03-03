@@ -10,10 +10,11 @@ import {
     WAD,
     ORACLE_PRICE_SCALE,
     FEE_STEP,
-    LIQUIDATION_CURSOR,
     TIME_TO_MAX_LIF,
     MAX_COLLATERALS,
     MAX_COLLATERALS_PER_BORROWER,
+    LIQUIDATION_CURSOR_LOW,
+    LIQUIDATION_CURSOR_HIGH,
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH
 } from "./libraries/ConstantsLib.sol";
@@ -426,7 +427,7 @@ contract Midnight is IMidnight {
             if (i == collateralIndex) liquidatedCollatPrice = price;
             uint256 collateralQuoted = collateralOf[id][borrower][i].mulDivDown(price, ORACLE_PRICE_SCALE);
             maxDebt += collateralQuoted.mulDivDown(_collateral.lltv, WAD);
-            badDebt = badDebt.zeroFloorSub(collateralQuoted.mulDivDown(WAD, maxLif(_collateral.lltv)));
+            badDebt = badDebt.zeroFloorSub(collateralQuoted.mulDivDown(WAD, _collateral.maxLif));
             bitmap ^= (1 << i);
         }
 
@@ -438,7 +439,7 @@ contract Midnight is IMidnight {
         }
 
         if (repaidUnits > 0 || seizedAssets > 0) {
-            uint256 _maxLif = maxLif(obligation.collaterals[collateralIndex].lltv);
+            uint256 _maxLif = obligation.collaterals[collateralIndex].maxLif;
             uint256 lif = originalDebt > maxDebt
                 ? _maxLif
                 : UtilsLib.min(
@@ -528,7 +529,13 @@ contract Midnight is IMidnight {
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 address collateralToken = obligation.collaterals[i].token;
                 require(collateralToken > previousCollateralToken, "collaterals not sorted");
-                require(obligation.collaterals[i].lltv <= WAD, "lltv too high");
+                uint256 lltv = obligation.collaterals[i].lltv;
+                require(lltv <= WAD, "lltv too high");
+                require(
+                    obligation.collaterals[i].maxLif == maxLif(lltv, LIQUIDATION_CURSOR_LOW)
+                        || obligation.collaterals[i].maxLif == maxLif(lltv, LIQUIDATION_CURSOR_HIGH),
+                    "invalid maxLif"
+                );
                 previousCollateralToken = collateralToken;
             }
 
@@ -542,10 +549,6 @@ contract Midnight is IMidnight {
     }
 
     /// VIEW FUNCTIONS ///
-
-    function maxLif(uint256 lltv) public pure returns (uint256) {
-        return WAD.mulDivDown(WAD, WAD - LIQUIDATION_CURSOR.mulDivDown(WAD - lltv, WAD));
-    }
 
     function toId(Obligation memory obligation) public view returns (bytes20) {
         return IdLib.toId(obligation, block.chainid, address(this));
@@ -614,6 +617,10 @@ contract Midnight is IMidnight {
         address tentativeSigner = ecrecover(digest, signature.v, signature.r, signature.s);
         require(tentativeSigner != address(0), "invalid signature");
         return tentativeSigner;
+    }
+
+    function maxLif(uint256 lltv, uint256 cursor) internal pure returns (uint256) {
+        return WAD.mulDivDown(WAD, WAD - cursor.mulDivDown(WAD - lltv, WAD));
     }
 
     /// @dev 50 bps for ttm=360 days, scaled linearly. For post maturity, 0.14 bps.
