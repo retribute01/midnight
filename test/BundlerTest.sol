@@ -4,8 +4,7 @@ pragma solidity ^0.8.0;
 
 import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMidnight.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
-import {TickLib, TICK_RANGE} from "../src/libraries/TickLib.sol";
-import {WAD} from "../src/libraries/ConstantsLib.sol";
+import {TICK_RANGE} from "../src/libraries/TickLib.sol";
 import {TakeBundler} from "../src/periphery/TakeBundler.sol";
 import {BaseTest} from "./BaseTest.sol";
 
@@ -63,10 +62,13 @@ contract BundlerTest is BaseTest {
         Signature[] memory sigs = new Signature[](1);
         bytes32[] memory roots = new bytes32[](2);
         bytes32[][] memory proofs = new bytes32[][](2);
+        uint256[] memory _obligationShares = new uint256[](2);
 
         vm.prank(lender);
         vm.expectRevert("length mismatch");
-        takeBundler.bundleTake(midnight, 100, lender, address(0), hex"", address(0), _offers, sigs, roots, proofs);
+        takeBundler.bundleTake(
+            midnight, 100, lender, address(0), hex"", address(0), _obligationShares, _offers, sigs, roots, proofs
+        );
     }
 
     function testLengthMismatchRoots() public {
@@ -77,10 +79,13 @@ contract BundlerTest is BaseTest {
         Signature[] memory sigs = new Signature[](2);
         bytes32[] memory roots = new bytes32[](1);
         bytes32[][] memory proofs = new bytes32[][](2);
+        uint256[] memory _obligationShares = new uint256[](2);
 
         vm.prank(lender);
         vm.expectRevert("length mismatch");
-        takeBundler.bundleTake(midnight, 100, lender, address(0), hex"", address(0), _offers, sigs, roots, proofs);
+        takeBundler.bundleTake(
+            midnight, 100, lender, address(0), hex"", address(0), _obligationShares, _offers, sigs, roots, proofs
+        );
     }
 
     function testLengthMismatchProofs() public {
@@ -91,10 +96,13 @@ contract BundlerTest is BaseTest {
         Signature[] memory sigs = new Signature[](2);
         bytes32[] memory roots = new bytes32[](2);
         bytes32[][] memory proofs = new bytes32[][](1);
+        uint256[] memory _obligationShares = new uint256[](2);
 
         vm.prank(lender);
         vm.expectRevert("length mismatch");
-        takeBundler.bundleTake(midnight, 100, lender, address(0), hex"", address(0), _offers, sigs, roots, proofs);
+        takeBundler.bundleTake(
+            midnight, 100, lender, address(0), hex"", address(0), _obligationShares, _offers, sigs, roots, proofs
+        );
     }
 
     function testBundler() public {
@@ -111,7 +119,12 @@ contract BundlerTest is BaseTest {
         proofs[1] = proof([offers[1]]);
 
         uint256 units = 1000;
+        uint256 shares = units;
         collateralize(obligation, borrower, units);
+
+        uint256[] memory obligationShares = new uint256[](2);
+        obligationShares[0] = offers[0].obligationShares;
+        obligationShares[1] = offers[1].obligationShares;
 
         vm.prank(borrower);
         midnight.setIsAuthorized(address(takeBundler), true);
@@ -120,8 +133,12 @@ contract BundlerTest is BaseTest {
         midnight.setIsAuthorized(address(this), true);
 
         vm.prank(borrower);
-        takeBundler.bundleTake(midnight, units, borrower, address(0), hex"", address(0), offers, sigs, roots, proofs);
+        takeBundler.bundleTake(
+            midnight, shares, borrower, address(0), hex"", address(0), obligationShares, offers, sigs, roots, proofs
+        );
 
-        assertEq(midnight.debtOf(id, borrower), units);
+        assertEq(midnight.debtOf(id, borrower), units, "debt");
+        assertEq(midnight.consumed(offers[0].maker, offers[0].group), 500, "consumed offer 0");
+        assertEq(midnight.consumed(offers[1].maker, offers[1].group), 500, "consumed offer 1");
     }
 }
