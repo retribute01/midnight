@@ -53,7 +53,6 @@ contract TakeBundler {
         require(totalFilledShares == targetShares, "insufficient liquidity");
     }
 
-    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     /// @dev Same as bundleTakeShares but targets obligation units.
     function bundleTakeUnits(
         Midnight midnight,
@@ -69,7 +68,6 @@ contract TakeBundler {
         bytes32[][] calldata proofs
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
-        bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
 
         uint256 totalFilledUnits;
         for (uint256 i; i < offers.length && totalFilledUnits < targetUnits; i++) {
@@ -96,8 +94,8 @@ contract TakeBundler {
         require(totalFilledUnits == targetUnits, "insufficient liquidity");
     }
 
-    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     /// @dev Same as bundleTakeShares but targets buyer assets.
+    /// @dev Not usable if buyerPrice > WAD, because not all buyerAssets are reachable then.
     function bundleTakeBuyerAssets(
         Midnight midnight,
         uint256 targetBuyerAssets,
@@ -141,7 +139,6 @@ contract TakeBundler {
         require(totalBuyerAssets == targetBuyerAssets, "insufficient liquidity");
     }
 
-    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     /// @dev Same as bundleTakeShares but targets seller assets.
     function bundleTakeSellerAssets(
         Midnight midnight,
