@@ -52,11 +52,11 @@ contract MaxAmountsTest is BaseTest {
         borrowerOffer.buy = false;
         borrowerOffer.maker = borrower;
         borrowerOffer.receiverIfMakerIsSeller = borrower;
-        borrowerOffer.assets = type(uint256).max;
+        borrowerOffer.obligationShares = type(uint256).max;
         borrowerOffer.expiry = block.timestamp + 200;
         borrowerOffer.tick = TICK_RANGE;
 
-        take(0, 0, amount, 0, lender, borrowerOffer);
+        take(amount, lender, borrowerOffer);
 
         assertEq(midnight.totalUnits(id), amount, "total units at max");
         assertEq(midnight.debtOf(id, borrower), amount, "debt at max");
@@ -78,12 +78,12 @@ contract MaxAmountsTest is BaseTest {
         borrowerOffer.buy = false;
         borrowerOffer.maker = borrower;
         borrowerOffer.receiverIfMakerIsSeller = borrower;
-        borrowerOffer.assets = type(uint256).max;
+        borrowerOffer.obligationShares = type(uint256).max;
         borrowerOffer.expiry = block.timestamp + 200;
         borrowerOffer.tick = TICK_RANGE;
 
         vm.expectRevert("uint256 overflows uint128");
-        take(0, 0, amount, 0, lender, borrowerOffer);
+        take(amount, lender, borrowerOffer);
     }
 
     function testSupplyCollateralMaxAmount() public {
