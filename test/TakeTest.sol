@@ -771,7 +771,7 @@ contract TakeTest is BaseTest {
         uint256 price = TickLib.tickToPrice(tick);
         vm.assume(price > 0.01 ether);
         // Convert target units to shares (the taker still specifies shares).
-        uint256 obligationShares = targetUnits.mulDiv(initialShares + 1, initialUnits + 1, true);
+        uint256 obligationShares = targetUnits.mulDivDown(initialShares + 1, initialUnits + 1);
         uint256 expectedUnits = obligationShares.mulDivUp(initialUnits + 1, initialShares + 1);
         uint256 expectedAssets = expectedUnits.mulDivDown(price, WAD);
         deal(address(loanToken), lender, expectedAssets);
@@ -794,7 +794,7 @@ contract TakeTest is BaseTest {
         tick = bound(tick, 0, TICK_RANGE);
         uint256 price = TickLib.tickToPrice(tick);
         vm.assume(price > 0.01 ether);
-        uint256 obligationShares = targetUnits.mulDiv(initialShares + 1, initialUnits + 1, true);
+        uint256 obligationShares = targetUnits.mulDivDown(initialShares + 1, initialUnits + 1);
         uint256 expectedUnits = obligationShares.mulDivUp(initialUnits + 1, initialShares + 1);
         uint256 expectedAssets = expectedUnits.mulDivDown(price, WAD);
         deal(address(loanToken), lender, expectedAssets);
