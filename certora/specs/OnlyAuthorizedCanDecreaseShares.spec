@@ -26,13 +26,12 @@ rule onlyAuthorizedCanDecreaseShares(env e, method f, bytes20 id, address user) 
     f(e, args);
 
     assert sharesOf(id, user) >= sharesBefore
-        || f.selector == sig:take(uint256,uint256,uint256,uint256,address,address,bytes,address,Midnight.Offer,Midnight.Signature,bytes32,bytes32[]).selector;
+        || f.selector == sig:take(uint256,address,address,bytes,address,Midnight.Offer,Midnight.Signature,bytes32,bytes32[]).selector;
 }
 
-/// In take, the caller must be authorized by the taker and only the seller's (lender) shares can decrease.
+/// In take, the caller must be authorized by the taker and only the lender shares can decrease
 rule takeOnlyAuthorizedSellerSharesDecrease(
-    env e, uint256 buyerAssets, uint256 sellerAssets,
-    uint256 obligationUnits, uint256 obligationShares, address taker,
+    env e, uint256 obligationShares, address taker,
     address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller,
     Midnight.Offer offer, Midnight.Signature signature,
     bytes32 root, bytes32[] proof,
@@ -43,7 +42,7 @@ rule takeOnlyAuthorizedSellerSharesDecrease(
 
     uint256 sharesBefore = sharesOf(id, user);
 
-    take@withrevert(e, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
+    take@withrevert(e, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
 
     assert takerUnauthorized => lastReverted;
     assert sharesOf(id, user) < sharesBefore => user == seller;
