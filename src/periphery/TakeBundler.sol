@@ -44,8 +44,6 @@ contract TakeBundler {
             ) {
                 filled += obligationShares;
             } catch {}
-
-            ++i;
         }
 
         require(filled >= targetShares, "insufficient liquidity");
