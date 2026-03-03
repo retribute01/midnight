@@ -31,10 +31,10 @@ contract TakeBundler {
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
 
-        uint256 filled;
-        for (uint256 i; i < offers.length && filled < targetShares; i++) {
+        uint256 totalFilledShares;
+        for (uint256 i; i < offers.length && totalFilledShares < targetShares; i++) {
             try midnight.take(
-                UtilsLib.min(targetShares - filled, obligationShares[i]),
+                UtilsLib.min(targetShares - totalFilledShares, obligationShares[i]),
                 taker,
                 takerCallback,
                 takerCallbackData,
@@ -46,11 +46,11 @@ contract TakeBundler {
             ) returns (
                 uint256, uint256, uint256, uint256 filledShares
             ) {
-                filled += filledShares;
+                totalFilledShares += filledShares;
             } catch {}
         }
 
-        require(filled == targetShares, "insufficient liquidity");
+        require(totalFilledShares == targetShares, "insufficient liquidity");
     }
 
     /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
@@ -71,11 +71,11 @@ contract TakeBundler {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
         bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
 
-        uint256 filled;
-        for (uint256 i; i < offers.length && filled < targetUnits; i++) {
+        uint256 totalFilledUnits;
+        for (uint256 i; i < offers.length && totalFilledUnits < targetUnits; i++) {
             try midnight.take(
                 UtilsLib.min(
-                    TakeAmountsLib.unitsToShares(midnight, id, taker, offers[i], targetUnits - filled),
+                    TakeAmountsLib.unitsToShares(midnight, id, taker, offers[i], targetUnits - totalFilledUnits),
                     obligationShares[i]
                 ),
                 taker,
@@ -89,11 +89,11 @@ contract TakeBundler {
             ) returns (
                 uint256, uint256, uint256 obligationUnits, uint256
             ) {
-                filled += obligationUnits;
+                totalFilledUnits += obligationUnits;
             } catch {}
         }
 
-        require(filled == targetUnits, "insufficient liquidity");
+        require(totalFilledUnits == targetUnits, "insufficient liquidity");
     }
 
     /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
@@ -114,11 +114,13 @@ contract TakeBundler {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
         bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
 
-        uint256 filled;
-        for (uint256 i; i < offers.length && filled < targetBuyerAssets; i++) {
+        uint256 totalBuyerAssets;
+        for (uint256 i; i < offers.length && totalBuyerAssets < targetBuyerAssets; i++) {
             try midnight.take(
                 UtilsLib.min(
-                    TakeAmountsLib.buyerAssetsToShares(midnight, id, taker, offers[i], targetBuyerAssets - filled),
+                    TakeAmountsLib.buyerAssetsToShares(
+                        midnight, id, taker, offers[i], targetBuyerAssets - totalBuyerAssets
+                    ),
                     obligationShares[i]
                 ),
                 taker,
@@ -132,11 +134,11 @@ contract TakeBundler {
             ) returns (
                 uint256 buyerAssets, uint256, uint256, uint256
             ) {
-                filled += buyerAssets;
+                totalBuyerAssets += buyerAssets;
             } catch {}
         }
 
-        require(filled == targetBuyerAssets, "insufficient liquidity");
+        require(totalBuyerAssets == targetBuyerAssets, "insufficient liquidity");
     }
 
     /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
@@ -157,11 +159,13 @@ contract TakeBundler {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
         bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
 
-        uint256 filled;
-        for (uint256 i; i < offers.length && filled < targetSellerAssets; i++) {
+        uint256 totalSellerAssets;
+        for (uint256 i; i < offers.length && totalSellerAssets < targetSellerAssets; i++) {
             try midnight.take(
                 UtilsLib.min(
-                    TakeAmountsLib.sellerAssetsToShares(midnight, id, taker, offers[i], targetSellerAssets - filled),
+                    TakeAmountsLib.sellerAssetsToShares(
+                        midnight, id, taker, offers[i], targetSellerAssets - totalSellerAssets
+                    ),
                     obligationShares[i]
                 ),
                 taker,
@@ -175,10 +179,10 @@ contract TakeBundler {
             ) returns (
                 uint256, uint256 sellerAssets, uint256, uint256
             ) {
-                filled += sellerAssets;
+                totalSellerAssets += sellerAssets;
             } catch {}
         }
 
-        require(filled == targetSellerAssets, "insufficient liquidity");
+        require(totalSellerAssets == targetSellerAssets, "insufficient liquidity");
     }
 }
