@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 pragma solidity ^0.8.0;
 
+import {Midnight} from "../Midnight.sol";
+import {Offer} from "../interfaces/IMidnight.sol";
 import {UtilsLib} from "../libraries/UtilsLib.sol";
+import {TickLib} from "../libraries/TickLib.sol";
 import {WAD} from "../libraries/ConstantsLib.sol";
 
 library TakeAmountsLib {
@@ -10,35 +13,43 @@ library TakeAmountsLib {
     // Forward: units = shares.mulDiv(totalUnits + 1, totalShares + 1, !buyerIsLender).
     // When buyerIsLender (forward rounds up): inverse rounds down.
     // When !buyerIsLender (forward rounds down): inverse rounds up.
-    function unitsToShares(uint256 targetUnits, uint256 totalUnits, uint256 totalShares, bool buyerIsLender)
+    function unitsToShares(Midnight midnight, bytes20 id, address taker, Offer memory offer, uint256 targetUnits)
         internal
-        pure
+        view
         returns (uint256)
     {
-        return targetUnits.mulDiv(totalShares + 1, totalUnits + 1, buyerIsLender);
+        address buyer = offer.buy ? offer.maker : taker;
+        bool buyerIsLender = midnight.debtOf(id, buyer) == 0;
+        return targetUnits.mulDiv(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1, buyerIsLender);
     }
 
     // Forward: buyerAssets = units.mulDivDown(buyerPrice, WAD).
     function buyerAssetsToShares(
-        uint256 targetBuyerAssets,
-        uint256 totalUnits,
-        uint256 totalShares,
-        uint256 buyerPrice,
-        bool buyerIsLender
-    ) internal pure returns (uint256) {
+        Midnight midnight,
+        bytes20 id,
+        address taker,
+        Offer memory offer,
+        uint256 targetBuyerAssets
+    ) internal view returns (uint256) {
+        uint256 offerPrice = TickLib.tickToPrice(offer.tick);
+        uint256 _tradingFee = midnight.tradingFee(id, UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp));
+        uint256 buyerPrice = offer.buy ? offerPrice : offerPrice + _tradingFee;
         uint256 targetUnits = targetBuyerAssets.mulDivUp(WAD, buyerPrice);
-        return unitsToShares(targetUnits, totalUnits, totalShares, buyerIsLender);
+        return unitsToShares(midnight, id, taker, offer, targetUnits);
     }
 
     // Forward: sellerAssets = units.mulDivDown(sellerPrice, WAD).
     function sellerAssetsToShares(
-        uint256 targetSellerAssets,
-        uint256 totalUnits,
-        uint256 totalShares,
-        uint256 sellerPrice,
-        bool buyerIsLender
-    ) internal pure returns (uint256) {
+        Midnight midnight,
+        bytes20 id,
+        address taker,
+        Offer memory offer,
+        uint256 targetSellerAssets
+    ) internal view returns (uint256) {
+        uint256 offerPrice = TickLib.tickToPrice(offer.tick);
+        uint256 _tradingFee = midnight.tradingFee(id, UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp));
+        uint256 sellerPrice = offer.buy ? offerPrice - _tradingFee : offerPrice;
         uint256 targetUnits = targetSellerAssets.mulDivUp(WAD, sellerPrice);
-        return unitsToShares(targetUnits, totalUnits, totalShares, buyerIsLender);
+        return unitsToShares(midnight, id, taker, offer, targetUnits);
     }
 }

@@ -67,10 +67,10 @@ contract TakeAmountsTest is BaseTest {
         midnight.setObligationTradingFee(id, 0, fee0);
         midnight.setObligationTradingFee(id, 1, fee1);
         vm.assume(TickLib.tickToPrice(tick) + midnight.tradingFee(id, obligation.maturity - block.timestamp) <= WAD);
-        uint256 shares = TakeAmountsLib.unitsToShares(targetUnits, initialUnits, initialShares, true);
+        borrowerOffer.tick = tick;
+        uint256 shares = TakeAmountsLib.unitsToShares(midnight, id, lender, borrowerOffer, targetUnits);
         deal(address(loanToken), lender, type(uint256).max);
         collateralize(obligation, borrower, targetUnits);
-        borrowerOffer.tick = tick;
 
         (,, uint256 obligationUnits,) = take(shares, lender, borrowerOffer);
 
@@ -92,8 +92,7 @@ contract TakeAmountsTest is BaseTest {
         // borrowerOffer.buy = false → buyerPrice = price + fee.
         uint256 buyerPrice = TickLib.tickToPrice(tick) + midnight.tradingFee(id, obligation.maturity - block.timestamp);
         vm.assume(buyerPrice <= WAD);
-        uint256 shares =
-            TakeAmountsLib.buyerAssetsToShares(targetBuyerAssets, initialUnits, initialShares, buyerPrice, true);
+        uint256 shares = TakeAmountsLib.buyerAssetsToShares(midnight, id, lender, borrowerOffer, targetBuyerAssets);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
 
         (uint256 buyerAssets,,,) = take(shares, lender, borrowerOffer);
@@ -114,10 +113,7 @@ contract TakeAmountsTest is BaseTest {
         vm.assume(TickLib.tickToPrice(tick) + midnight.tradingFee(id, obligation.maturity - block.timestamp) <= WAD);
         deal(address(loanToken), lender, type(uint256).max);
         borrowerOffer.tick = tick;
-        // borrowerOffer.buy = false → sellerPrice = price.
-        uint256 sellerPrice = TickLib.tickToPrice(tick);
-        uint256 shares =
-            TakeAmountsLib.sellerAssetsToShares(targetSellerAssets, initialUnits, initialShares, sellerPrice, true);
+        uint256 shares = TakeAmountsLib.sellerAssetsToShares(midnight, id, lender, borrowerOffer, targetSellerAssets);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
 
         (, uint256 sellerAssets,,) = take(shares, lender, borrowerOffer);
@@ -138,10 +134,10 @@ contract TakeAmountsTest is BaseTest {
         midnight.setObligationTradingFee(id, 1, fee1);
         uint256 _tradingFee = midnight.tradingFee(id, obligation.maturity - block.timestamp);
         vm.assume(TickLib.tickToPrice(tick) >= _tradingFee);
-        uint256 shares = TakeAmountsLib.unitsToShares(targetUnits, initialUnits, initialShares, true);
+        lenderOffer.tick = tick;
+        uint256 shares = TakeAmountsLib.unitsToShares(midnight, id, borrower, lenderOffer, targetUnits);
         deal(address(loanToken), lender, type(uint256).max);
         collateralize(obligation, borrower, targetUnits);
-        lenderOffer.tick = tick;
 
         (,, uint256 obligationUnits,) = take(shares, borrower, lenderOffer);
 
@@ -163,8 +159,7 @@ contract TakeAmountsTest is BaseTest {
         vm.assume(buyerPrice >= _tradingFee);
         deal(address(loanToken), lender, type(uint256).max);
         lenderOffer.tick = tick;
-        uint256 shares =
-            TakeAmountsLib.buyerAssetsToShares(targetBuyerAssets, initialUnits, initialShares, buyerPrice, true);
+        uint256 shares = TakeAmountsLib.buyerAssetsToShares(midnight, id, borrower, lenderOffer, targetBuyerAssets);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
 
         (uint256 buyerAssets,,,) = take(shares, borrower, lenderOffer);
@@ -189,8 +184,7 @@ contract TakeAmountsTest is BaseTest {
         uint256 sellerPrice = TickLib.tickToPrice(tick) - _tradingFee;
         // Ensure targetUnits = targetSellerAssets * WAD / sellerPrice fits in uint128.
         vm.assume(targetSellerAssets <= uint256(type(uint128).max).mulDivDown(sellerPrice, WAD));
-        uint256 shares =
-            TakeAmountsLib.sellerAssetsToShares(targetSellerAssets, initialUnits, initialShares, sellerPrice, true);
+        uint256 shares = TakeAmountsLib.sellerAssetsToShares(midnight, id, borrower, lenderOffer, targetSellerAssets);
         vm.assume(shares <= type(uint128).max);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
 
