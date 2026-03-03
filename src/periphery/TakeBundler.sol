@@ -10,37 +10,41 @@ import {TakeAmountsLib} from "./TakeAmountsLib.sol";
 contract TakeBundler {
     using UtilsLib for uint256;
 
+    struct Take {
+        Offer offer;
+        uint256 obligationShares;
+        Signature sig;
+        bytes32 root;
+        bytes32[] proof;
+    }
+
     /// @dev Iterates through orders, filling up to `targetShares` obligation shares total.
     /// @dev Assumes all offers share the same obligation id so that obligation shares are comparable.
     /// @dev The taker must have authorized this bundler and the msg.sender (if different from the taker) on Midnight.
     /// @dev The bundler skips every reason why `take` can revert (including ones that are not asynchrony related).
     /// @dev If taking an offer reverts, the bundler will completely skip this offer.
-    /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
     function bundleTakeShares(
         Midnight midnight,
         uint256 targetShares,
         address taker,
         address receiverIfTakerIsSeller,
-        uint256[] calldata obligationShares,
-        Offer[] calldata offers,
-        Signature[] calldata sigs,
-        bytes32[] calldata roots,
-        bytes32[][] calldata proofs
+        Take[] calldata takes
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
 
         uint256 totalFilledShares;
-        for (uint256 i; i < offers.length && totalFilledShares < targetShares; i++) {
+        for (uint256 i; i < takes.length && totalFilledShares < targetShares; i++) {
+            Take calldata take_ = takes[i];
             try midnight.take(
-                UtilsLib.min(targetShares - totalFilledShares, obligationShares[i]),
+                UtilsLib.min(targetShares - totalFilledShares, take_.obligationShares),
                 taker,
                 address(0),
                 "",
                 receiverIfTakerIsSeller,
-                offers[i],
-                sigs[i],
-                roots[i],
-                proofs[i]
+                take_.offer,
+                take_.sig,
+                take_.root,
+                take_.proof
             ) returns (
                 uint256, uint256, uint256, uint256 filledShares
             ) {
@@ -57,30 +61,28 @@ contract TakeBundler {
         uint256 targetUnits,
         address taker,
         address receiverIfTakerIsSeller,
-        uint256[] calldata obligationShares,
-        Offer[] calldata offers,
-        Signature[] calldata sigs,
-        bytes32[] calldata roots,
-        bytes32[][] calldata proofs
+        Take[] calldata takes
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
-        bytes20 id = midnight.toId(offers[0].obligation);
+        require(takes.length != 0, "empty takes");
+        bytes20 id = midnight.toId(takes[0].offer.obligation);
 
         uint256 totalFilledUnits;
-        for (uint256 i; i < offers.length && totalFilledUnits < targetUnits; i++) {
+        for (uint256 i; i < takes.length && totalFilledUnits < targetUnits; i++) {
+            Take calldata take_ = takes[i];
             try midnight.take(
                 UtilsLib.min(
-                    TakeAmountsLib.unitsToShares(midnight, id, taker, offers[i], targetUnits - totalFilledUnits),
-                    obligationShares[i]
+                    TakeAmountsLib.unitsToShares(midnight, id, taker, take_.offer, targetUnits - totalFilledUnits),
+                    take_.obligationShares
                 ),
                 taker,
                 address(0),
                 "",
                 receiverIfTakerIsSeller,
-                offers[i],
-                sigs[i],
-                roots[i],
-                proofs[i]
+                take_.offer,
+                take_.sig,
+                take_.root,
+                take_.proof
             ) returns (
                 uint256, uint256, uint256 obligationUnits, uint256
             ) {
@@ -98,32 +100,30 @@ contract TakeBundler {
         uint256 targetBuyerAssets,
         address taker,
         address receiverIfTakerIsSeller,
-        uint256[] calldata obligationShares,
-        Offer[] calldata offers,
-        Signature[] calldata sigs,
-        bytes32[] calldata roots,
-        bytes32[][] calldata proofs
+        Take[] calldata takes
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
-        bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
+        require(takes.length != 0, "empty takes");
+        bytes20 id = midnight.touchObligation(takes[0].offer.obligation); // to have the correct trading fees.
 
         uint256 totalBuyerAssets;
-        for (uint256 i; i < offers.length && totalBuyerAssets < targetBuyerAssets; i++) {
+        for (uint256 i; i < takes.length && totalBuyerAssets < targetBuyerAssets; i++) {
+            Take calldata take_ = takes[i];
             try midnight.take(
                 UtilsLib.min(
                     TakeAmountsLib.buyerAssetsToShares(
-                        midnight, id, taker, offers[i], targetBuyerAssets - totalBuyerAssets
+                        midnight, id, taker, take_.offer, targetBuyerAssets - totalBuyerAssets
                     ),
-                    obligationShares[i]
+                    take_.obligationShares
                 ),
                 taker,
                 address(0),
                 "",
                 receiverIfTakerIsSeller,
-                offers[i],
-                sigs[i],
-                roots[i],
-                proofs[i]
+                take_.offer,
+                take_.sig,
+                take_.root,
+                take_.proof
             ) returns (
                 uint256 buyerAssets, uint256, uint256, uint256
             ) {
@@ -140,32 +140,30 @@ contract TakeBundler {
         uint256 targetSellerAssets,
         address taker,
         address receiverIfTakerIsSeller,
-        uint256[] calldata obligationShares,
-        Offer[] calldata offers,
-        Signature[] calldata sigs,
-        bytes32[] calldata roots,
-        bytes32[][] calldata proofs
+        Take[] calldata takes
     ) external {
         require(taker == msg.sender || midnight.isAuthorized(taker, msg.sender), "UNAUTHORIZED");
-        bytes20 id = midnight.touchObligation(offers[0].obligation); // to have the correct trading fees.
+        require(takes.length != 0, "empty takes");
+        bytes20 id = midnight.touchObligation(takes[0].offer.obligation); // to have the correct trading fees.
 
         uint256 totalSellerAssets;
-        for (uint256 i; i < offers.length && totalSellerAssets < targetSellerAssets; i++) {
+        for (uint256 i; i < takes.length && totalSellerAssets < targetSellerAssets; i++) {
+            Take calldata take_ = takes[i];
             try midnight.take(
                 UtilsLib.min(
                     TakeAmountsLib.sellerAssetsToShares(
-                        midnight, id, taker, offers[i], targetSellerAssets - totalSellerAssets
+                        midnight, id, taker, take_.offer, targetSellerAssets - totalSellerAssets
                     ),
-                    obligationShares[i]
+                    take_.obligationShares
                 ),
                 taker,
                 address(0),
                 "",
                 receiverIfTakerIsSeller,
-                offers[i],
-                sigs[i],
-                roots[i],
-                proofs[i]
+                take_.offer,
+                take_.sig,
+                take_.root,
+                take_.proof
             ) returns (
                 uint256, uint256 sellerAssets, uint256, uint256
             ) {
