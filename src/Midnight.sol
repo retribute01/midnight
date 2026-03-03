@@ -619,7 +619,7 @@ contract Midnight is IMidnight {
         return tentativeSigner;
     }
 
-    function maxLif(uint256 lltv, uint256 cursor) internal pure returns (uint256) {
+    function maxLif(uint256 lltv, uint256 cursor) public pure returns (uint256) {
         return WAD.mulDivDown(WAD, WAD - cursor.mulDivDown(WAD - lltv, WAD));
     }
 
