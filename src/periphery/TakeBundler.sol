@@ -74,8 +74,9 @@ contract TakeBundler {
         uint256 filled;
         for (uint256 i; i < offers.length && filled < targetUnits; i++) {
             try midnight.take(
-                TakeAmountsLib.unitsToShares(
-                    midnight, id, taker, offers[i], UtilsLib.min(targetUnits - filled, obligationShares[i])
+                UtilsLib.min(
+                    TakeAmountsLib.unitsToShares(midnight, id, taker, offers[i], targetUnits - filled),
+                    obligationShares[i]
                 ),
                 taker,
                 takerCallback,
@@ -92,7 +93,7 @@ contract TakeBundler {
             } catch {}
         }
 
-        require(filled >= targetUnits, "insufficient liquidity");
+        require(filled == targetUnits, "insufficient liquidity");
     }
 
     /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
@@ -116,8 +117,9 @@ contract TakeBundler {
         uint256 filled;
         for (uint256 i; i < offers.length && filled < targetBuyerAssets; i++) {
             try midnight.take(
-                TakeAmountsLib.buyerAssetsToShares(
-                    midnight, id, taker, offers[i], UtilsLib.min(targetBuyerAssets - filled, obligationShares[i])
+                UtilsLib.min(
+                    TakeAmountsLib.buyerAssetsToShares(midnight, id, taker, offers[i], targetBuyerAssets - filled),
+                    obligationShares[i]
                 ),
                 taker,
                 takerCallback,
@@ -134,7 +136,7 @@ contract TakeBundler {
             } catch {}
         }
 
-        require(filled >= targetBuyerAssets, "insufficient liquidity");
+        require(filled == targetBuyerAssets, "insufficient liquidity");
     }
 
     /// @dev Assumes obligationShares, offers, sigs, roots, and proofs all have the same length.
@@ -158,8 +160,9 @@ contract TakeBundler {
         uint256 filled;
         for (uint256 i; i < offers.length && filled < targetSellerAssets; i++) {
             try midnight.take(
-                TakeAmountsLib.sellerAssetsToShares(
-                    midnight, id, taker, offers[i], UtilsLib.min(targetSellerAssets - filled, obligationShares[i])
+                UtilsLib.min(
+                    TakeAmountsLib.sellerAssetsToShares(midnight, id, taker, offers[i], targetSellerAssets - filled),
+                    obligationShares[i]
                 ),
                 taker,
                 takerCallback,
@@ -176,6 +179,6 @@ contract TakeBundler {
             } catch {}
         }
 
-        require(filled >= targetSellerAssets, "insufficient liquidity");
+        require(filled == targetSellerAssets, "insufficient liquidity");
     }
 }
