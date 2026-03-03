@@ -7,7 +7,7 @@ import {WAD} from "../libraries/ConstantsLib.sol";
 library TakeAmountsLib {
     using UtilsLib for uint256;
 
-    // Forward: units = shares.mulDiv(totalUnits + 1, totalShares + 1, !buyerIsLender).
+    // Forward: units = shares.mulDivUp/Down(totalUnits + 1, totalShares + 1) depending on buyerIsLender.
     // When buyerIsLender (forward rounds up): inverse rounds down.
     // When !buyerIsLender (forward rounds down): inverse rounds up.
     function unitsToShares(uint256 targetUnits, uint256 totalUnits, uint256 totalShares, bool buyerIsLender)
@@ -15,7 +15,9 @@ library TakeAmountsLib {
         pure
         returns (uint256)
     {
-        return targetUnits.mulDiv(totalShares + 1, totalUnits + 1, buyerIsLender);
+        return buyerIsLender
+            ? targetUnits.mulDivDown(totalShares + 1, totalUnits + 1)
+            : targetUnits.mulDivUp(totalShares + 1, totalUnits + 1);
     }
 
     // Forward: buyerAssets = units.mulDivDown(buyerPrice, WAD).
@@ -26,6 +28,7 @@ library TakeAmountsLib {
         uint256 buyerPrice,
         bool buyerIsLender
     ) internal pure returns (uint256) {
+        require(buyerPrice <= WAD, "buyerPrice");
         uint256 targetUnits = targetBuyerAssets.mulDivUp(WAD, buyerPrice);
         return unitsToShares(targetUnits, totalUnits, totalShares, buyerIsLender);
     }

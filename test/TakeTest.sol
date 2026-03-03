@@ -22,7 +22,9 @@ contract TakeTest is BaseTest {
     Offer internal otherLenderOffer;
     Offer internal otherBorrowerOffer;
 
-    uint256 internal maxAssets = 1e33; // to refine.
+    // Bad debt creates a ~3.4x shares/units ratio, and price conversion can amplify by up to 100x (price > 0.01 ether).
+    // Collateral = units / lltv adds another ~1.33x. Combined: 3.4 * 100 * 1.33 ≈ 400.
+    uint256 internal maxAssets = type(uint128).max / 400;
     uint256 internal initialUnits;
     uint256 internal initialShares;
 
@@ -476,7 +478,7 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lender, units.mulDivDown(price, WAD));
         collateralize(obligation, borrower, collateralized);
 
-        vm.expectRevert("Seller is unhealthy");
+        vm.expectRevert("seller is unhealthy");
         take(shares, lender, borrowerOffer);
     }
 
@@ -491,7 +493,7 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lender, units.mulDivDown(price, WAD));
         collateralize(obligation, borrower, collateralized);
 
-        vm.expectRevert("Seller is unhealthy");
+        vm.expectRevert("seller is unhealthy");
         take(shares, borrower, lenderOffer);
     }
 
@@ -706,18 +708,6 @@ contract TakeTest is BaseTest {
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
     }
 
-    function testBuyerPriceExceedsWad() public {
-        midnight.setObligationTradingFee(id, 0, 0.000014e18);
-        midnight.setObligationTradingFee(id, 1, 0.000014e18);
-        borrowerOffer.tick = TICK_RANGE;
-        borrowerOffer.obligationShares = 100;
-        collateralize(obligation, borrower, 100);
-        deal(address(loanToken), lender, 100);
-
-        vm.expectRevert("price");
-        take(100, lender, borrowerOffer);
-    }
-
     // Summary of zero price tests:
     //
     // Trading at 0 succeeds in those cases:
@@ -771,6 +761,64 @@ contract TakeTest is BaseTest {
         assertEq(sellerAssets, 0, "sellerAssets");
         assertEq(midnight.sharesOf(id, lender), shares, "sharesOf");
         assertEq(midnight.debtOf(id, borrower), expectedUnits, "debtOf");
+    }
+
+    // unit input tests.
+
+    function testBuyUnitInput(uint256 targetUnits, uint256 tick) public {
+        targetUnits = bound(targetUnits, 1, maxAssets);
+        tick = bound(tick, 0, TICK_RANGE);
+        uint256 price = TickLib.tickToPrice(tick);
+        vm.assume(price > 0.01 ether);
+        // Convert target units to shares (the taker still specifies shares).
+        uint256 obligationShares = targetUnits.mulDivDown(initialShares + 1, initialUnits + 1);
+        uint256 expectedUnits = obligationShares.mulDivUp(initialUnits + 1, initialShares + 1);
+        uint256 expectedAssets = expectedUnits.mulDivDown(price, WAD);
+        deal(address(loanToken), lender, expectedAssets);
+        collateralize(obligation, borrower, expectedUnits);
+
+        // Maker specifies offer in units.
+        borrowerOffer.obligationUnits = targetUnits;
+        borrowerOffer.obligationShares = 0;
+        borrowerOffer.tick = tick;
+
+        take(obligationShares, lender, borrowerOffer);
+
+        assertEq(midnight.sharesOf(id, lender), obligationShares, "lender shares");
+        assertEq(midnight.debtOf(id, borrower), expectedUnits, "borrower debt");
+        assertEq(midnight.consumed(borrower, borrowerOffer.group), expectedUnits, "consumed");
+    }
+
+    function testSellUnitInput(uint256 targetUnits, uint256 tick) public {
+        targetUnits = bound(targetUnits, 1, maxAssets);
+        tick = bound(tick, 0, TICK_RANGE);
+        uint256 price = TickLib.tickToPrice(tick);
+        vm.assume(price > 0.01 ether);
+        uint256 obligationShares = targetUnits.mulDivDown(initialShares + 1, initialUnits + 1);
+        uint256 expectedUnits = obligationShares.mulDivUp(initialUnits + 1, initialShares + 1);
+        uint256 expectedAssets = expectedUnits.mulDivDown(price, WAD);
+        deal(address(loanToken), lender, expectedAssets);
+        collateralize(obligation, borrower, expectedUnits);
+
+        // Maker specifies offer in units.
+        lenderOffer.obligationUnits = targetUnits;
+        lenderOffer.obligationShares = 0;
+        lenderOffer.tick = tick;
+
+        take(obligationShares, borrower, lenderOffer);
+
+        assertEq(midnight.sharesOf(id, lender), obligationShares, "lender shares");
+        assertEq(midnight.debtOf(id, borrower), expectedUnits, "borrower debt");
+        assertEq(midnight.consumed(lender, lenderOffer.group), expectedUnits, "consumed");
+    }
+
+    function testUnitInputInconsistent() public {
+        borrowerOffer.obligationUnits = 100;
+        borrowerOffer.obligationShares = 100;
+        borrowerOffer.tick = TICK_RANGE;
+
+        vm.expectRevert("INCONSISTENT_INPUT");
+        take(100, lender, borrowerOffer);
     }
 }
 

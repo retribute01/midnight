@@ -56,7 +56,7 @@ contract AuthorizationTest is BaseTest {
         // Attacker tries to withdraw lender's shares
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("unauthorized");
         midnight.withdraw(obligation, units, 0, lender, lender);
     }
 
@@ -72,7 +72,7 @@ contract AuthorizationTest is BaseTest {
         // Attacker tries to withdraw user's collateral
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("unauthorized");
         midnight.withdrawCollateral(obligation, 0, collateralAmount, user, user);
     }
 
@@ -174,7 +174,7 @@ contract AuthorizationTest is BaseTest {
         // Attacker tries to take on behalf of taker
         address attacker = makeAddr("attacker");
         vm.prank(attacker);
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("unauthorized");
         midnight.take(shares, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
     }
 
