@@ -13,6 +13,8 @@ import {
     TIME_TO_MAX_LIF,
     MAX_COLLATERALS,
     MAX_COLLATERALS_PER_BORROWER,
+    LIQUIDATION_CURSOR_LOW,
+    LIQUIDATION_CURSOR_HIGH,
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH
 } from "./libraries/ConstantsLib.sol";
@@ -424,7 +426,7 @@ contract Midnight is IMidnight {
             if (i == collateralIndex) liquidatedCollatPrice = price;
             uint256 collateralQuoted = collateralOf[id][borrower][i].mulDivDown(price, ORACLE_PRICE_SCALE);
             maxDebt += collateralQuoted.mulDivDown(_collateral.lltv, WAD);
-            badDebt = badDebt.zeroFloorSub(collateralQuoted.mulDivDown(WAD, _collateral.lif));
+            badDebt = badDebt.zeroFloorSub(collateralQuoted.mulDivDown(WAD, _collateral.maxLif));
             bitmap ^= (1 << i);
         }
 
@@ -436,7 +438,7 @@ contract Midnight is IMidnight {
         }
 
         if (repaidUnits > 0 || seizedAssets > 0) {
-            uint256 _maxLif = obligation.collaterals[collateralIndex].lif;
+            uint256 _maxLif = obligation.collaterals[collateralIndex].maxLif;
             uint256 lif = originalDebt > maxDebt
                 ? _maxLif
                 : UtilsLib.min(
@@ -525,14 +527,12 @@ contract Midnight is IMidnight {
             for (uint256 i = 0; i < obligation.collaterals.length; i++) {
                 address collateralToken = obligation.collaterals[i].token;
                 require(collateralToken > previousCollateralToken, "collaterals not sorted");
-                require(obligation.collaterals[i].lltv <= WAD, "lltv too high");
-                uint256 oneMinusLltv = WAD - obligation.collaterals[i].lltv;
+                uint256 lltv = obligation.collaterals[i].lltv;
+                require(lltv <= WAD, "lltv too high");
                 require(
-                    obligation.collaterals[i].lif
-                            == WAD.mulDivDown(WAD, WAD - uint256(0.25e18).mulDivDown(oneMinusLltv, WAD))
-                        || obligation.collaterals[i].lif
-                            == WAD.mulDivDown(WAD, WAD - uint256(0.5e18).mulDivDown(oneMinusLltv, WAD)),
-                    "invalid lif"
+                    obligation.collaterals[i].maxLif == UtilsLib.maxLif(lltv, LIQUIDATION_CURSOR_LOW)
+                        || obligation.collaterals[i].maxLif == UtilsLib.maxLif(lltv, LIQUIDATION_CURSOR_HIGH),
+                    "invalid maxLif"
                 );
                 previousCollateralToken = collateralToken;
             }

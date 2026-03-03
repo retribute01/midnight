@@ -32,7 +32,7 @@ contract OtherFunctionsTest is BaseTest {
                 Collateral({
                     token: address(collateralToken1),
                     lltv: 0.75e18,
-                    lif: maxLif(0.75e18, 0.25e18),
+                    maxLif: maxLif(0.75e18, 0.25e18),
                     oracle: address(oracle1)
                 })
             );
@@ -41,7 +41,7 @@ contract OtherFunctionsTest is BaseTest {
                 Collateral({
                     token: address(collateralToken2),
                     lltv: 0.75e18,
-                    lif: maxLif(0.75e18, 0.25e18),
+                    maxLif: maxLif(0.75e18, 0.25e18),
                     oracle: address(oracle2)
                 })
             );
@@ -211,7 +211,7 @@ contract OtherFunctionsTest is BaseTest {
         for (uint256 i = 0; i < obligationFromId.collaterals.length; i++) {
             assertEq(_obligation.collaterals[i].token, obligationFromId.collaterals[i].token, "collateral token");
             assertEq(_obligation.collaterals[i].lltv, obligationFromId.collaterals[i].lltv, "lltv");
-            assertEq(_obligation.collaterals[i].lif, obligationFromId.collaterals[i].lif, "lif");
+            assertEq(_obligation.collaterals[i].maxLif, obligationFromId.collaterals[i].maxLif, "maxLif");
             assertEq(_obligation.collaterals[i].oracle, obligationFromId.collaterals[i].oracle, "oracle");
         }
     }
@@ -253,7 +253,7 @@ contract OtherFunctionsTest is BaseTest {
         collaterals[0] = Collateral({
             token: address(collateralToken1),
             lltv: 0.75e18,
-            lif: maxLif(0.75e18, 0.25e18),
+            maxLif: maxLif(0.75e18, 0.25e18),
             oracle: address(revertingOracle)
         });
 
@@ -277,7 +277,7 @@ contract OtherFunctionsTest is BaseTest {
         collaterals[0] = Collateral({
             token: address(collateralToken1),
             lltv: 0.75e18,
-            lif: maxLif(0.75e18, 0.25e18),
+            maxLif: maxLif(0.75e18, 0.25e18),
             oracle: address(revertingOracle)
         });
 
@@ -306,7 +306,7 @@ contract OtherFunctionsTest is BaseTest {
             ERC20 token = new ERC20("", "");
             Oracle _oracle = new Oracle();
             collaterals[i] = Collateral({
-                token: address(token), lltv: 0.75e18, lif: maxLif(0.75e18, 0.25e18), oracle: address(_oracle)
+                token: address(token), lltv: 0.75e18, maxLif: maxLif(0.75e18, 0.25e18), oracle: address(_oracle)
             });
         }
         collaterals = sortCollaterals(collaterals);
@@ -339,10 +339,10 @@ contract OtherFunctionsTest is BaseTest {
         _obligation.maturity = block.timestamp + 100;
         Collateral[] memory collaterals = new Collateral[](2);
         collaterals[0] = Collateral({
-            token: address(uint160(2)), lltv: 0.75e18, lif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
+            token: address(uint160(2)), lltv: 0.75e18, maxLif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
         });
         collaterals[1] = Collateral({
-            token: address(uint160(1)), lltv: 0.75e18, lif: maxLif(0.75e18, 0.25e18), oracle: address(oracle2)
+            token: address(uint160(1)), lltv: 0.75e18, maxLif: maxLif(0.75e18, 0.25e18), oracle: address(oracle2)
         });
         _obligation.collaterals = collaterals;
         vm.expectRevert("collaterals not sorted");
@@ -356,7 +356,7 @@ contract OtherFunctionsTest is BaseTest {
         _obligation.maturity = block.timestamp + 100;
         Collateral[] memory collaterals = new Collateral[](1);
         collaterals[0] = Collateral({
-            token: address(collateralToken1), lltv: lltv, lif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
+            token: address(collateralToken1), lltv: lltv, maxLif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
         });
         _obligation.collaterals = collaterals;
         vm.expectRevert("lltv too high");
@@ -459,10 +459,11 @@ contract OtherFunctionsTest is BaseTest {
         _obligation.loanToken = address(loanToken);
         _obligation.maturity = block.timestamp + 100;
         Collateral[] memory collaterals = new Collateral[](1);
-        collaterals[0] = Collateral({token: address(collateralToken1), lltv: lltv, lif: lif, oracle: address(oracle1)});
+        collaterals[0] =
+            Collateral({token: address(collateralToken1), lltv: lltv, maxLif: lif, oracle: address(oracle1)});
         _obligation.collaterals = collaterals;
 
-        vm.expectRevert("invalid lif");
+        vm.expectRevert("invalid maxLif");
         midnight.touchObligation(_obligation);
     }
 
@@ -473,7 +474,7 @@ contract OtherFunctionsTest is BaseTest {
         _obligation.maturity = block.timestamp + 100;
         Collateral[] memory collaterals = new Collateral[](1);
         collaterals[0] = Collateral({
-            token: address(collateralToken1), lltv: lltv, lif: maxLif(lltv, 0.25e18), oracle: address(oracle1)
+            token: address(collateralToken1), lltv: lltv, maxLif: maxLif(lltv, 0.25e18), oracle: address(oracle1)
         });
         _obligation.collaterals = collaterals;
 
@@ -488,7 +489,7 @@ contract OtherFunctionsTest is BaseTest {
         _obligation.maturity = block.timestamp + 200;
         Collateral[] memory collaterals = new Collateral[](1);
         collaterals[0] = Collateral({
-            token: address(collateralToken1), lltv: lltv, lif: maxLif(lltv, 0.5e18), oracle: address(oracle1)
+            token: address(collateralToken1), lltv: lltv, maxLif: maxLif(lltv, 0.5e18), oracle: address(oracle1)
         });
         _obligation.collaterals = collaterals;
 

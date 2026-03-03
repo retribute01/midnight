@@ -26,7 +26,7 @@ contract MaxAmountsTest is BaseTest {
                 Collateral({
                     token: address(collateralToken1),
                     lltv: 0.75e18,
-                    lif: maxLif(0.75e18, 0.25e18),
+                    maxLif: maxLif(0.75e18, 0.25e18),
                     oracle: address(oracle1)
                 })
             );

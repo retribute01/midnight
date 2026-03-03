@@ -15,7 +15,7 @@ struct Obligation {
 struct Collateral {
     address token;
     uint256 lltv;
-    uint256 lif;
+    uint256 maxLif;
     address oracle;
 }
 

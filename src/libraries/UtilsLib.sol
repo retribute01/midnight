@@ -2,6 +2,8 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
+import {WAD} from "./ConstantsLib.sol";
+
 library UtilsLib {
     /// @dev Returns true if at most one of `x` and `y` is nonzero.
     function atMostOneNonZero(uint256 x, uint256 y) internal pure returns (bool z) {
@@ -66,6 +68,10 @@ library UtilsLib {
             x = (x + (x >> 4)) & 0x0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f0f;
             return (x * 0x01010101010101010101010101010101) >> 120;
         }
+    }
+
+    function maxLif(uint256 lltv, uint256 cursor) internal pure returns (uint256) {
+        return mulDivDown(WAD, WAD, WAD - mulDivDown(cursor, WAD - lltv, WAD));
     }
 
     function msb(uint256 bitmap) internal pure returns (uint256) {
