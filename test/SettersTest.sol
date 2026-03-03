@@ -53,7 +53,9 @@ contract SettersTest is BaseTest {
         threeSixtyDaysFee = bound(threeSixtyDaysFee, 0, midnight.maxTradingFee(6)) / 1e12 * 1e12;
 
         Collateral[] memory collaterals = new Collateral[](1);
-        collaterals[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
+        collaterals[0] = Collateral({
+            token: address(collateralToken1), lltv: 0.75e18, lif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
+        });
         Obligation memory obligation = Obligation({
             loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: collaterals, rcfThreshold: 0
         });
@@ -174,7 +176,9 @@ contract SettersTest is BaseTest {
 
         // touch obligation with this loan token
         Collateral[] memory collaterals = new Collateral[](1);
-        collaterals[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
+        collaterals[0] = Collateral({
+            token: address(collateralToken1), lltv: 0.75e18, lif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
+        });
         Obligation memory obligation = Obligation({
             loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: collaterals, rcfThreshold: 0
         });
@@ -224,7 +228,9 @@ contract SettersTest is BaseTest {
         fee6 = bound(fee6, 0, midnight.maxTradingFee(6)) / 1e12 * 1e12;
 
         Collateral[] memory cols = new Collateral[](1);
-        cols[0] = Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)});
+        cols[0] = Collateral({
+            token: address(collateralToken1), lltv: 0.75e18, lif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
+        });
         Obligation memory obligation =
             Obligation({loanToken: address(0), maturity: block.timestamp + 1 days, collaterals: cols, rcfThreshold: 0});
         bytes20 id = toId(obligation);

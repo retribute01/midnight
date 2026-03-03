@@ -219,17 +219,15 @@ abstract contract BaseTest is Test {
         return arr;
     }
 
-    // Returns an obligation with sorted, non-zero and unique collaterals (done by adding the index to the hash of the
-    // token).
-    function sortedAndUniqueCollateralsInObligation(Obligation memory obligation)
-        internal
-        pure
-        returns (Obligation memory)
-    {
+    /// @dev Returns an obligation with sorted, unique collaterals and valid lltv/lif.
+    function validObligation(Obligation memory obligation) internal pure returns (Obligation memory) {
         uint256 len = obligation.collaterals.length > MAX_COLLATERALS ? MAX_COLLATERALS : obligation.collaterals.length;
         Collateral[] memory collaterals = new Collateral[](len);
         for (uint256 i = 0; i < len; i++) {
             collaterals[i].token = address(uint160(uint256(keccak256(abi.encode(obligation.collaterals[i].token, i)))));
+            uint256 lltv = obligation.collaterals[i].lltv > WAD ? WAD : obligation.collaterals[i].lltv;
+            collaterals[i].lltv = lltv;
+            collaterals[i].lif = maxLif(lltv, 0.25e18);
         }
         collaterals = sortCollaterals(collaterals);
         obligation.collaterals = collaterals;
@@ -273,5 +271,9 @@ abstract contract BaseTest is Test {
 
     function absDiff(uint256 a, uint256 b) internal pure returns (uint256) {
         return a > b ? a - b : b - a;
+    }
+
+    function maxLif(uint256 lltv, uint256 cursor) internal pure returns (uint256) {
+        return WAD.mulDivDown(WAD, WAD - cursor.mulDivDown(WAD - lltv, WAD));
     }
 }

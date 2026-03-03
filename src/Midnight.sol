@@ -10,7 +10,6 @@ import {
     WAD,
     ORACLE_PRICE_SCALE,
     FEE_STEP,
-    LIQUIDATION_CURSOR,
     TIME_TO_MAX_LIF,
     MAX_COLLATERALS,
     MAX_COLLATERALS_PER_BORROWER,
@@ -425,7 +424,7 @@ contract Midnight is IMidnight {
             if (i == collateralIndex) liquidatedCollatPrice = price;
             uint256 collateralQuoted = collateralOf[id][borrower][i].mulDivDown(price, ORACLE_PRICE_SCALE);
             maxDebt += collateralQuoted.mulDivDown(_collateral.lltv, WAD);
-            badDebt = badDebt.zeroFloorSub(collateralQuoted.mulDivDown(WAD, maxLif(_collateral.lltv)));
+            badDebt = badDebt.zeroFloorSub(collateralQuoted.mulDivDown(WAD, _collateral.lif));
             bitmap ^= (1 << i);
         }
 
@@ -437,7 +436,7 @@ contract Midnight is IMidnight {
         }
 
         if (repaidUnits > 0 || seizedAssets > 0) {
-            uint256 _maxLif = maxLif(obligation.collaterals[collateralIndex].lltv);
+            uint256 _maxLif = obligation.collaterals[collateralIndex].lif;
             uint256 lif = originalDebt > maxDebt
                 ? _maxLif
                 : UtilsLib.min(
@@ -527,6 +526,14 @@ contract Midnight is IMidnight {
                 address collateralToken = obligation.collaterals[i].token;
                 require(collateralToken > previousCollateralToken, "collaterals not sorted");
                 require(obligation.collaterals[i].lltv <= WAD, "lltv too high");
+                uint256 oneMinusLltv = WAD - obligation.collaterals[i].lltv;
+                require(
+                    obligation.collaterals[i].lif
+                            == WAD.mulDivDown(WAD, WAD - uint256(0.25e18).mulDivDown(oneMinusLltv, WAD))
+                        || obligation.collaterals[i].lif
+                            == WAD.mulDivDown(WAD, WAD - uint256(0.5e18).mulDivDown(oneMinusLltv, WAD)),
+                    "invalid lif"
+                );
                 previousCollateralToken = collateralToken;
             }
 
@@ -540,10 +547,6 @@ contract Midnight is IMidnight {
     }
 
     /// VIEW FUNCTIONS ///
-
-    function maxLif(uint256 lltv) public pure returns (uint256) {
-        return WAD.mulDivDown(WAD, WAD - LIQUIDATION_CURSOR.mulDivDown(WAD - lltv, WAD));
-    }
 
     function toId(Obligation memory obligation) public view returns (bytes20) {
         return IdLib.toId(obligation, block.chainid, address(this));
