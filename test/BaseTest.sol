@@ -170,7 +170,7 @@ abstract contract BaseTest is Test {
     }
 
     function root(Offer[2] memory offers) internal pure returns (bytes32) {
-        return UtilsLib.efficientHash(keccak256(abi.encode(offers[0])), keccak256(abi.encode(offers[1])));
+        return UtilsLib.commutativeHash(keccak256(abi.encode(offers[0])), keccak256(abi.encode(offers[1])));
     }
 
     function proof(Offer[1] memory) internal pure returns (bytes32[] memory) {

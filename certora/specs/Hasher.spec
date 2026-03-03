@@ -2,11 +2,11 @@
 
 methods {
     function usedKeccak256(bytes32, bytes32) external returns (bytes32) envfree;
-    function commutativeKeccak256(bytes32, bytes32) external returns (bytes32) envfree;
+    function ozCommutativeKeccak256(bytes32, bytes32) external returns (bytes32) envfree;
 }
 
 rule functionalEquivalenceKeccak256(bytes32 x, bytes32 y) {
-    assert(usedKeccak256(x, y) == commutativeKeccak256(x, y));
+    assert(usedKeccak256(x, y) == ozCommutativeKeccak256(x, y));
 }
 
 rule noRevertsUsedKeccak256(bytes32 x, bytes32 y) {
@@ -15,6 +15,6 @@ rule noRevertsUsedKeccak256(bytes32 x, bytes32 y) {
 }
 
 rule noRevertsCommutativeKeccak256(bytes32 x, bytes32 y) {
-    commutativeKeccak256@withrevert(x, y);
+    ozCommutativeKeccak256@withrevert(x, y);
     assert !lastReverted;
 }

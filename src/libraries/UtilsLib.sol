@@ -43,13 +43,13 @@ library UtilsLib {
     function isLeaf(bytes32 root, bytes32 leafHash, bytes32[] memory proof) internal pure returns (bool) {
         bytes32 currentHash = leafHash;
         for (uint256 i = 0; i < proof.length; i++) {
-            currentHash = efficientHash(currentHash, proof[i]);
+            currentHash = commutativeHash(currentHash, proof[i]);
         }
         return currentHash == root;
     }
 
     /// @dev Returns the keccak256 hash of the sorted concatenation of `a` and `b`.
-    function efficientHash(bytes32 a, bytes32 b) internal pure returns (bytes32 value) {
+    function commutativeHash(bytes32 a, bytes32 b) internal pure returns (bytes32 value) {
         if (a > b) (a, b) = (b, a);
         assembly ("memory-safe") {
             mstore(0x00, a)
