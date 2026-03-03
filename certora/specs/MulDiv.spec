@@ -12,10 +12,22 @@ rule zeroMulDiv(uint256 b, uint256 d) {
     assert mulDivUp(0, b, d) == 0;
 }
 
-rule monotoneMulDiv(uint256 a1, uint256 a2, uint256 b, uint256 d) {
+rule monotoneMulDiv1(uint256 a1, uint256 a2, uint256 b, uint256 d) {
     require a1 <= a2 && d > 0, "preconditions";
     assert mulDivDown(a1, b, d) <= mulDivDown(a2, b, d);
     assert mulDivUp(a1, b, d) <= mulDivUp(a2, b, d);
+}
+
+rule monotoneMulDiv2(uint256 a, uint256 b1, uint256 b2, uint256 d) {
+    require b1 <= b2 && d > 0, "preconditions";
+    assert mulDivDown(a, b1, d) <= mulDivDown(a, b2, d);
+    assert mulDivUp(a, b1, d) <= mulDivUp(a, b2, d);
+}
+
+rule monotoneMulDiv3(uint256 a, uint256 b, uint256 d1, uint256 d2) {
+    require d1 <= d2 && d1 > 0, "preconditions";
+    assert mulDivDown(a, b, d1) >= mulDivDown(a, b, d2);
+    assert mulDivUp(a, b, d1) >= mulDivUp(a, b, d2);
 }
 
 rule addMulDiv(uint256 a1, uint256 a2, uint256 b, uint256 d) {
@@ -23,6 +35,12 @@ rule addMulDiv(uint256 a1, uint256 a2, uint256 b, uint256 d) {
     uint256 a1plusa2 = require_uint256(a1 + a2);
     assert mulDivDown(a1, b, d) + mulDivDown(a2, b, d) <= mulDivDown(a1plusa2, b, d);
     assert mulDivUp(a1, b, d) + mulDivUp(a2, b, d) >= mulDivUp(a1plusa2, b, d);
+}
+
+rule addMulDiv2(uint256 a1, uint256 a2, uint256 b, uint256 d) {
+    require d > 0, "preconditions";
+    uint256 a1plusa2 = require_uint256(a1 + a2);
+    assert mulDivDown(a1, b, d) + mulDivUp(a2, b, d) >= mulDivDown(a1plusa2, b, d);
 }
 
 rule subtractMulDiv(uint256 a1, uint256 a2, uint256 b, uint256 d) {
@@ -44,8 +62,8 @@ rule inverseMulDiv(uint256 a, uint256 b, uint256 d) {
     assert mulDivUp(mulDivDown(a, b, d), d, b) <= a;
 }
 
-rule lltvVsLifMulDiv(uint256 lltv, uint256 lif, uint256 a, uint256 WAD) {
-    require lltv * lif < WAD * WAD;
+rule mulDivLivLLTV(uint256 a, uint256 lif, uint256 lltv, uint256 WAD) {
+    require lltv * lif < WAD * WAD, "precondition";
     assert mulDivUp(a, lltv, WAD) <= mulDivUp(a, WAD, lif);
 }
 

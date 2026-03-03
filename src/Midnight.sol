@@ -453,9 +453,9 @@ contract Midnight is IMidnight {
                 );
 
             if (seizedAssets > 0) {
-                repaidUnits = seizedAssets.mulDivUp(liquidatedCollatPrice, ORACLE_PRICE_SCALE).mulDivUp(obligation.collaterals[collateralIndex].lltv, WAD);
+                repaidUnits = seizedAssets.mulDivUp(liquidatedCollatPrice, ORACLE_PRICE_SCALE).mulDivUp(WAD, lif);
             } else {
-                seizedAssets = repaidUnits.mulDivDown(WAD, obligation.collaterals[collateralIndex].lltv).mulDivDown(ORACLE_PRICE_SCALE, liquidatedCollatPrice);
+                seizedAssets = repaidUnits.mulDivDown(lif, WAD).mulDivDown(ORACLE_PRICE_SCALE, liquidatedCollatPrice);
             }
 
             if (block.timestamp <= obligation.maturity) {

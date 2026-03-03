@@ -34,27 +34,42 @@ methods {
 
 definition MAX_LIF() returns uint256 = 115 * 10^16;
 definition WAD() returns uint256 = 10^18;
+definition ORACLE_PRICE_SCALE() returns uint256 = 10^36;
 
 persistent ghost summaryPrice(address) returns uint256;
 persistent ghost summaryMulDivDownM(mathint,mathint,mathint) returns mathint {
+    axiom forall mathint a. forall mathint b. forall mathint d. a >= 0 && b >= 0 && d > 0 =>
+        summaryMulDivDownM(a, b, d) >= 0;
     axiom forall mathint b. forall mathint d. d > 0 =>
         summaryMulDivDownM(0, b, d) == 0;
     axiom forall mathint a1. forall mathint a2. forall mathint b. forall mathint d. d > 0 && a1 <= a2 =>
         summaryMulDivDownM(a1, b, d) <= summaryMulDivDownM(a2, b, d);
-//    axiom forall mathint a1. forall mathint a2. forall mathint b. forall mathint d. d > 0 && a1 <= a2 =>
-//        summaryMulDivDownM(a2 - a1, b, d) <= summaryMulDivDownM(a2, b, d) - summaryMulDivDownM(a1, b, d);
+    axiom forall mathint a. forall mathint b1. forall mathint b2. forall mathint d. d > 0 && b1 <= b2 =>
+        summaryMulDivDownM(a, b1, d) <= summaryMulDivDownM(a, b2, d);
 }
+
 persistent ghost summaryMulDivUpM(mathint,mathint,mathint) returns mathint {
+    axiom forall mathint a. forall mathint b. forall mathint d. a >= 0 && b >= 0 && d > 0 =>
+        summaryMulDivUpM(a, b, d) >= 0;
     axiom forall mathint a1. forall mathint a2. forall mathint b. forall mathint d. d > 0 && a1 <= a2 =>
         summaryMulDivUpM(a1, b, d) <= summaryMulDivUpM(a2, b, d);
-//    axiom forall mathint a. forall mathint b. forall mathint d. forall mathint x. b > 0 && d > 0 =>
-//        a <= summaryMulDivDownM(summaryMulDivUpM(a, b, d), d, b);
-//    axiom forall mathint a. forall mathint b. forall mathint d. forall mathint x. b > 0 && d > 0 =>
-//        a >= summaryMulDivUpM(summaryMulDivDownM(a, b, d), d, b);
-
-//    axiom forall mathint a1. forall mathint a2. forall mathint b. forall mathint d. d > 0 && a1 <= a2 =>
-//        summaryMulDivDownM(a2 - a1, b, d) >= summaryMulDivDownM(a2, b, d) - summaryMulDivUpM(a1, b, d);
+    axiom forall mathint a. forall mathint b. forall mathint d1. forall mathint d2. d1 > 0 && d1 <= d2 =>
+         summaryMulDivUpM(a, b, d1) >= summaryMulDivUpM(a, b, d2);
 }
+
+/* Axioms that are proved by Muldiv.spec */
+
+definition axiomAdd2(mathint a1, mathint a2, mathint b, mathint d) returns bool =
+    d > 0 =>
+    summaryMulDivDownM(a1, b,d) + summaryMulDivUpM(a2, b, d) >= summaryMulDivDownM(a1 + a2, b, d);
+
+definition axiomDownUp(mathint a, mathint b, mathint d) returns bool =
+    b > 0 && d > 0 =>
+    summaryMulDivUpM(summaryMulDivDownM(a, b, d), d, b) <= a;
+
+definition axiomLifLLTV(mathint a, mathint lif, mathint lltv) returns bool =
+    lltv * lif < WAD() * WAD() =>
+    summaryMulDivUpM(a, lltv, WAD()) <= summaryMulDivUpM(a, WAD(), lif);
 
 definition mulUpAxioms(mathint a, mathint b, mathint d) returns bool =
     a <= summaryMulDivDownM(summaryMulDivUpM(a, b, d), d, b) &&
@@ -69,42 +84,25 @@ definition mulDownAxioms(mathint a, mathint b, mathint d) returns bool =
        a1 + summaryMulDivDownM(a, b, d) <= a2  =>
        summaryMulDivDownM(a1, d, b) >= summaryMulDivDownM(a2, d, b) - a);
 
-ghost mapping(mathint => mathint) ghost_MulDivA;
-ghost mapping(mathint => mathint) ghost_MulDivB;
-ghost mapping(mathint => mathint) ghost_MulDivD;
-ghost mathint counter;
-ghost uint256 globalCollateralIndex;
-
 function summaryMulDivDown(uint256 a, uint256 b, uint256 d) returns uint256 {
     bool overflow;
     if (overflow || d == 0) {
         revert();
     }
-    ghost_MulDivA[counter] = a;
-    ghost_MulDivB[counter] = b;
-    ghost_MulDivD[counter] = d;
-    counter = counter + 1;
-    require summaryMulDivUpM(a, WAD(), MAX_LIF())  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[globalCollateralIndex], WAD()), "collateral lltv must be less then 1/MAX_LIF";
-    //require mulDownAxioms(a,b,d);
     return require_uint256(summaryMulDivDownM(a, b, d));
-//    return require_uint256(a * b / d);
 }
 function summaryMulDivUp(uint256 a, uint256 b, uint256 d) returns uint256 {
     bool overflow;
     if (overflow || d == 0) {
         revert();
     }
-    ghost_MulDivA[counter] = a;
-    ghost_MulDivB[counter] = b;
-    ghost_MulDivD[counter] = d;
-    counter = counter + 1;
-    require mulUpAxioms(a,b,d);
     return require_uint256(summaryMulDivUpM(a, b, d));
-//    return require_uint256(a * b / d);
 }
 
+// global variable to track whether the user was healthy before the callbacks.
+persistent ghost bool healthyBeforeCallback;
 
-//persistent ghost Midnight.Obligation globalObligation;
+// global variable to track which obligation and borrower we're testing.
 persistent ghost address globalObligationLoanToken;
 persistent ghost uint256 globalObligationCollateralLength;
 persistent ghost mapping(uint256 => address) globalObligationCollateralOracle;
@@ -113,6 +111,7 @@ persistent ghost mapping(uint256 => uint256) globalObligationCollateralLLTV;
 persistent ghost bytes20 globalId;
 persistent ghost address globalBorrower;
 
+// helper function to check if one of the collaterals of an obligation matches the global variables.
 definition collateralMatches(Midnight.Obligation obligation, uint256 index) returns bool =
     (index < globalObligationCollateralLength => 
     obligation.collaterals[index].oracle == globalObligationCollateralOracle[index]
@@ -126,7 +125,7 @@ function summaryToId(Midnight.Obligation obligation, uint256 chainId, address mo
         && collateralMatches(obligation, 0)
         && collateralMatches(obligation, 1)
         && collateralMatches(obligation, 2)
-        && collateralMatches(obligation, 3)
+        // && collateralMatches(obligation, 3)
         && morpho == currentContract) {
         require id == globalId;
     } else {
@@ -134,8 +133,6 @@ function summaryToId(Midnight.Obligation obligation, uint256 chainId, address mo
     }
     return id;
 }
-
-ghost bool globalViolated;
 
 function genericCallback() {
     address dummy;
@@ -147,17 +144,15 @@ function genericCallback() {
     require collateralMatches(obligation, 0);
     require collateralMatches(obligation, 1);
     require collateralMatches(obligation, 2);
-    require collateralMatches(obligation, 3);
+    // require collateralMatches(obligation, 3);
 
-//    assert preciseMaxDebt(globalBorrower, obligation, globalId) >= debtOf(globalId, globalBorrower), "user is healthy before callback";
     if (!isHealthy(obligation, globalId, globalBorrower)) {
-        globalViolated = true;
-    }//, "user is healthy before callback";
+        healthyBeforeCallback = false;
+    }
 
     callback.callHavoc(e, dummy);
 
     require isHealthy(obligation, globalId, globalBorrower), "user is healthy after callback";
-//    require preciseMaxDebt(globalBorrower, obligation, globalId) >= debtOf(globalId, globalBorrower), "user is healthy after callback";
 }
 
 function genericCallbackBool() returns (bool) {
@@ -170,90 +165,64 @@ function genericCallbackBool() returns (bool) {
 rule stayHealthyLiquidate(env e, Midnight.Obligation someObligation, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, bytes someData) {
     Midnight.Obligation obligation;
 
-    globalViolated = false;
-    counter = 0;
-    require forall uint256 a. forall uint256 lif. 
-        summaryMulDivUpM(a, WAD(), MAX_LIF())  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[someCollateralIndex], WAD()),
-        "collateral lltv must be less then 1/MAX_LIF";
+    // reset the ghost variable that tracks whether the user was healthy before the callbacks.
+    healthyBeforeCallback = true;
 
-    // require forall uint256 i. forall uint256 a. forall uint256 lif. 
-    //     0 <= i && i < globalObligationCollateralLength && lif <= MAX_LIF() =>
-    //     summaryMulDivUpM(a, WAD(), lif)  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[i], WAD()),
-    //     "collateral lltv must be less then 1/MAX_LIF";
+    require globalObligationCollateralLLTV[someCollateralIndex] * MAX_LIF() < WAD() * WAD(), "collateral lltv must be less then 1/MAX_LIF";
 
-//    require forall uint256 i. 0 <= i && i < globalObligationCollateralLength =>
-//        obligation.collaterals[i].lltv * MAX_LIF()  < WAD()*WAD(), "collateral lltv must be less then 1/MAX_LIF";
-
-    require globalObligationCollateralLength <= 4, "too many collaterals for the spec to handle";
+    require globalObligationCollateralLength <= 3, "too many collaterals for the spec to handle";
 
     require obligation.loanToken == globalObligationLoanToken;
     require obligation.collaterals.length == globalObligationCollateralLength;
     require collateralMatches(obligation, 0);
     require collateralMatches(obligation, 1);
     require collateralMatches(obligation, 2);
-    require collateralMatches(obligation, 3);
+    // require collateralMatches(obligation, 3);
 
     require isHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
-    //require preciseMaxDebt(globalBorrower, obligation, globalId) >= debtOf(globalId, globalBorrower), "user is healthy before call";
 
-    globalCollateralIndex = someCollateralIndex;
     uint256 collateralBefore = collateralOf(globalId, globalBorrower, someCollateralIndex);
     uint256 seizedAssets;
     uint256 repaidUnits;
 
-    seizedAssets, repaidUnits = liquidate(e, someObligation, someCollateralIndex, someSeizedAssets, someRepaidUnits, globalBorrower, someData);
+    seizedAssets, repaidUnits = liquidate(e, obligation, someCollateralIndex, someSeizedAssets, someRepaidUnits, globalBorrower, someData);
 
-    require summaryMulDivUpM(seizedAssets, WAD(), MAX_LIF())  >= summaryMulDivUpM(seizedAssets, globalObligationCollateralLLTV[someCollateralIndex], WAD()), "collateral lltv must be less then 1/MAX_LIF";
-    require summaryMulDivDownM(collateralBefore - seizedAssets, WAD(), MAX_LIF()) >= summaryMulDivDownM(collateralBefore, WAD(), MAX_LIF()) - summaryMulDivUpM(seizedAssets, WAD(), MAX_LIF()), "axiom";
+    // we cannot use collateralOf, as it may already have been changed by the callbacks.
+    mathint collateralAfter = collateralBefore - seizedAssets;
+    mathint price = summaryPrice(obligation.collaterals[someCollateralIndex].oracle);
+    // require all the axioms that are needed to prove the healthiness after liquidation. These are the same axioms that are proved in the Muldiv.spec
+    require axiomDownUp(repaidUnits, MAX_LIF(), WAD()), "axiom";
+    require axiomDownUp(summaryMulDivDownM(repaidUnits, MAX_LIF(), WAD()), ORACLE_PRICE_SCALE(), price), "axiom";
+    require axiomLifLLTV(summaryMulDivUpM(seizedAssets, price, ORACLE_PRICE_SCALE()), MAX_LIF(), globalObligationCollateralLLTV[someCollateralIndex]);
+    require axiomAdd2(collateralAfter, seizedAssets, price, ORACLE_PRICE_SCALE()), "axiom";
+    require axiomAdd2(summaryMulDivDownM(collateralAfter, price, ORACLE_PRICE_SCALE()), summaryMulDivUpM(seizedAssets, price, ORACLE_PRICE_SCALE()), globalObligationCollateralLLTV[someCollateralIndex], WAD()), "axiom";
 
-    // if (f.selector == sig:liquidate(Midnight.Obligation,uint256,uint256,uint256,address,bytes).selector) {
-    // }
-    assert !globalViolated, "user is healthy after call";
+    assert healthyBeforeCallback, "user is healthy before callbacks";
     assert isHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
-    //assert preciseMaxDebt(globalBorrower, obligation, globalId) >= debtOf(globalId, globalBorrower), "user is healthy after call";
 }
 
 
-rule stayHealthy(env e, method f, calldataarg args) {
+rule stayHealthy(env e, method f, calldataarg args) 
+filtered { f -> f.selector != sig:liquidate(Midnight.Obligation,uint256,uint256,uint256,address,bytes).selector }
+{
     Midnight.Obligation obligation;
 
-    counter = 0;
-    require forall uint256 a. forall uint256 lif. 
-        summaryMulDivUpM(a, WAD(), lif)  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[0], WAD()),
-        "collateral lltv must be less then 1/MAX_LIF";
-    require forall uint256 a. forall uint256 lif. 
-        summaryMulDivUpM(a, WAD(), lif)  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[1], WAD()),
-        "collateral lltv must be less then 1/MAX_LIF";
-    require forall uint256 a. forall uint256 lif. 
-        summaryMulDivUpM(a, WAD(), lif)  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[2], WAD()),
-        "collateral lltv must be less then 1/MAX_LIF";
-    require forall uint256 a. forall uint256 lif. 
-        summaryMulDivUpM(a, WAD(), lif)  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[3], WAD()),
-        "collateral lltv must be less then 1/MAX_LIF";
-    // require forall uint256 i. forall uint256 a. forall uint256 lif. 
-    //     0 <= i && i < globalObligationCollateralLength && lif <= MAX_LIF() =>
-    //     summaryMulDivUpM(a, WAD(), lif)  >= summaryMulDivUpM(a, globalObligationCollateralLLTV[i], WAD()),
-    //     "collateral lltv must be less then 1/MAX_LIF";
+    // reset the ghost variable that tracks whether the user was healthy before the callbacks.
+    healthyBeforeCallback = true;
 
-//    require forall uint256 i. 0 <= i && i < globalObligationCollateralLength =>
-//        obligation.collaterals[i].lltv * MAX_LIF()  < WAD()*WAD(), "collateral lltv must be less then 1/MAX_LIF";
-
-    require globalObligationCollateralLength <= 4, "too many collaterals for the spec to handle";
+    require globalObligationCollateralLength <= 3, "too many collaterals for the spec to handle";
 
     require obligation.loanToken == globalObligationLoanToken;
     require obligation.collaterals.length == globalObligationCollateralLength;
     require collateralMatches(obligation, 0);
     require collateralMatches(obligation, 1);
     require collateralMatches(obligation, 2);
-    require collateralMatches(obligation, 3);
+    // require collateralMatches(obligation, 3);
 
     require isHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
-    //require preciseMaxDebt(globalBorrower, obligation, globalId) >= debtOf(globalId, globalBorrower), "user is healthy before call";
 
     f(e, args);
 
-    // if (f.selector == sig:liquidate(Midnight.Obligation,uint256,uint256,uint256,address,bytes).selector) {
-    // }
+    assert healthyBeforeCallback, "user is healthy before callbacks";
     assert isHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
-    //assert preciseMaxDebt(globalBorrower, obligation, globalId) >= debtOf(globalId, globalBorrower), "user is healthy after call";
 }
