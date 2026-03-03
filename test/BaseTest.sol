@@ -12,6 +12,7 @@ import {
     WAD,
     ORACLE_PRICE_SCALE,
     MAX_COLLATERALS,
+    LIQUIDATION_CURSOR_LOW,
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH
 } from "../src/libraries/ConstantsLib.sol";
@@ -170,7 +171,7 @@ abstract contract BaseTest is Test {
     }
 
     function root(Offer[2] memory offers) internal pure returns (bytes32) {
-        return keccak256(UtilsLib.sort(keccak256(abi.encode(offers[0])), keccak256(abi.encode(offers[1]))));
+        return UtilsLib.commutativeHash(keccak256(abi.encode(offers[0])), keccak256(abi.encode(offers[1])));
     }
 
     function proof(Offer[1] memory) internal pure returns (bytes32[] memory) {
@@ -219,7 +220,7 @@ abstract contract BaseTest is Test {
         return arr;
     }
 
-    /// @dev Returns an obligation with sorted, unique collaterals and valid lltv/lif.
+    /// @dev Returns an obligation with sorted, unique collaterals and valid lltv/maxLif.
     function validObligation(Obligation memory obligation) internal pure returns (Obligation memory) {
         uint256 len = obligation.collaterals.length > MAX_COLLATERALS ? MAX_COLLATERALS : obligation.collaterals.length;
         Collateral[] memory collaterals = new Collateral[](len);
@@ -227,7 +228,7 @@ abstract contract BaseTest is Test {
             collaterals[i].token = address(uint160(uint256(keccak256(abi.encode(obligation.collaterals[i].token, i)))));
             uint256 lltv = obligation.collaterals[i].lltv > WAD ? WAD : obligation.collaterals[i].lltv;
             collaterals[i].lltv = lltv;
-            collaterals[i].lif = maxLif(lltv, 0.25e18);
+            collaterals[i].maxLif = maxLif(lltv, LIQUIDATION_CURSOR_LOW);
         }
         collaterals = sortCollaterals(collaterals);
         obligation.collaterals = collaterals;
@@ -274,6 +275,6 @@ abstract contract BaseTest is Test {
     }
 
     function maxLif(uint256 lltv, uint256 cursor) internal pure returns (uint256) {
-        return WAD.mulDivDown(WAD, WAD - cursor.mulDivDown(WAD - lltv, WAD));
+        return UtilsLib.mulDivDown(WAD, WAD, WAD - UtilsLib.mulDivDown(cursor, WAD - lltv, WAD));
     }
 }
