@@ -23,7 +23,6 @@ contract MaxAmountsTest is BaseTest {
         obligation.maturity = block.timestamp + 100;
         obligation.collaterals
             .push(Collateral({token: address(collateralToken1), lltv: 0.75e18, oracle: address(oracle1)}));
-        obligation.collaterals = sortCollaterals(obligation.collaterals);
         obligation.rcfThreshold = 0;
 
         id = toId(obligation);
@@ -66,12 +65,6 @@ contract MaxAmountsTest is BaseTest {
         uint256 amount = uint256(MAX_AMOUNT) + 1;
 
         deal(address(loanToken), lender, amount);
-
-        oracle1.setPrice(ORACLE_PRICE_SCALE * 1e36);
-        uint256 collateralAmount = 1000;
-        deal(address(collateralToken1), address(this), collateralAmount);
-        collateralToken1.approve(address(midnight), collateralAmount);
-        midnight.supplyCollateral(obligation, 0, collateralAmount, borrower);
 
         Offer memory borrowerOffer;
         borrowerOffer.obligation = obligation;

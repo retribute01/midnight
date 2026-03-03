@@ -14,10 +14,13 @@ import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
 // So debt <= type(uint128).max * 3/4.
 uint256 constant MAX_DEBT = MAX_TEST_AMOUNT * 3 / 4;
 
+uint256 constant MIN_SELLER_PRICE = 0.5e18;
+
 // In sell tests, sellerPrice = buyerPrice - tradingFee, so the minimum effective price is
-// 0.5e18 - maxTradingFee(1). Price conversion amplifies assets by up to WAD / minPrice.
+// MIN_SELLER_PRICE - maxTradingFee. Price conversion amplifies assets by up to WAD / minPrice.
 // Combined with the collateral constraint: assets * WAD / minPrice * 4/3 <= type(uint128).max.
-uint256 constant MAX_ASSETS = MAX_TEST_AMOUNT * (0.5e18 - 0.000014e18) / WAD * 3 / 4;
+// Uses 0.005e18 which is maxTradingFee(6), the biggest max trading fee.
+uint256 constant MAX_ASSETS = MAX_TEST_AMOUNT * (MIN_SELLER_PRICE - 0.005e18) / WAD * 3 / 4;
 
 contract TradingFeeTest is BaseTest {
     using UtilsLib for uint256;
@@ -66,7 +69,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_DEBT);
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
-        vm.assume(sellerPrice >= 0.5e18);
+        vm.assume(sellerPrice >= MIN_SELLER_PRICE);
         tradingFee = bound(tradingFee, 0, midnight.maxTradingFee(1)) / 1e12 * 1e12;
         midnight.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         borrowerOffer.tick = sellerTick;
@@ -86,7 +89,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_DEBT);
         buyerTick = bound(buyerTick, 0, TICK_RANGE);
         uint256 buyerPrice = TickLib.tickToPrice(buyerTick);
-        vm.assume(buyerPrice >= 0.5e18);
+        vm.assume(buyerPrice >= MIN_SELLER_PRICE);
         tradingFee = bound(tradingFee, 0, midnight.maxTradingFee(1)) / 1e12 * 1e12;
         midnight.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         lenderOffer.tick = buyerTick;
@@ -106,7 +109,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_ASSETS);
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
-        vm.assume(sellerPrice >= 0.5e18);
+        vm.assume(sellerPrice >= MIN_SELLER_PRICE);
         tradingFee = bound(tradingFee, 0, midnight.maxTradingFee(1)) / 1e12 * 1e12;
         midnight.setDefaultTradingFee(address(loanToken), 1, tradingFee);
         borrowerOffer.tick = sellerTick;
@@ -128,7 +131,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_ASSETS);
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
-        vm.assume(sellerPrice >= 0.5e18);
+        vm.assume(sellerPrice >= MIN_SELLER_PRICE);
         fee1Day = bound(fee1Day, 0, midnight.maxTradingFee(1)) / 1e12 * 1e12;
         fee7Days = bound(fee7Days, fee1Day, midnight.maxTradingFee(2)) / 1e12 * 1e12;
 
@@ -162,7 +165,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_ASSETS);
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
-        vm.assume(sellerPrice >= 0.5e18);
+        vm.assume(sellerPrice >= MIN_SELLER_PRICE);
         fee0Day = bound(fee0Day, 0, midnight.maxTradingFee(0)) / 1e12 * 1e12;
         maturity = bound(maturity, 0, block.timestamp - 1);
         obligation.maturity = maturity;
@@ -190,7 +193,7 @@ contract TradingFeeTest is BaseTest {
         obligationShares = bound(obligationShares, 0, MAX_ASSETS);
         sellerTick = bound(sellerTick, 0, TICK_RANGE);
         uint256 sellerPrice = TickLib.tickToPrice(sellerTick);
-        vm.assume(sellerPrice >= 0.5e18);
+        vm.assume(sellerPrice >= MIN_SELLER_PRICE);
         fee360Days = bound(fee360Days, 0, midnight.maxTradingFee(6)) / 1e12 * 1e12;
         maturity = bound(maturity, block.timestamp + 360 days, block.timestamp + 36500 days);
 
