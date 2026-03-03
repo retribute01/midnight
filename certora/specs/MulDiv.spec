@@ -66,4 +66,3 @@ rule mulDivLivLLTV(uint256 a, uint256 lif, uint256 lltv, uint256 WAD) {
     require lltv * lif < WAD * WAD, "precondition";
     assert mulDivUp(a, lltv, WAD) <= mulDivUp(a, WAD, lif);
 }
-
