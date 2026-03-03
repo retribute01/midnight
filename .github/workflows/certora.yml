@@ -54,9 +54,10 @@ jobs:
 
       - name: Copy solc
         run: |
-          forge build
-          ls -R ~/.foundry
-          sudo cp ~/.foundry/compilers/solc/0.8.31/solc /usr/local/bin/solc-0.8.31
+          echo "SOLC_PATH=$SOLC_PATH"
+          which solc || true
+          forge config --json | sed -n '1,160p'
+          strace -f -e execve forge build 2>&1 | grep -E "solc(-[0-9]|$)" | head -n 50
 
       - name: Verify ${{ matrix.conf }}
         run: certoraRun certora/confs/${{ matrix.conf }}.conf
