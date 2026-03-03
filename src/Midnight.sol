@@ -30,6 +30,9 @@ import {
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
+/// MAX AMOUNTS
+/// @dev The max amount of debt, totalUnits, totalShares, and collateral is type(uint128).max (~1e38).
+///
 /// OBLIGATIONS
 /// @dev Obligations' collaterals must be sorted by token address.
 ///
