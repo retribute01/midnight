@@ -10,7 +10,7 @@ import {WAD} from "../libraries/ConstantsLib.sol";
 library TakeAmountsLib {
     using UtilsLib for uint256;
 
-    // Forward: units = shares.mulDiv(totalUnits + 1, totalShares + 1, !buyerIsLender).
+    // Forward: units = shares.mulDivUp/Down(totalUnits + 1, totalShares + 1) depending on buyerIsLender.
     // When buyerIsLender (forward rounds up): inverse rounds down.
     // When !buyerIsLender (forward rounds down): inverse rounds up.
     function unitsToShares(Midnight midnight, bytes20 id, address taker, Offer memory offer, uint256 targetUnits)
@@ -20,10 +20,13 @@ library TakeAmountsLib {
     {
         address buyer = offer.buy ? offer.maker : taker;
         bool buyerIsLender = midnight.debtOf(id, buyer) == 0;
-        return targetUnits.mulDiv(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1, buyerIsLender);
+        return buyerIsLender
+            ? targetUnits.mulDivDown(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1)
+            : targetUnits.mulDivUp(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
     }
 
     // Forward: buyerAssets = units.mulDivDown(buyerPrice, WAD).
+    /// @dev Should not be used if buyerPrice >= WAD, because not all buyerAssets are reachable then.
     function buyerAssetsToShares(
         Midnight midnight,
         bytes20 id,
@@ -34,6 +37,7 @@ library TakeAmountsLib {
         uint256 offerPrice = TickLib.tickToPrice(offer.tick);
         uint256 _tradingFee = midnight.tradingFee(id, UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp));
         uint256 buyerPrice = offer.buy ? offerPrice : offerPrice + _tradingFee;
+        require(buyerPrice <= WAD, "buyerPrice");
         uint256 targetUnits = targetBuyerAssets.mulDivUp(WAD, buyerPrice);
         return unitsToShares(midnight, id, taker, offer, targetUnits);
     }
