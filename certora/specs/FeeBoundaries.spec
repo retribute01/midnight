@@ -16,20 +16,15 @@ definition FEE_STEP() returns mathint = 1000000000000; // 1e12
 
 /// Per-index max fee units — must match maxTradingFee(index) / FEE_STEP.
 /// CVL definitions are needed here because contract calls are disallowed inside quantified formulas.
-definition maxFeeUnits(uint256 index) returns mathint =
-    index == 0 ? 14 :
-    index == 1 ? 14 :
-    index == 2 ? 98 :
-    index == 3 ? 417 :
-    index == 4 ? 1250 :
-    index == 5 ? 2500 :
-    5000;
+
+definition maxFeeUnits(uint256 index) returns mathint = index == 0 ? 14 : index == 1 ? 14 : index == 2 ? 98 : index == 3 ? 417 : index == 4 ? 1250 : index == 5 ? 2500 : 5000;
 
 /// Persistent: these ghosts track Midnight's own storage, which is not havoced by HAVOC_ECF
 /// from external callbacks (onFlashLoan, onBuy, onSell, onLiquidate).
 persistent ghost mapping(bytes32 => mapping(uint256 => mathint)) ghostObligationFeeUnits {
     init_state axiom forall bytes32 id. forall uint256 i. ghostObligationFeeUnits[id][i] == 0;
 }
+
 persistent ghost mapping(address => mapping(uint256 => mathint)) ghostDefaultFeeUnits {
     init_state axiom forall address t. forall uint256 i. ghostDefaultFeeUnits[t][i] == 0;
 }
@@ -37,6 +32,7 @@ persistent ghost mapping(address => mapping(uint256 => mathint)) ghostDefaultFee
 hook Sstore obligationState[KEY bytes32 id].fees[INDEX uint256 idx] uint16 newVal {
     ghostObligationFeeUnits[id][idx] = to_mathint(newVal);
 }
+
 hook Sload uint16 val obligationState[KEY bytes32 id].fees[INDEX uint256 idx] {
     require ghostObligationFeeUnits[id][idx] == to_mathint(val);
 }
@@ -44,6 +40,7 @@ hook Sload uint16 val obligationState[KEY bytes32 id].fees[INDEX uint256 idx] {
 hook Sstore defaultFees[KEY address token][INDEX uint256 idx] uint16 newVal {
     ghostDefaultFeeUnits[token][idx] = to_mathint(newVal);
 }
+
 hook Sload uint16 val defaultFees[KEY address token][INDEX uint256 idx] {
     require ghostDefaultFeeUnits[token][idx] == to_mathint(val);
 }
@@ -57,8 +54,7 @@ invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
     index <= 6 => ghostObligationFeeUnits[id][index] <= maxFeeUnits(index)
     {
         preserved with (env e) {
-            require forall address t. forall uint256 i.
-                i <= 6 => ghostDefaultFeeUnits[t][i] <= maxFeeUnits(i);
+            require forall address t. forall uint256 i. i <= 6 => ghostDefaultFeeUnits[t][i] <= maxFeeUnits(i);
         }
     }
 
