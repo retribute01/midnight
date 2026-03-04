@@ -43,7 +43,7 @@ contract Midnight is IMidnight {
     /// STORAGE ///
 
     mapping(bytes20 id => mapping(address user => int256)) public balanceOf;
-    mapping(bytes20 id => mapping(address user => uint256)) public lastSlashingLevel;
+    mapping(bytes20 id => mapping(address user => uint256)) public userLossIndexIndex;
     mapping(bytes20 id => mapping(address user => uint128)) public activatedCollaterals;
     mapping(bytes20 id => mapping(address user => uint128[128])) public collateralOf;
     mapping(bytes20 id => ObligationState) public obligationState;
@@ -161,8 +161,8 @@ contract Midnight is IMidnight {
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
         bytes20 id = touchObligation(offer.obligation);
-        _slash(id, offer.maker);
-        _slash(id, taker);
+        slash(id, offer.maker);
+        slash(id, taker);
         ObligationState storage _obligationState = obligationState[id];
 
         (
@@ -198,7 +198,6 @@ contract Midnight is IMidnight {
         uint256 _tradingFee = tradingFee(id, timeToMaturity);
         uint256 sellerPrice = offer.buy ? offerPrice - _tradingFee : offerPrice;
         uint256 buyerPrice = sellerPrice + _tradingFee;
-        require(buyerPrice <= WAD, "price");
         uint256 buyerAssets =
             offer.buy ? obligationUnits.mulDivDown(buyerPrice, WAD) : obligationUnits.mulDivUp(buyerPrice, WAD);
         uint256 sellerAssets =
@@ -265,7 +264,7 @@ contract Midnight is IMidnight {
         require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "unauthorized");
         bytes20 id = touchObligation(obligation);
         ObligationState storage _obligationState = obligationState[id];
-        _slash(id, onBehalf);
+        slash(id, onBehalf);
 
         // forge-lint: disable-next-line(unsafe-typecast)
         balanceOf[id][onBehalf] -= int256(obligationUnits);
@@ -385,8 +384,8 @@ contract Midnight is IMidnight {
             // forge-lint: disable-next-line(unsafe-typecast)
             balanceOf[id][borrower] += int256(badDebt);
             uint256 oldTotalUnits = _obligationState.totalUnits;
-            _obligationState.slashingLevel =
-                _obligationState.slashingLevel.mulDivDown(oldTotalUnits - badDebt, oldTotalUnits);
+            _obligationState.lossIndex =
+                WAD - (WAD - _obligationState.lossIndex).mulDivDown(oldTotalUnits - badDebt, oldTotalUnits);
             _obligationState.totalUnits -= UtilsLib.toUint128(badDebt);
         }
 
@@ -495,7 +494,6 @@ contract Midnight is IMidnight {
 
             obligationState[id].created = true;
             obligationState[id].fees = defaultFees[obligation.loanToken];
-            obligationState[id].slashingLevel = WAD;
             IdLib.storeInCode(obligation);
 
             emit EventsLib.ObligationCreated(id, obligation);
@@ -503,18 +501,16 @@ contract Midnight is IMidnight {
         return id;
     }
 
-    /// INTERNAL FUNCTIONS ///
-
-    function _slash(bytes20 id, address user) internal {
-        uint256 currentUserIndex = lastSlashingLevel[id][user];
-        uint256 currentObligationIndex = obligationState[id].slashingLevel;
-        if (currentUserIndex != currentObligationIndex) {
+    function slash(bytes20 id, address user) public {
+        uint256 userLossIndex = userLossIndexIndex[id][user];
+        uint256 lossIndex = obligationState[id].lossIndex;
+        if (userLossIndex != lossIndex) {
             int256 balance = balanceOf[id][user];
-            if (balance > 0 && currentUserIndex > 0) {
+            if (balance > 0) {
                 // forge-lint: disable-next-line(unsafe-typecast)
-                balanceOf[id][user] = int256(uint256(balance).mulDivDown(currentObligationIndex, currentUserIndex));
+                balanceOf[id][user] = int256(uint256(balance).mulDivDown(WAD - lossIndex, WAD - userLossIndex));
             }
-            lastSlashingLevel[id][user] = currentObligationIndex;
+            userLossIndexIndex[id][user] = lossIndex;
         }
     }
 
@@ -533,11 +529,11 @@ contract Midnight is IMidnight {
 
     function balanceOfAfterSlashing(bytes20 id, address user) public view returns (int256) {
         int256 balance = balanceOf[id][user];
-        uint256 currentUserIndex = lastSlashingLevel[id][user];
-        uint256 currentObligationIndex = obligationState[id].slashingLevel;
-        if (balance > 0 && currentUserIndex > 0 && currentUserIndex != currentObligationIndex) {
+        uint256 userLossIndex = userLossIndexIndex[id][user];
+        uint256 lossIndex = obligationState[id].lossIndex;
+        if (balance > 0 && userLossIndex != lossIndex) {
             // forge-lint: disable-next-line(unsafe-typecast)
-            return int256(uint256(balance).mulDivDown(currentObligationIndex, currentUserIndex));
+            return int256(uint256(balance).mulDivDown(WAD - lossIndex, WAD - userLossIndex));
         }
         return balance;
     }
