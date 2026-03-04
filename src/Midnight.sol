@@ -344,9 +344,11 @@ contract Midnight is IMidnight {
         SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), obligationUnits);
     }
 
+    /// @dev This function checks authorization to prevent activated collateral poisoning.
     function supplyCollateral(Obligation memory obligation, uint256 collateralIndex, uint256 assets, address onBehalf)
         external
     {
+        require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "unauthorized");
         bytes20 id = touchObligation(obligation);
         address collateralToken = obligation.collaterals[collateralIndex].token;
 
