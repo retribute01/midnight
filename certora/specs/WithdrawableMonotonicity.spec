@@ -31,7 +31,14 @@ rule withdrawDecreasesWithdrawableExactly(env e, Midnight.Obligation obligation,
     assert to_mathint(withdrawableBefore) - to_mathint(withdrawableAfter) == to_mathint(withdrawnUnits);
 }
 
-rule withdrawableUnchanged(method f, env e, calldataarg args, bytes32 id) filtered { f -> !f.isView && f.selector != sig:repay(Midnight.Obligation,uint256,address).selector && f.selector != sig:liquidate(Midnight.Obligation,uint256,uint256,uint256,address,bytes).selector && f.selector != sig:withdraw(Midnight.Obligation,uint256,uint256,address,address).selector && f.selector != sig:multicall(bytes[]).selector } {
+rule withdrawableUnchanged(method f, env e, calldataarg args, bytes32 id)
+filtered {
+    f -> !f.isView
+        && f.selector != sig:repay(Midnight.Obligation, uint256, address).selector
+        && f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector
+        && f.selector != sig:withdraw(Midnight.Obligation, uint256, uint256, address, address).selector
+        && f.selector != sig:multicall(bytes[]).selector
+} {
     uint256 withdrawableBefore = withdrawable(id);
     f(e, args);
     uint256 withdrawableAfter = withdrawable(id);
