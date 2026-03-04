@@ -7,9 +7,6 @@ methods {
     function toId(Midnight.Obligation) external returns (bytes20);
 }
 
-
-/// RULES ///
-
 rule repayIncreasesWithdrawable(env e, Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf, bytes20 id) {
     uint256 withdrawableBefore = withdrawable(id);
     repay(e, obligation, obligationUnits, onBehalf);
