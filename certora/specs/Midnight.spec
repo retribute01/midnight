@@ -3,20 +3,11 @@
 methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
-<<<<<<< HEAD
     function withdrawable(bytes32 id) external returns (uint256) envfree;
     function totalUnits(bytes32 id) external returns (uint256) envfree;
     function consumed(address user, bytes32 group) external returns (uint256) envfree;
     function balanceOf(bytes32 id, address owner) external returns (int256) envfree;
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
-=======
-    function withdrawable(bytes32 id) external returns (uint256) envfree;
-    function totalUnits(bytes32 id) external returns (uint256) envfree;
-    function totalShares(bytes32 id) external returns (uint256) envfree;
-    function consumed(address user, bytes32 group) external returns (uint256) envfree;
-    function sharesOf(bytes32 id, address owner) external returns (uint256) envfree;
-    function debtOf(bytes32 id, address user) external returns (uint256) envfree;
->>>>>>> origin/main
 
     function _.price() external => NONDET;
     function IdLib.toId(Midnight.Obligation memory, uint256, address) internal returns (bytes32) => NONDET;
@@ -26,7 +17,6 @@ methods {
 
 /// HELPERS ///
 
-<<<<<<< HEAD
 persistent ghost mapping(bytes32 => mathint) sumBalanceOf {
     init_state axiom (forall bytes32 id. sumBalanceOf[id] == 0);
 }
@@ -41,22 +31,6 @@ function positivePart(mathint x) returns mathint {
 
 hook Sstore balanceOf[KEY bytes32 id][KEY address owner] int256 newBalance (int256 oldBalance) {
     sumBalanceOf[id] = sumBalanceOf[id] - oldBalance + newBalance;
-=======
-persistent ghost mapping(bytes32 => mathint) sumSharesOf {
-    init_state axiom (forall bytes32 id. sumSharesOf[id] == 0);
-}
-
-hook Sstore sharesOf[KEY bytes32 id][KEY address owner] uint256 newShares (uint256 oldShares) {
-    sumSharesOf[id] = sumSharesOf[id] - oldShares + newShares;
-}
-
-persistent ghost mapping(bytes32 => mathint) sumDebtOf {
-    init_state axiom (forall bytes32 id. sumDebtOf[id] == 0);
-}
-
-hook Sstore borrowerState[KEY bytes32 id][KEY address owner].debt uint128 newDebt (uint128 oldDebt) {
-    sumDebtOf[id] = sumDebtOf[id] - oldDebt + newDebt;
->>>>>>> origin/main
 }
 
 function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
@@ -114,19 +88,8 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
 
 /// INVARIANTS ///
 
-<<<<<<< HEAD
 strong invariant totalUnitsEqualsSumNegativeBalancePlusWithdrawable(bytes32 id)
     to_mathint(totalUnits(id)) == negativePart(sumBalanceOf[id]) + to_mathint(withdrawable(id));
 
 strong invariant totalUnitsEqualsSumPositiveBalance(bytes32 id)
     to_mathint(totalUnits(id)) == positivePart(sumBalanceOf[id]);
-=======
-strong invariant notBorrowerAndLender(bytes32 id, address user)
-    sharesOf(id, user) == 0 || debtOf(id, user) == 0;
-
-strong invariant totalUnitsEqualsSumDebtPlusWithdrawable(bytes32 id)
-    totalUnits(id) == sumDebtOf[id] + withdrawable(id);
-
-strong invariant totalSharesEqualsSumSharesOf(bytes32 id)
-    totalShares(id) == sumSharesOf[id];
->>>>>>> origin/main

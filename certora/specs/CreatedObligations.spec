@@ -7,18 +7,10 @@ methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
     function _.price() external => NONDET;
 
-<<<<<<< HEAD
     function Midnight.totalUnits(bytes32) external returns (uint256) envfree;
     function Midnight.withdrawable(bytes32) external returns (uint256) envfree;
     function Midnight.fees(bytes32) external returns (uint16[7]) envfree;
     function Midnight.obligationCreated(bytes32) external returns (bool) envfree;
-=======
-    function Midnight.totalUnits(bytes32) external returns (uint256) envfree;
-    function Midnight.totalShares(bytes32) external returns (uint256) envfree;
-    function Midnight.withdrawable(bytes32) external returns (uint256) envfree;
-    function Midnight.fees(bytes32) external returns (uint16[7]) envfree;
-    function Midnight.obligationCreated(bytes32) external returns (bool) envfree;
->>>>>>> origin/main
     function Utils.hashObligation(Midnight.Obligation) external returns (bytes32) envfree;
 
     function UtilsLib.mulDivDown(uint256, uint256, uint256) internal returns (uint256) => NONDET;
