@@ -264,8 +264,9 @@ contract LiquidationTest is BaseTest {
         uint256 debtAfterBadDebt = units - _badDebt();
         uint256 maxRepaid = _maxRepaid(units, debtAfterBadDebt, liquidationOraclePrice);
         uint256 lif0 = obligation.collaterals[0].maxLif;
-        uint256 maxSeized = UtilsLib.min(maxRepaid, debtAfterBadDebt).mulDivDown(lif0, WAD)
+        uint256 maxSeizedFromRepaid = UtilsLib.min(maxRepaid, debtAfterBadDebt).mulDivDown(lif0, WAD)
             .mulDivDown(ORACLE_PRICE_SCALE, liquidationOraclePrice);
+        uint256 maxSeized = UtilsLib.min(midnight.collateralOf(id, borrower, 0), maxSeizedFromRepaid);
         seized = bound(seized, 0, maxSeized);
 
         (, uint256 repaid) = midnight.liquidate(obligation, 0, seized, 0, borrower, "");
