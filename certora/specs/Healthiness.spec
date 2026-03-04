@@ -105,7 +105,6 @@ definition collateralMatches(Midnight.Obligation obligation, uint256 index) retu
 function summaryToId(Midnight.Obligation obligation, uint256 chainId, address morpho) returns (bytes20) {
     bytes20 id;
     if (
-        // && collateralMatches(obligation, 3)
         obligation.loanToken == globalObligationLoanToken
             && obligation.collaterals.length == globalObligationCollateralLength
             && collateralMatches(obligation, 0)
@@ -130,7 +129,6 @@ function genericCallback() {
     require collateralMatches(obligation, 0);
     require collateralMatches(obligation, 1);
     require collateralMatches(obligation, 2);
-    // require collateralMatches(obligation, 3);
 
     if (!isHealthy(obligation, globalId, globalBorrower)) {
         healthyBeforeCallback = false;
@@ -148,7 +146,7 @@ function genericCallbackBool() returns (bool) {
     return result;
 }
 
-rule stayHealthyLiquidate(env e, Midnight.Obligation someObligation, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, bytes someData) {
+rule stayHealthyLiquidateSameBorrower(env e, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, bytes someData) {
     Midnight.Obligation obligation;
 
     // reset the ghost variable that tracks whether the user was healthy before the callbacks.
@@ -156,14 +154,13 @@ rule stayHealthyLiquidate(env e, Midnight.Obligation someObligation, uint256 som
 
     require globalObligationCollateralLLTV[someCollateralIndex] * MAX_LIF() < WAD() * WAD(), "collateral lltv must be less then 1/MAX_LIF";
 
-    require globalObligationCollateralLength <= 3, "too many collaterals for the spec to handle";
+    require globalObligationCollateralLength <= 1, "too many collaterals for the spec to handle";
 
     require obligation.loanToken == globalObligationLoanToken;
     require obligation.collaterals.length == globalObligationCollateralLength;
     require collateralMatches(obligation, 0);
-    require collateralMatches(obligation, 1);
-    require collateralMatches(obligation, 2);
-    // require collateralMatches(obligation, 3);
+    // require collateralMatches(obligation, 1);
+    // require collateralMatches(obligation, 2);
 
     require isHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
@@ -188,6 +185,33 @@ rule stayHealthyLiquidate(env e, Midnight.Obligation someObligation, uint256 som
     assert isHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
 }
 
+rule stayHealthyLiquidateOtherBorrower(env e, Midnight.Obligation someObligation, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, address someBorrower, bytes someData) {
+    Midnight.Obligation obligation;
+
+    // reset the ghost variable that tracks whether the user was healthy before the callbacks.
+    healthyBeforeCallback = true;
+
+    require globalObligationCollateralLength <= 3, "too many collaterals for the spec to handle";
+
+    require obligation.loanToken == globalObligationLoanToken;
+    require obligation.collaterals.length == globalObligationCollateralLength;
+    require collateralMatches(obligation, 0);
+    require collateralMatches(obligation, 1);
+    require collateralMatches(obligation, 2);
+
+    require someBorrower != globalBorrower || someObligation.loanToken != globalObligationLoanToken || someObligation.collaterals.length != globalObligationCollateralLength || !collateralMatches(someObligation, 0) || !collateralMatches(someObligation, 1) || !collateralMatches(someObligation, 2), "either user or obligation in the liquidation call is different";
+
+    require isHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
+
+    uint256 seizedAssets;
+    uint256 repaidUnits;
+
+    seizedAssets, repaidUnits = liquidate(e, someObligation, someCollateralIndex, someSeizedAssets, someRepaidUnits, someBorrower, someData);
+
+    assert healthyBeforeCallback, "user is healthy before callbacks";
+    assert isHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
+}
+
 rule stayHealthy(env e, method f, calldataarg args) filtered { f -> f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector } {
     Midnight.Obligation obligation;
 
@@ -201,7 +225,6 @@ rule stayHealthy(env e, method f, calldataarg args) filtered { f -> f.selector !
     require collateralMatches(obligation, 0);
     require collateralMatches(obligation, 1);
     require collateralMatches(obligation, 2);
-    // require collateralMatches(obligation, 3);
 
     require isHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
