@@ -212,26 +212,25 @@ contract Midnight is IMidnight {
         // To ensure that the share price does not decrease, units should be rounded up when buyerIsLender &
         // sellerIsBorrower, and rounded down when !buyerIsLender & !sellerIsBorrower. The variable buyerIsLender is
         // used to discriminate, as the remaining two cases do not change total units and total shares.
-        uint256 obligationUnits = buyerIsLender
-            ? obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1)
-            : obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
+        uint256 unitsDown =
+            obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
+        uint256 unitsUp = obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
+        uint256 obligationUnits = buyerIsLender ? unitsUp : unitsDown;
 
         uint256 buyerAssets;
         uint256 sellerAssets;
         if (offer.buy && buyerIsLender) {
-            buyerAssets = obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1)
-                .mulDivDown(buyerPrice, WAD);
-            sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
+            buyerAssets = unitsDown.mulDivDown(buyerPrice, WAD);
+            sellerAssets = unitsDown.mulDivDown(sellerPrice, WAD);
         } else if (offer.buy && !buyerIsLender) {
             buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-            sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
+            sellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
         } else if (!offer.buy && sellerIsBorrower) {
             sellerAssets = obligationUnits.mulDivUp(sellerPrice, WAD);
-            buyerAssets = sellerAssets.mulDivUp(buyerPrice, sellerPrice);
+            buyerAssets = obligationUnits.mulDivUp(buyerPrice, WAD);
         } else {
-            sellerAssets = obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1)
-                .mulDivUp(sellerPrice, WAD);
-            buyerAssets = sellerAssets.mulDivUp(buyerPrice, sellerPrice);
+            sellerAssets = unitsUp.mulDivUp(sellerPrice, WAD);
+            buyerAssets = unitsUp.mulDivUp(buyerPrice, WAD);
         }
 
         uint256 newConsumed;
