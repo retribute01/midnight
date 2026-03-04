@@ -3,14 +3,14 @@
 methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
-    function sharesOf(bytes20 id, address user) external returns (uint256) envfree;
+    function sharesOf(bytes32 id, address user) external returns (uint256) envfree;
     function isAuthorized(address authorizer, address authorized) external returns (bool) envfree;
 
     function _.price() external => NONDET;
 }
 
 /// An unauthorized caller cannot decrease a user's shares except via take.
-rule onlyAuthorizedCanDecreaseSharesExceptTake(env e, method f, bytes20 id, address user) {
+rule onlyAuthorizedCanDecreaseSharesExceptTake(env e, method f, bytes32 id, address user) {
     uint256 sharesBefore = sharesOf(id, user);
 
     require user != e.msg.sender;
@@ -23,7 +23,7 @@ rule onlyAuthorizedCanDecreaseSharesExceptTake(env e, method f, bytes20 id, addr
 }
 
 /// In take, the caller must be authorized by the taker and only the lender shares can decrease
-rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes20 id, address user) {
+rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 id, address user) {
     address seller = offer.buy ? taker : offer.maker;
     bool takerUnauthorized = e.msg.sender != taker && !isAuthorized(taker, e.msg.sender);
 
