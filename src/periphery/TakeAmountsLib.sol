@@ -26,7 +26,7 @@ library TakeAmountsLib {
     }
 
     // Forward: buyerAssets = units.mulDivDown(buyerPrice, WAD).
-    /// @dev Should not be used if buyerPrice >= WAD, because not all buyerAssets are reachable then.
+    /// @dev Should not be used if buyerPrice > WAD, because not all buyerAssets are reachable then.
     function buyerAssetsToShares(
         Midnight midnight,
         bytes20 id,

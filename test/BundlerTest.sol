@@ -91,7 +91,7 @@ contract BundlerTest is BaseTest {
         });
 
         vm.prank(address(0xdead));
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("unauthorized");
         takeBundler.bundleTakeShares(midnight, 100, borrower, address(0), takes);
     }
 
