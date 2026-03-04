@@ -221,18 +221,17 @@ contract Midnight is IMidnight {
         if (offer.buy && buyerIsLender) {
             buyerAssets = obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1)
                 .mulDivDown(buyerPrice, WAD);
+            sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
         } else if (offer.buy && !buyerIsLender) {
             buyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
+            sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
         } else if (!offer.buy && sellerIsBorrower) {
             sellerAssets = obligationUnits.mulDivUp(sellerPrice, WAD);
+            buyerAssets = sellerAssets.mulDivUp(buyerPrice, sellerPrice);
         } else {
             sellerAssets = obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1)
                 .mulDivUp(sellerPrice, WAD);
-        }
-        if (buyerAssets > 0) {
-            sellerAssets = buyerAssets.mulDivDown(sellerPrice, buyerPrice);
-        } else {
-            buyerAssets = sellerAssets.mulDivDown(buyerPrice, sellerPrice);
+            buyerAssets = sellerAssets.mulDivUp(buyerPrice, sellerPrice);
         }
 
         uint256 newConsumed;
