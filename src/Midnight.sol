@@ -490,8 +490,11 @@ contract Midnight is IMidnight {
         return (seizedAssets, repaidUnits);
     }
 
+    /// @dev Pass type(uint256).max to cancel all offers in the group. Never reverts.
     function consume(bytes32 group, uint256 amount) external {
-        consumed[msg.sender][group] += amount;
+        require(amount >= consumed[msg.sender][group], "consumed");
+
+        consumed[msg.sender][group] = amount;
 
         emit EventsLib.Consume(msg.sender, group, amount);
     }
