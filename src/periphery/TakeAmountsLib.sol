@@ -18,7 +18,7 @@ library TakeAmountsLib {
         returns (uint256)
     {
         uint256 makerPrice = TickLib.tickToPrice(offer.tick);
-        uint256 tradingFee = midnight.tradingFee(id, offer.obligation.maturity - block.timestamp);
+        uint256 tradingFee = midnight.tradingFee(id, UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp));
         uint256 buyerPrice = offer.buy ? makerPrice : makerPrice + tradingFee;
         require(buyerPrice <= WAD, "buyerPrice");
         return offer.buy ? targetBuyerAssets.mulDivUp(WAD, buyerPrice) : targetBuyerAssets.mulDivDown(WAD, buyerPrice);
@@ -31,7 +31,7 @@ library TakeAmountsLib {
         returns (uint256)
     {
         uint256 makerPrice = TickLib.tickToPrice(offer.tick);
-        uint256 tradingFee = midnight.tradingFee(id, offer.obligation.maturity - block.timestamp);
+        uint256 tradingFee = midnight.tradingFee(id, UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp));
         uint256 sellerPrice = offer.buy ? makerPrice - tradingFee : makerPrice;
         return
             offer.buy ? targetSellerAssets.mulDivUp(WAD, sellerPrice) : targetSellerAssets.mulDivDown(WAD, sellerPrice);
