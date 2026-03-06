@@ -254,7 +254,7 @@ contract Midnight is IMidnight {
         if (buyerIsLender) {
             // Lender enters.
             sharesOf[id][buyer] += obligationShares;
-        } else if (obligationUnits > 0) {
+        } else {
             // Borrower exits.
             accrueContinuousFee(id, buyer);
             borrowerState[id][buyer].debt -= UtilsLib.toUint128(obligationUnits);
@@ -273,7 +273,7 @@ contract Midnight is IMidnight {
                 );
                 _state.debt = newDebt;
             }
-        } else if (obligationShares > 0) {
+        } else {
             // Lender exits.
             sharesOf[id][seller] -= obligationShares;
         }
