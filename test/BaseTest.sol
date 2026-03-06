@@ -144,13 +144,13 @@ abstract contract BaseTest is Test {
         badBorrowerOffer.tick = TICK_RANGE;
 
         vm.prank(badBorrower);
-        midnight.setIsAuthorized(address(this), true);
+        midnight.setIsAuthorized(badBorrower, address(this), true);
 
         deal(obligation.collaterals[0].token, address(this), 135);
         midnight.supplyCollateral(obligation, 0, 135, badBorrower);
 
         vm.prank(badBorrower);
-        midnight.setIsAuthorized(address(this), false);
+        midnight.setIsAuthorized(badBorrower, address(this), false);
 
         deal(address(loanToken), unluckyLender, 100);
 
@@ -164,6 +164,8 @@ abstract contract BaseTest is Test {
         );
 
         // then empty the market (borrow side only).
+        vm.prank(badBorrower);
+        midnight.setIsAuthorized(badBorrower, address(this), true);
         deal(address(loanToken), address(this), midnight.debtOf(toId(obligation), badBorrower));
         midnight.repay(obligation, midnight.debtOf(toId(obligation), badBorrower), badBorrower);
         assertEq(midnight.debtOf(toId(obligation), badBorrower), 0, "debt");

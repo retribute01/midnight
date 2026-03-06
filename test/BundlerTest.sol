@@ -74,10 +74,10 @@ contract BundlerTest is BaseTest {
 
     function _authorizeBundler() internal {
         vm.prank(borrower);
-        midnight.setIsAuthorized(address(takeBundler), true);
+        midnight.setIsAuthorized(borrower, address(takeBundler), true);
 
         vm.prank(borrower);
-        midnight.setIsAuthorized(address(this), true);
+        midnight.setIsAuthorized(borrower, address(this), true);
     }
 
     function testUnauthorizedShares() public {
