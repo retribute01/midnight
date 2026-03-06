@@ -257,7 +257,6 @@ contract Midnight is IMidnight {
         } else if (obligationUnits > 0) {
             // Borrower exits.
             accrueContinuousFee(id, buyer);
-            // forge-lint: disable-next-line(unsafe-typecast) TODO justify
             borrowerState[id][buyer].debt -= UtilsLib.toUint128(obligationUnits);
         }
 
