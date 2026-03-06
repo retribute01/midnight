@@ -212,7 +212,7 @@ contract TakeAmountsTest is BaseTest {
         uint256 buyerPrice = TickLib.tickToPrice(TICK_RANGE) + tradingFee;
         uint256 targetUnits = targetBuyerAssets.mulDivUp(WAD, buyerPrice);
 
-        uint256 shares = TakeAmountsLib.unitsToShares(midnight, id, lender, offer, targetUnits);
+        uint256 shares = targetUnits.mulDivDown(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
         deal(address(loanToken), lender, type(uint256).max);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
         offer.maker = borrower;

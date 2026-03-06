@@ -216,7 +216,6 @@ contract Midnight is IMidnight {
             obligationShares.mulDivDown(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
         uint256 unitsUp = obligationShares.mulDivUp(_obligationState.totalUnits + 1, _obligationState.totalShares + 1);
         uint256 obligationUnits = buyerIsLender ? unitsUp : unitsDown;
-
         uint256 buyerAssets = offer.buy ? unitsDown.mulDivDown(buyerPrice, WAD) : unitsUp.mulDivUp(buyerPrice, WAD);
         uint256 sellerAssets = offer.buy ? unitsDown.mulDivDown(sellerPrice, WAD) : unitsUp.mulDivUp(sellerPrice, WAD);
 
