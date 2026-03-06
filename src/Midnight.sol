@@ -654,10 +654,10 @@ contract Midnight is IMidnight {
     /// @dev This function should be called with the id corresponding to the obligation.
     /// @dev This function does not call any oracle if debt is 0.
     function isHealthy(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
-        BorrowerState storage _state = borrowerState[id][borrower];
-        uint256 debt = _state.debt;
+        BorrowerState storage _borrowerState = borrowerState[id][borrower];
+        uint256 debt = _borrowerState.debt;
         uint256 maxDebt;
-        uint256 bitmap = _state.activatedCollaterals;
+        uint256 bitmap = _borrowerState.activatedCollaterals;
         while (maxDebt < debt && bitmap != 0) {
             uint256 i = UtilsLib.msb(bitmap);
             Collateral memory collateral = obligation.collaterals[i];
