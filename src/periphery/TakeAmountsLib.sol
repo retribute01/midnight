@@ -37,11 +37,11 @@ library TakeAmountsLib {
         uint256 buyerPrice = offer.buy ? offerPrice : offerPrice + _tradingFee;
         require(buyerPrice <= WAD, "buyerPrice");
         if (offer.buy) {
-            uint256 targetUnitsDown = targetBuyerAssets.mulDivUp(WAD, buyerPrice);
-            return targetUnitsDown.mulDivUp(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
+            return targetBuyerAssets.mulDivUp(WAD, buyerPrice)
+                .mulDivUp(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
         } else {
-            uint256 targetUnitsUp = targetBuyerAssets.mulDivDown(WAD, buyerPrice);
-            return targetUnitsUp.mulDivDown(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
+            return targetBuyerAssets.mulDivDown(WAD, buyerPrice)
+                .mulDivDown(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
         }
     }
 
@@ -55,11 +55,11 @@ library TakeAmountsLib {
         uint256 _tradingFee = midnight.tradingFee(id, UtilsLib.zeroFloorSub(offer.obligation.maturity, block.timestamp));
         uint256 sellerPrice = offer.buy ? offerPrice - _tradingFee : offerPrice;
         if (offer.buy) {
-            uint256 targetUnitsDown = targetSellerAssets.mulDivUp(WAD, sellerPrice);
-            return targetUnitsDown.mulDivUp(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
+            return targetSellerAssets.mulDivUp(WAD, sellerPrice)
+                .mulDivUp(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
         } else {
-            uint256 targetUnitsUp = targetSellerAssets.mulDivDown(WAD, sellerPrice);
-            return targetUnitsUp.mulDivDown(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
+            return targetSellerAssets.mulDivDown(WAD, sellerPrice)
+                .mulDivDown(midnight.totalShares(id) + 1, midnight.totalUnits(id) + 1);
         }
     }
 }
