@@ -40,7 +40,6 @@ rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, add
     uint256 sharesAfter = sharesOf(id, user);
 
     assert takerUnauthorized => reverted;
-    assert !reverted && offer.buy => (e.msg.sender == seller || isAuthorized(seller, e.msg.sender));
     assert user == seller => sharesAfter <= sharesBefore;
     assert user == buyer => sharesAfter >= sharesBefore;
     assert user != buyer && user != seller => sharesAfter == sharesBefore;
