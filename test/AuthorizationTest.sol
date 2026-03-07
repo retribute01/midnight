@@ -243,6 +243,77 @@ contract AuthorizationTest is BaseTest {
         assertEq(midnight.debtOf(id, taker), shares);
     }
 
+    function testRepayAuthorization(address authorized) public {
+        vm.assume(authorized != borrower);
+        uint256 units = 1000;
+        collateralize(obligation, borrower, units);
+        setupObligation(obligation, units);
+
+        deal(address(loanToken), authorized, units);
+        vm.prank(authorized);
+        loanToken.approve(address(midnight), units);
+
+        vm.prank(authorized);
+        vm.expectRevert("unauthorized");
+        midnight.repay(obligation, units, borrower);
+
+        vm.prank(borrower);
+        midnight.setIsAuthorized(borrower, authorized, true);
+
+        vm.prank(authorized);
+        midnight.repay(obligation, units, borrower);
+
+        assertEq(midnight.debtOf(id, borrower), 0);
+    }
+
+    function testSetConsumedAuthorization(address user, address authorized) public {
+        vm.assume(user != authorized);
+
+        vm.prank(authorized);
+        vm.expectRevert("unauthorized");
+        midnight.setConsumed(bytes32(0), 100, user);
+
+        vm.prank(user);
+        midnight.setIsAuthorized(user, authorized, true);
+
+        vm.prank(authorized);
+        midnight.setConsumed(bytes32(0), 100, user);
+
+        assertEq(midnight.consumed(user, bytes32(0)), 100);
+    }
+
+    function testShuffleSessionAuthorization(address user, address authorized) public {
+        vm.assume(user != authorized);
+
+        vm.prank(authorized);
+        vm.expectRevert("unauthorized");
+        midnight.shuffleSession(user);
+
+        vm.prank(user);
+        midnight.setIsAuthorized(user, authorized, true);
+
+        vm.prank(authorized);
+        midnight.shuffleSession(user);
+
+        assertEq(midnight.session(user), keccak256(abi.encode(0, blockhash(block.number - 1))));
+    }
+
+    function testSetIsAuthorizedAuthorization(address user, address authorized, address newAuthorized) public {
+        vm.assume(user != authorized);
+
+        vm.prank(authorized);
+        vm.expectRevert("unauthorized");
+        midnight.setIsAuthorized(user, newAuthorized, true);
+
+        vm.prank(user);
+        midnight.setIsAuthorized(user, authorized, true);
+
+        vm.prank(authorized);
+        midnight.setIsAuthorized(user, newAuthorized, true);
+
+        assertEq(midnight.isAuthorized(user, newAuthorized), true);
+    }
+
     function testTakeSelf() public {
         uint256 shares = 1000;
 
