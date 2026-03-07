@@ -360,7 +360,7 @@ contract BundlerTest is BaseTest {
         _authorizeBundler();
 
         vm.prank(borrower);
-        vm.expectRevert("average price too high");
+        vm.expectRevert("buyer assets above max");
         takeBundler.bundleTakeShares(
             midnight, targetShares, borrower, address(0), takes, 0, maxBuyerAssets, 0, type(uint256).max
         );
@@ -410,7 +410,7 @@ contract BundlerTest is BaseTest {
         _authorizeBundler();
 
         vm.prank(borrower);
-        vm.expectRevert("average price too low");
+        vm.expectRevert("buyer assets below min");
         takeBundler.bundleTakeShares(
             midnight, targetShares, borrower, address(0), takes, minBuyerAssets, type(uint256).max, 0, type(uint256).max
         );

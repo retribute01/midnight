@@ -63,10 +63,10 @@ contract TakeBundler {
         }
 
         require(totalFilledShares == targetShares, "insufficient liquidity");
-        require(totalBuyerAssets >= minBuyerAssets, "average price too low");
-        require(totalBuyerAssets <= maxBuyerAssets, "average price too high");
-        require(totalSellerAssets >= minSellerAssets, "average price too low");
-        require(totalSellerAssets <= maxSellerAssets, "average price too high");
+        require(totalBuyerAssets >= minBuyerAssets, "buyer assets below min");
+        require(totalBuyerAssets <= maxBuyerAssets, "buyer assets above max");
+        require(totalSellerAssets >= minSellerAssets, "seller assets below min");
+        require(totalSellerAssets <= maxSellerAssets, "seller assets above max");
     }
 
     /// @dev Same as bundleTakeShares but targets obligation units.
@@ -116,10 +116,10 @@ contract TakeBundler {
         }
 
         require(totalFilledUnits == targetUnits, "insufficient liquidity");
-        require(totalBuyerAssets >= minBuyerAssets, "average price too low");
-        require(totalBuyerAssets <= maxBuyerAssets, "average price too high");
-        require(totalSellerAssets >= minSellerAssets, "average price too low");
-        require(totalSellerAssets <= maxSellerAssets, "average price too high");
+        require(totalBuyerAssets >= minBuyerAssets, "buyer assets below min");
+        require(totalBuyerAssets <= maxBuyerAssets, "buyer assets above max");
+        require(totalSellerAssets >= minSellerAssets, "seller assets below min");
+        require(totalSellerAssets <= maxSellerAssets, "seller assets above max");
     }
 
     /// @dev Same as bundleTakeShares but targets buyer assets.
@@ -167,8 +167,8 @@ contract TakeBundler {
         }
 
         require(totalFilledBuyerAssets == targetBuyerAssets, "insufficient liquidity");
-        require(totalObligationUnits >= minObligationUnits, "average price too low");
-        require(totalObligationUnits <= maxObligationUnits, "average price too high");
+        require(totalObligationUnits >= minObligationUnits, "obligation units below min");
+        require(totalObligationUnits <= maxObligationUnits, "obligation units above max");
     }
 
     /// @dev Same as bundleTakeShares but targets seller assets.
@@ -215,7 +215,7 @@ contract TakeBundler {
         }
 
         require(totalFilledSellerAssets == targetSellerAssets, "insufficient liquidity");
-        require(totalObligationUnits >= minObligationUnits, "average price too low");
-        require(totalObligationUnits <= maxObligationUnits, "average price too high");
+        require(totalObligationUnits >= minObligationUnits, "obligation units below min");
+        require(totalObligationUnits <= maxObligationUnits, "obligation units above max");
     }
 }
