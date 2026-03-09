@@ -6,6 +6,7 @@ methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
     function collateralOf(bytes32 id, address user, uint256) external returns (uint128) envfree;
+    function isHealthy(Midnight.Obligation, bytes32, address) external returns (bool) envfree;
     function isHealthyNoBitmap(Midnight.Obligation, bytes32, address) external returns (bool) envfree;
 
     function _.price() external => summaryPrice(calledContract) expect(uint256);
@@ -22,6 +23,12 @@ methods {
     function _.onLiquidate(Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data) external => genericCallback() expect void;
     function _.onFlashLoan(address token, uint256 amount, bytes data) external => genericCallback() expect void;
 }
+
+/// ASSUMPTIONS ///
+
+// price does not change (isHealthy() can be violated if price changes)
+// isHealthy() and isHealthyNoBitmap() are equivalent (proved in TODO.spec)
+// mulDivDown/Up() fulfill all the axioms defined here (proved in MulDiv.spec)
 
 /// SUMMARY ///
 
@@ -83,6 +90,9 @@ function summaryMulDivUp(uint256 a, uint256 b, uint256 d) returns uint256 {
     return require_uint256(summaryMulDivUpM(a, b, d));
 }
 
+// global variable indicating whether to use the optimized isHealthy() or the bitmap-less implementation
+persistent ghost bool useIsHealthyNoBitmap;
+
 // global variable to track whether the user was healthy before the callbacks.
 persistent ghost bool healthyBeforeCallback;
 
@@ -124,6 +134,14 @@ function summaryToId(Midnight.Obligation obligation, uint256 chainId, address mo
     return id;
 }
 
+function callIsHealthy(Midnight.Obligation obligation, bytes32 obligationId, address borrower) returns (bool) {
+    if (useIsHealthyNoBitmap) {
+        return isHealthyNoBitmap(obligation, globalId, globalBorrower);
+    } else {
+        return isHealthy(obligation, globalId, globalBorrower);
+    }
+}
+
 function genericCallback() {
     address dummy;
     env e;
@@ -135,13 +153,13 @@ function genericCallback() {
     require collateralMatches(obligation, 1);
     require collateralMatches(obligation, 2);
 
-    if (!isHealthyNoBitmap(obligation, globalId, globalBorrower)) {
+    if (!callIsHealthy(obligation, globalId, globalBorrower)) {
         healthyBeforeCallback = false;
     }
 
     callback.callHavoc(e, dummy);
 
-    require isHealthyNoBitmap(obligation, globalId, globalBorrower), "user is healthy after callback";
+    require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy after callback";
 }
 
 function genericCallbackBool() returns (bool) {
@@ -153,6 +171,7 @@ function genericCallbackBool() returns (bool) {
 
 rule stayHealthyLiquidateSameBorrower(env e, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, bytes someData) {
     Midnight.Obligation obligation;
+    useIsHealthyNoBitmap = true;
 
     // reset the ghost variable that tracks whether the user was healthy before the callbacks.
     healthyBeforeCallback = true;
@@ -167,7 +186,7 @@ rule stayHealthyLiquidateSameBorrower(env e, uint256 someCollateralIndex, uint25
     // require collateralMatches(obligation, 1);
     // require collateralMatches(obligation, 2);
 
-    require isHealthyNoBitmap(obligation, globalId, globalBorrower), "user is healthy before call";
+    require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
     uint256 collateralBefore = collateralOf(globalId, globalBorrower, someCollateralIndex);
     uint256 seizedAssets;
@@ -187,11 +206,12 @@ rule stayHealthyLiquidateSameBorrower(env e, uint256 someCollateralIndex, uint25
     require axiomAddDownUp(summaryMulDivDownM(collateralAfter, price, ORACLE_PRICE_SCALE()), summaryMulDivUpM(seizedAssets, price, ORACLE_PRICE_SCALE()), globalObligationCollateralLLTV[someCollateralIndex], WAD()), "axiom";
 
     assert healthyBeforeCallback, "user is healthy before callbacks";
-    assert isHealthyNoBitmap(obligation, globalId, globalBorrower), "user is healthy after call";
+    assert callIsHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
 }
 
 rule stayHealthyLiquidateOtherBorrower(env e, Midnight.Obligation someObligation, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, address someBorrower, bytes someData) {
     Midnight.Obligation obligation;
+    useIsHealthyNoBitmap = true;
 
     // reset the ghost variable that tracks whether the user was healthy before the callbacks.
     healthyBeforeCallback = true;
@@ -206,7 +226,7 @@ rule stayHealthyLiquidateOtherBorrower(env e, Midnight.Obligation someObligation
 
     require someBorrower != globalBorrower || someObligation.loanToken != globalObligationLoanToken || someObligation.collaterals.length != globalObligationCollateralLength || !collateralMatches(someObligation, 0) || !collateralMatches(someObligation, 1) || !collateralMatches(someObligation, 2), "either user or obligation in the liquidation call is different";
 
-    require isHealthyNoBitmap(obligation, globalId, globalBorrower), "user is healthy before call";
+    require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
     uint256 seizedAssets;
     uint256 repaidUnits;
@@ -214,11 +234,12 @@ rule stayHealthyLiquidateOtherBorrower(env e, Midnight.Obligation someObligation
     seizedAssets, repaidUnits = liquidate(e, someObligation, someCollateralIndex, someSeizedAssets, someRepaidUnits, someBorrower, someData);
 
     assert healthyBeforeCallback, "user is healthy before callbacks";
-    assert isHealthyNoBitmap(obligation, globalId, globalBorrower), "user is healthy after call";
+    assert callIsHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
 }
 
-rule stayHealthy(env e, method f, calldataarg args) filtered { f -> f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector  && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector } {
+rule stayHealthy(env e, method f, calldataarg args) filtered { f -> f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector } {
     Midnight.Obligation obligation;
+    useIsHealthyNoBitmap = (f.selector != sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector);
 
     // reset the ghost variable that tracks whether the user was healthy before the callbacks.
     healthyBeforeCallback = true;
@@ -231,10 +252,10 @@ rule stayHealthy(env e, method f, calldataarg args) filtered { f -> f.selector !
     require collateralMatches(obligation, 1);
     require collateralMatches(obligation, 2);
 
-    require isHealthyNoBitmap(obligation, globalId, globalBorrower), "user is healthy before call";
+    require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
     f(e, args);
 
     assert healthyBeforeCallback, "user is healthy before callbacks";
-    assert isHealthyNoBitmap(obligation, globalId, globalBorrower), "user is healthy after call";
+    assert callIsHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
 }
