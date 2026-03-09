@@ -255,14 +255,12 @@ contract Midnight is IMidnight {
         if (!buyerIsLender) {
             accrueContinuousFee(id, buyer, offer.obligation.maturity);
             BorrowerState storage _buyerState = borrowerState[id][buyer];
-            _buyerState.remainingContinuousFee -= uint128(
-                _buyerState.remainingContinuousFee.mulDivDown(obligationUnits, _buyerState.debt)
-            );
+            _buyerState.pendingFee -= uint128(_buyerState.pendingFee.mulDivDown(obligationUnits, _buyerState.debt));
         }
 
         if (sellerIsBorrower) {
             accrueContinuousFee(id, seller, offer.obligation.maturity);
-            borrowerState[id][seller].remainingContinuousFee += uint128(
+            borrowerState[id][seller].pendingFee += uint128(
                 _obligationState.continuousFee.mulDivDown(obligationUnits * timeToMaturity, WAD)
             );
         }
@@ -377,13 +375,11 @@ contract Midnight is IMidnight {
 
         accrueContinuousFee(id, onBehalf, obligation.maturity);
 
-        BorrowerState storage _repayState = borrowerState[id][onBehalf];
-        if (_repayState.debt > 0) {
-            _repayState.remainingContinuousFee -= uint128(
-                _repayState.remainingContinuousFee.mulDivDown(obligationUnits, _repayState.debt)
-            );
+        BorrowerState storage _state = borrowerState[id][onBehalf];
+        if (_state.debt > 0) {
+            _state.pendingFee -= uint128(_state.pendingFee.mulDivDown(obligationUnits, _state.debt));
         }
-        _repayState.debt -= UtilsLib.toUint128(obligationUnits);
+        _state.debt -= UtilsLib.toUint128(obligationUnits);
         obligationState[id].withdrawable += obligationUnits;
 
         emit EventsLib.Repay(msg.sender, id, obligationUnits, onBehalf);
@@ -533,9 +529,7 @@ contract Midnight is IMidnight {
         }
 
         if (originalDebt > 0) {
-            _state.remainingContinuousFee -= uint128(
-                _state.remainingContinuousFee.mulDivDown(badDebt + repaidUnits, originalDebt)
-            );
+            _state.pendingFee -= uint128(_state.pendingFee.mulDivDown(badDebt + repaidUnits, originalDebt));
         }
 
         emit EventsLib.Liquidate(msg.sender, id, collateralIndex, seizedAssets, repaidUnits, borrower, badDebt);
@@ -662,8 +656,8 @@ contract Midnight is IMidnight {
         return obligationState[id].continuousFee;
     }
 
-    function remainingContinuousFee(bytes32 id, address user) external view returns (uint128) {
-        return borrowerState[id][user].remainingContinuousFee;
+    function pendingFee(bytes32 id, address user) external view returns (uint128) {
+        return borrowerState[id][user].pendingFee;
     }
 
     function lastContinuousFeeAccrual(bytes32 id, address user) external view returns (uint48) {
@@ -690,7 +684,7 @@ contract Midnight is IMidnight {
 
     function pendingContinuousFee(bytes32 id, address borrower, uint256 maturity) public view returns (uint256) {
         BorrowerState storage _state = borrowerState[id][borrower];
-        uint128 remaining = _state.remainingContinuousFee;
+        uint128 remaining = _state.pendingFee;
         if (remaining == 0 || _state.lastContinuousFeeAccrual == 0) return 0;
         if (block.timestamp >= maturity) return remaining;
         uint256 elapsed = block.timestamp - _state.lastContinuousFeeAccrual;
@@ -716,7 +710,7 @@ contract Midnight is IMidnight {
             BorrowerState storage _state = borrowerState[id][borrower];
             ObligationState storage _obligationState = obligationState[id];
             uint256 feeShares = feeUnits.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
-            _state.remainingContinuousFee -= feeUnits;
+            _state.pendingFee -= feeUnits;
             _state.debt += feeUnits;
             _obligationState.totalUnits += feeUnits;
             if (feeShares > 0) {
