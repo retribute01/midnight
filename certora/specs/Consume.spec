@@ -13,7 +13,6 @@ methods {
 
 ///  Only `setConsumed` and `take` can modify the consumed mapping.
 rule onlySetConsumedAndTakeChangeConsumed(env e, method f, calldataarg args, address user, bytes32 group) filtered { f -> f.selector != sig:setConsumed(bytes32, uint256, address).selector && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector } {
-
     uint256 consumedBefore = consumed(user, group);
 
     f(e, args);
