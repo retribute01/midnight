@@ -71,21 +71,21 @@ contract ContinuousFeeTest is BaseTest {
         vm.warp(block.timestamp + elapsed);
         uint256 expectedFee = remaining.mulDivDown(elapsed, ttm);
 
-        // Via repay(0)
+        // Via repay
         uint256 snap = vm.snapshotState();
         midnight.repay(obligation, 0, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + expectedFee, "debt after repay");
         assertEq(midnight.remainingContinuousFee(id, borrower), remaining - expectedFee, "remaining after repay");
         vm.revertToState(snap);
 
-        // Via withdrawCollateral(0)
+        // Via withdrawCollateral
         snap = vm.snapshotState();
         vm.prank(borrower);
         midnight.withdrawCollateral(obligation, 0, 0, borrower, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + expectedFee, "debt after withdrawCollateral");
         vm.revertToState(snap);
 
-        // Via take (borrower enters more debt, triggering accrue for seller=borrower)
+        // Via take
         deal(address(loanToken), otherLender, 1);
         lenderOffer.obligation = obligation;
         lenderOffer.obligationShares = 1;
@@ -108,14 +108,14 @@ contract ContinuousFeeTest is BaseTest {
 
         vm.warp(obligation.maturity + extraTime);
 
-        // Via repay(0)
+        // Via repay
         uint256 snap = vm.snapshotState();
         midnight.repay(obligation, 0, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + remaining, "all remaining consumed (repay)");
         assertEq(midnight.remainingContinuousFee(id, borrower), 0, "remaining is zero (repay)");
         vm.revertToState(snap);
 
-        // Via withdrawCollateral(0)
+        // Via withdrawCollateral
         snap = vm.snapshotState();
         vm.prank(borrower);
         midnight.withdrawCollateral(obligation, 0, 0, borrower, borrower);
@@ -123,7 +123,7 @@ contract ContinuousFeeTest is BaseTest {
         assertEq(midnight.remainingContinuousFee(id, borrower), 0, "remaining is zero (withdrawCollateral)");
         vm.revertToState(snap);
 
-        // Via take (borrower enters more debt)
+        // Via take
         deal(address(loanToken), otherLender, 1);
         lenderOffer.obligation = obligation;
         lenderOffer.obligationShares = 1;
@@ -204,7 +204,7 @@ contract ContinuousFeeTest is BaseTest {
         setupObligation(obligation, debt1);
         uint256 remaining1 = midnight.remainingContinuousFee(id, borrower);
 
-        // Change rate, second borrow at rate2 (same block, no accrual effect)
+        // Change rate, second borrow at rate2
         midnight.setObligationContinuousFee(id, rate2);
 
         deal(address(loanToken), otherLender, debt2);
@@ -219,7 +219,7 @@ contract ContinuousFeeTest is BaseTest {
         uint256 blendedRemaining = midnight.remainingContinuousFee(id, borrower);
         assertApproxEqAbs(blendedRemaining, remaining1 + expectedAdded, 1, "remaining blended");
 
-        // Accrue on blended remaining
+        // Accrue on both
         vm.warp(block.timestamp + elapsed);
         midnight.repay(obligation, 0, borrower);
 
@@ -253,7 +253,7 @@ contract ContinuousFeeTest is BaseTest {
 
         vm.warp(block.timestamp + elapsed);
 
-        // Compute post-accrual state
+        // Compute state after accrual
         uint256 remaining = midnight.remainingContinuousFee(id, borrower);
         uint256 feeUnits = remaining.mulDivDown(elapsed, ttm);
         uint256 debtAfterAccrual = debt + feeUnits;
@@ -282,11 +282,11 @@ contract ContinuousFeeTest is BaseTest {
 
         setupBorrower(debt, feeRate, ttm);
 
-        // Make liquidatable: drop price so maxDebt < debt
+        // Make liquidatabl
         oracle1.setPrice(ORACLE_PRICE_SCALE / 4);
         vm.warp(block.timestamp + elapsed);
 
-        // Compute expected post-accrual state
+        // Compute expected state after accrual
         uint256 remaining = midnight.remainingContinuousFee(id, borrower);
         uint256 feeUnits = remaining.mulDivDown(elapsed, ttm);
         uint256 debtAfterAccrual = debt + feeUnits;
@@ -382,7 +382,7 @@ contract ContinuousFeeTest is BaseTest {
 
         uint256 snap = vm.snapshotState();
 
-        // Without fee: borrow at boundary, warp, not liquidatable
+        // Without fee: borrow, warp, not liquidatable
         collateralize(obligation, borrower, debt);
         setupObligation(obligation, debt);
         vm.warp(block.timestamp + 180 days);
@@ -392,7 +392,7 @@ contract ContinuousFeeTest is BaseTest {
 
         vm.revertToState(snap);
 
-        // With fee: same setup, same warp, liquidatable
+        // With fee: same setup, liquidatable
         midnight.setDefaultContinuousFee(address(loanToken), MAX_CONTINUOUS_FEE);
         collateralize(obligation, borrower, debt);
         setupObligation(obligation, debt);
