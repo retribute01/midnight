@@ -362,8 +362,8 @@ contract BundlerTest is BaseTest {
         uint256 maxBuyerAssets
     ) public {
         uint256 minTick = _minTick();
-        tick0 = bound(tick0, minTick, TICK_RANGE);
-        tick1 = bound(tick1, minTick, TICK_RANGE);
+        tick0 = bound(tick0, minTick, MAX_TICK);
+        tick1 = bound(tick1, minTick, MAX_TICK);
         // Ensure buyerAssets > 0 so the max bound actually triggers.
         uint256 minPrice = UtilsLib.min(TickLib.tickToPrice(tick0), TickLib.tickToPrice(tick1));
         targetShares = bound(targetShares, WAD / minPrice + 1, uint256(type(uint128).max) * 3 / 4);
@@ -425,8 +425,8 @@ contract BundlerTest is BaseTest {
         uint256 minBuyerAssets
     ) public {
         uint256 minTick = _minTick();
-        tick0 = bound(tick0, minTick, TICK_RANGE);
-        tick1 = bound(tick1, minTick, TICK_RANGE);
+        tick0 = bound(tick0, minTick, MAX_TICK);
+        tick1 = bound(tick1, minTick, MAX_TICK);
         targetShares = bound(targetShares, 1, uint256(type(uint128).max) * 3 / 4);
         offers[0].obligationShares = offerShares0;
         offers[0].tick = tick0;
