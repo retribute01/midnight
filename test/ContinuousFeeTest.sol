@@ -462,6 +462,42 @@ contract ContinuousFeeTest is BaseTest {
         assertEq(midnight.continuousFee(id), fee, "obligation fee updated");
     }
 
+    function testFeeSharesRetrievableAfterRecipientChange(uint256 debt, uint256 feeRate, uint256 ttm, uint256 elapsed)
+        public
+    {
+        debt = bound(debt, 1e18, MAX_DEBT);
+        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
+        ttm = bound(ttm, 2, 360 days);
+        elapsed = bound(elapsed, 1, ttm - 1);
+
+        setupBorrower(debt, feeRate, ttm);
+        uint256 remaining = midnight.remainingContinuousFee(id, borrower);
+        vm.assume(remaining > 0);
+
+        // Accrue fees
+        vm.warp(block.timestamp + elapsed);
+        midnight.repay(obligation, 0, borrower);
+        uint256 feeShares = midnight.sharesOf(id, PASSIVE_FEE_RECIPIENT);
+        vm.assume(feeShares > 0);
+
+        // Repay all debt so withdrawable is filled
+        uint256 totalDebt = midnight.debtOf(id, borrower);
+        deal(address(loanToken), address(this), totalDebt);
+        midnight.repay(obligation, totalDebt, borrower);
+
+        // Change fee recipient
+        address newRecipient = makeAddr("newFeeRecipient");
+        midnight.setFeeRecipient(newRecipient);
+
+        // New recipient can withdraw the fee shares
+        vm.prank(newRecipient);
+        (uint256 units,) = midnight.withdraw(obligation, 0, feeShares, PASSIVE_FEE_RECIPIENT, newRecipient);
+
+        assertGt(units, 0, "new recipient got assets");
+        assertEq(midnight.sharesOf(id, PASSIVE_FEE_RECIPIENT), 0, "passive shares drained");
+        assertEq(loanToken.balanceOf(newRecipient), units, "assets received");
+    }
+
     function testRateChangeDoesNotAffectExistingBorrower(
         uint256 debt,
         uint256 rate1,
