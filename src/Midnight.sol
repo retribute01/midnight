@@ -251,37 +251,39 @@ contract Midnight is IMidnight {
             require(newConsumed <= offer.obligationShares, "consumed");
         }
 
-        if (buyerIsLender) {
-            // Lender enters.
-            sharesOf[id][buyer] += obligationShares;
-        } else {
-            // Borrower exits.
+        if (!buyerIsLender) {
             accrueContinuousFee(id, buyer, offer.obligation.maturity);
-            BorrowerState storage _state = borrowerState[id][buyer];
-            _state.remainingContinuousFee -= uint128(
-                _state.remainingContinuousFee.mulDivDown(obligationUnits, _state.debt)
+            BorrowerState storage _buyerState = borrowerState[id][buyer];
+            _buyerState.remainingContinuousFee -= uint128(
+                _buyerState.remainingContinuousFee.mulDivDown(obligationUnits, _buyerState.debt)
             );
-            _state.debt -= UtilsLib.toUint128(obligationUnits);
         }
 
         if (sellerIsBorrower) {
-            // Borrower enters.
             accrueContinuousFee(id, seller, offer.obligation.maturity);
-            if (obligationUnits > 0) {
-                borrowerState[id][seller].remainingContinuousFee += uint128(
-                    _obligationState.continuousFee.mulDivDown(obligationUnits * timeToMaturity, WAD)
-                );
-                borrowerState[id][seller].debt += UtilsLib.toUint128(obligationUnits);
-            }
-        } else {
-            // Lender exits.
-            sharesOf[id][seller] -= obligationShares;
+            borrowerState[id][seller].remainingContinuousFee += uint128(
+                _obligationState.continuousFee.mulDivDown(obligationUnits * timeToMaturity, WAD)
+            );
         }
 
         if (buyerIsLender && sellerIsBorrower) {
+            // Lender enters + borrower enters.
+            sharesOf[id][buyer] += obligationShares;
+            borrowerState[id][seller].debt += UtilsLib.toUint128(obligationUnits);
             _obligationState.totalShares += UtilsLib.toUint128(obligationShares);
             _obligationState.totalUnits += UtilsLib.toUint128(obligationUnits);
-        } else if (!buyerIsLender && !sellerIsBorrower) {
+        } else if (buyerIsLender && !sellerIsBorrower) {
+            // Lender enters + lender exits.
+            sharesOf[id][buyer] += obligationShares;
+            sharesOf[id][seller] -= obligationShares;
+        } else if (!buyerIsLender && sellerIsBorrower) {
+            // Borrower exits + borrower enters.
+            borrowerState[id][buyer].debt -= UtilsLib.toUint128(obligationUnits);
+            borrowerState[id][seller].debt += UtilsLib.toUint128(obligationUnits);
+        } else {
+            // Borrower exits + lender exits.
+            borrowerState[id][buyer].debt -= UtilsLib.toUint128(obligationUnits);
+            sharesOf[id][seller] -= obligationShares;
             _obligationState.totalShares -= UtilsLib.toUint128(obligationShares);
             _obligationState.totalUnits -= UtilsLib.toUint128(obligationUnits);
         }
