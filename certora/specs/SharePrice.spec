@@ -23,7 +23,7 @@ methods {
 }
 
 // Check the ratio of units over shares is below or equal to 1.
-strong invariant sharePriceBelowOrEqOneTake(bytes32 id)
+strong invariant sharePriceBelowOrEqOne(bytes32 id)
     totalShares(id) >= totalUnits(id);
 
 /// Liquidation does not change the total shares.
