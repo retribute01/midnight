@@ -19,6 +19,7 @@ jobs:
           - Liquidate
           - Midnight
           - SharePrice
+          - SharePrice2
           - Solvency
           - WithdrawableMonotonicity
 
