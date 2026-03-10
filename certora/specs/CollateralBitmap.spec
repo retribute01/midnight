@@ -36,7 +36,7 @@ invariant bitsetIffCollateral(bytes32 id, address borrower, uint256 idx)
 // This shows that the real isHealthy returns true if and only if the isHealthy function
 // that does not use collateral bitmap returns true.  We also check that the latter function
 // does not revert if isHealthy does not revert.
-rule isHealthyEquivalant(Midnight.Obligation obligation, bytes32 id, address borrower) {
+rule isHealthyEquivalent(Midnight.Obligation obligation, bytes32 id, address borrower) {
     // We restrict to at most three collaterals
     require obligation.collaterals.length <= 3, "restrict to three collaterals";
     requireInvariant bitsetIffCollateral(id, borrower, 0);

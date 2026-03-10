@@ -12,7 +12,7 @@ contract MidnightWrapper is Midnight {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
     
-    /* This isHealthy function iterates over all collaterals and also works if the collateral bitmap is broken. */
+    /* This isHealthy function iterates over all collaterals, it doesn't use the collateral bitmap. */
 
     function isHealthyNoBitmap(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
         BorrowerState storage _borrowerState = borrowerState[id][borrower];
