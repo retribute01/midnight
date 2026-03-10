@@ -17,7 +17,8 @@ import {
     LIQUIDATION_CURSOR_LOW,
     LIQUIDATION_CURSOR_HIGH,
     EIP712_DOMAIN_TYPEHASH,
-    ROOT_TYPEHASH
+    ROOT_TYPEHASH,
+    PASSIVE_FEE_RECIPIENT
 } from "./libraries/ConstantsLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
 import {
@@ -346,7 +347,11 @@ contract Midnight is IMidnight {
         address onBehalf,
         address receiver
     ) external returns (uint256, uint256) {
-        require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "unauthorized");
+        require(
+            onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender]
+                || (onBehalf == PASSIVE_FEE_RECIPIENT && msg.sender == feeRecipient),
+            "unauthorized"
+        );
         require(UtilsLib.atMostOneNonZero(obligationUnits, shares), "inconsistent input");
         bytes32 id = touchObligation(obligation);
         ObligationState storage _obligationState = obligationState[id];
@@ -716,7 +721,7 @@ contract Midnight is IMidnight {
             _state.debt += feeUnits;
             _obligationState.totalUnits += feeUnits;
             if (feeShares > 0) {
-                sharesOf[id][feeRecipient] += feeShares;
+                sharesOf[id][PASSIVE_FEE_RECIPIENT] += feeShares;
                 _obligationState.totalShares += UtilsLib.toUint128(feeShares);
             }
         }

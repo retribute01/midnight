@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+using Utils as Utils;
+
 methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
@@ -10,6 +12,7 @@ methods {
     function sharesOf(bytes32 id, address owner) external returns (uint256) envfree;
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
     function remainingContinuousFee(bytes32 id, address user) external returns (uint128) envfree;
+    function Utils.passiveFeeRecipient() external returns (address) envfree;
 
     function _.price() external => NONDET;
     function IdLib.toId(Midnight.Obligation memory, uint256, address) internal returns (bytes32) => NONDET;
@@ -42,6 +45,8 @@ function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
     uint256 res;
     return res;
 }
+
+definition isPassiveFeeRecipient(address user) returns bool = user == Utils.passiveFeeRecipient();
 
 rule takeInputOutputConsistency(env e, uint256 obligationSharesInput, address taker, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, address takerCallbackAddress, bytes takerCallbackData) {
     uint256 buyerAssetsOutput;
@@ -105,7 +110,7 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
 /// INVARIANTS ///
 
 strong invariant notBorrowerAndLender(bytes32 id, address user)
-    sharesOf(id, user) == 0 || debtOf(id, user) == 0;
+    !isPassiveFeeRecipient(user) => sharesOf(id, user) == 0 || debtOf(id, user) == 0;
 
 strong invariant noRemainingContinuousFeeWithoutDebt(bytes32 id, address user)
     debtOf(id, user) == 0 => remainingContinuousFee(id, user) == 0;
