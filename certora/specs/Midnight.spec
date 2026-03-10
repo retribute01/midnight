@@ -110,7 +110,12 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
 /// INVARIANTS ///
 
 strong invariant notBorrowerAndLender(bytes32 id, address user)
-    !isPassiveFeeRecipient(user) => sharesOf(id, user) == 0 || debtOf(id, user) == 0;
+    !isPassiveFeeRecipient(user) => sharesOf(id, user) == 0 || debtOf(id, user) == 0
+{
+    preserved {
+        requireInvariant noRemainingContinuousFeeWithoutDebt(id, user);
+    }
+}
 
 strong invariant noRemainingContinuousFeeWithoutDebt(bytes32 id, address user)
     debtOf(id, user) == 0 => pendingFee(id, user) == 0;
