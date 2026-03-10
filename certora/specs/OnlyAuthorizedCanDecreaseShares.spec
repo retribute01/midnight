@@ -18,10 +18,7 @@ methods {
 /// Assumes no reentrancy: callbacks (onBuy, onSell) and token transfers are not modeled as re-entering Midnight, so re-entrant share decreases are not covered.
 rule onlyAuthorizedCanDecreaseSharesExceptTake(env e, method f, bytes32 id, address user) {
     uint256 sharesBefore = sharesOf(id, user);
-    bool passiveFeeWithdraw =
-        user == Utils.passiveFeeRecipient()
-        && e.msg.sender == feeRecipient()
-        && f.selector == sig:withdraw(Midnight.Obligation, uint256, uint256, address, address).selector;
+    bool passiveFeeWithdraw = user == Utils.passiveFeeRecipient() && e.msg.sender == feeRecipient() && f.selector == sig:withdraw(Midnight.Obligation, uint256, uint256, address, address).selector;
 
     require user != e.msg.sender;
     require !isAuthorized(user, e.msg.sender);
@@ -29,9 +26,7 @@ rule onlyAuthorizedCanDecreaseSharesExceptTake(env e, method f, bytes32 id, addr
     calldataarg args;
     f(e, args);
 
-    assert sharesOf(id, user) >= sharesBefore
-        || f.selector == sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector
-        || passiveFeeWithdraw;
+    assert sharesOf(id, user) >= sharesBefore || f.selector == sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector || passiveFeeWithdraw;
 }
 
 /// In take, the caller must be authorized by the taker and only the seller's shares can decrease.
