@@ -6,12 +6,11 @@ methods {
     function consumed(address user, bytes32 group) external returns (uint256) envfree;
     function totalUnits(bytes32 id) external returns (uint256) envfree;
     function totalShares(bytes32 id) external returns (uint256) envfree;
-    function toId(Midnight.Obligation obligation) external returns (bytes32);
 
     function _.price() external => NONDET;
 }
 
-///  Only `setConsumed` and `take` can modify the consumed mapping.
+///  Only `setConsumed` and `take` can modify the `consumed` mapping.
 rule onlySetConsumedAndTakeChangeConsumed(env e, method f, calldataarg args, address user, bytes32 group) filtered { f -> f.selector != sig:setConsumed(bytes32, uint256, address).selector && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector } {
     uint256 consumedBefore = consumed(user, group);
 
@@ -20,7 +19,7 @@ rule onlySetConsumedAndTakeChangeConsumed(env e, method f, calldataarg args, add
     assert consumed(user, group) == consumedBefore;
 }
 
-/// Calling `setConsumed` only affects msg.sender's consumed value for the given group.
+/// Calling `setConsumed` only affects onBehalf's consumed value for the given group.
 /// No other (user, group) pair is modified.
 rule setConsumedOnlyAffectsOnBehalf(env e, bytes32 group, uint256 amount, address onBehalf, address otherUser, bytes32 otherGroup) {
     uint256 otherConsumedBefore = consumed(otherUser, otherGroup);
@@ -74,7 +73,7 @@ rule takeConsumedAtMaxUnchanged(env e, uint256 obligationShares, address taker, 
 }
 
 /// A fully-consumed offer always reverts when the take input is non-zero in the offer's consumption dimension.
-rule fullyConsumedOfferRevertsOnNonTrivialTake(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
+rule fullyConsumedOfferRevertsOnNonTrivialTake(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
     uint256 consumedBefore = consumed(offer.maker, offer.group);
 
     bytes32 id = toId(e, offer.obligation);
@@ -86,7 +85,7 @@ rule fullyConsumedOfferRevertsOnNonTrivialTake(env e, uint256 obligationShares, 
     // When consumption is units-based, prevent rounding down to 0
     require offer.obligationUnits > 0 => to_mathint(obligationShares) * (to_mathint(_totalUnits) + 1) >= to_mathint(_totalShares) + 1;
 
-    take@withrevert(e, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
+    take@withrevert(e, obligationShares, taker, takerCallback, takerCallbackData, receiver, offer, signature, root, proof);
 
     assert lastReverted;
 }
