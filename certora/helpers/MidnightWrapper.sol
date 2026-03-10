@@ -19,7 +19,8 @@ contract MidnightWrapper is Midnight {
         uint256 debt = _borrowerState.debt;
         uint256 maxDebt;
         uint256 len = obligation.collaterals.length;
-        for (uint256 i = 0; i < len && maxDebt < debt; i++) {
+        for (uint256 i = len; i > 0 && maxDebt < debt; ) {
+            i--;
             Collateral memory collateral = obligation.collaterals[i];
             uint256 price = IOracle(collateral.oracle).price();
             maxDebt += collateralOf[id][borrower][i].mulDivDown(price, ORACLE_PRICE_SCALE)
@@ -28,4 +29,7 @@ contract MidnightWrapper is Midnight {
         return maxDebt >= debt;
     }
 
+    function collateralBitSet(bytes32 id, address borrower, uint256 idx) external view returns (bool) {
+        return (borrowerState[id][borrower].activatedCollaterals & uint128(1 << idx)) != 0;
+    }
 }
