@@ -22,7 +22,7 @@ jobs:
           - OnlyAuthorizedCanDecreaseShares
           - SharePrice
           - Solvency
-          - FeeBoundaries
+          - WithdrawableMonotonicity
 
     steps:
       - uses: actions/checkout@v4
