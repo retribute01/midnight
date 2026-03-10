@@ -52,10 +52,24 @@ rule consumeNonDecreasing(env e, method f, calldataarg args, address user, bytes
 /// After a successful `take`, consumed[offer.maker][offer.group] does not exceed the offer's max amount
 /// (offer.obligationUnits if units-based, offer.obligationShares if shares-based).
 rule takeConsumedBoundedByMax(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
+    uint256 consumedBefore = consumed(offer.maker, offer.group);
+
+    uint256 returnedUnits;
     take(e, obligationShares, taker, takerCallback, takerCallbackData, receiver, offer, signature, root, proof);
 
     uint256 maxAmount = offer.obligationUnits > 0 ? offer.obligationUnits : offer.obligationShares;
     assert consumed(offer.maker, offer.group) <= maxAmount;
+}
+
+/// After a successful `take`, the change in consumed equals the amount taken: returnedUnits for units-based offers, obligationShares for shares-based.
+rule takeConsumedExactDelta(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
+    uint256 consumedBefore = consumed(offer.maker, offer.group);
+
+    uint256 returnedUnits;
+    (_, _, returnedUnits, _) = take(e, obligationShares, taker, takerCallback, takerCallbackData, receiver, offer, signature, root, proof);
+
+    uint256 expectedDelta = offer.obligationUnits > 0 ? returnedUnits : obligationShares;
+    assert consumed(offer.maker, offer.group) == consumedBefore + expectedDelta;
 }
 
 /// If consumed[offer.maker][offer.group] is already at or above the offer's max amount before a `take`,
