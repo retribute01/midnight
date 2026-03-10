@@ -29,9 +29,13 @@ persistent ghost summaryMulDivUp(uint256, uint256, uint256) returns uint256 {
     axiom forall uint256 b. forall uint256 d. d > 0 => summaryMulDivUp(0, b, d) == 0;
 }
 
+// Check that a collateral bit is set exactly when there is collateral for that index.
 invariant bitsetIffCollateral(bytes32 id, address borrower, uint256 idx)
     idx < 128 => (collateralBitSet(id, borrower, idx) <=> collateralOf(id, borrower, idx) != 0);
 
+// This shows that the real isHealthy returns true if and only if the isHealthy function
+// that does not use collateral bitmap returns true.  We also check that the latter function
+// does not revert if isHealthy does not revert.
 rule isHealthyEquivalant(Midnight.Obligation obligation, bytes32 id, address borrower) {
     // We restrict to at most three collaterals
     require obligation.collaterals.length <= 3, "restrict to three collaterals";
@@ -39,10 +43,11 @@ rule isHealthyEquivalant(Midnight.Obligation obligation, bytes32 id, address bor
     requireInvariant bitsetIffCollateral(id, borrower, 1);
     requireInvariant bitsetIffCollateral(id, borrower, 2);
 
-    bool isHealthy1 = isHealthy@withrevert(obligation, id, borrower);
-    require !lastReverted;
+    // We make no claim about iHealthyNoBitmap if isHealthy() reverts.
+    bool isHealthy1 = isHealthy(obligation, id, borrower);
     bool isHealthy2 = isHealthyNoBitmap@withrevert(obligation, id, borrower);
-    assert !lastReverted;
 
+    // Assert that isHealthyNoBitmap does not revert and returns the same value.
+    assert !lastReverted;
     assert isHealthy1 == isHealthy2;
 }
