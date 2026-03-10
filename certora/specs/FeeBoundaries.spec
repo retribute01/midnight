@@ -14,32 +14,13 @@ methods {
 definition FEE_STEP() returns mathint = 1000000000000;
 
 /// Breakpoint time in seconds for index 0..6, mirroring the tradingFee intervals in Midnight.sol.
-definition breakpointTime(uint256 index) returns uint256 =
-    index == 0 ? 0 :
-    index == 1 ? 86400 :
-    index == 2 ? 604800 :
-    index == 3 ? 2592000 :
-    index == 4 ? 7776000 :
-    index == 5 ? 15552000 :
-    index == 6 ? 31104000 : 0;
+definition breakpointTime(uint256 index) returns uint256 = index == 0 ? 0 : index == 1 ? 86400 : index == 2 ? 604800 : index == 3 ? 2592000 : index == 4 ? 7776000 : index == 5 ? 15552000 : index == 6 ? 31104000 : 0;
 
 /// Lower enclosing breakpoint index for a given time-to-maturity.
-definition lowerIndex(uint256 ttm) returns uint256 =
-    ttm >= breakpointTime(6) ? 6 :
-    ttm >= breakpointTime(5) ? 5 :
-    ttm >= breakpointTime(4) ? 4 :
-    ttm >= breakpointTime(3) ? 3 :
-    ttm >= breakpointTime(2) ? 2 :
-    ttm >= breakpointTime(1) ? 1 : 0;
+definition lowerIndex(uint256 ttm) returns uint256 = ttm >= breakpointTime(6) ? 6 : ttm >= breakpointTime(5) ? 5 : ttm >= breakpointTime(4) ? 4 : ttm >= breakpointTime(3) ? 3 : ttm >= breakpointTime(2) ? 2 : ttm >= breakpointTime(1) ? 1 : 0;
 
 /// Upper enclosing breakpoint index for a given time-to-maturity.
-definition upperIndex(uint256 ttm) returns uint256 =
-    ttm >= breakpointTime(6) ? 6 :
-    ttm >= breakpointTime(5) ? 6 :
-    ttm >= breakpointTime(4) ? 5 :
-    ttm >= breakpointTime(3) ? 4 :
-    ttm >= breakpointTime(2) ? 3 :
-    ttm >= breakpointTime(1) ? 2 : 1;
+definition upperIndex(uint256 ttm) returns uint256 = ttm >= breakpointTime(6) ? 6 : ttm >= breakpointTime(5) ? 6 : ttm >= breakpointTime(4) ? 5 : ttm >= breakpointTime(3) ? 4 : ttm >= breakpointTime(2) ? 3 : ttm >= breakpointTime(1) ? 2 : 1;
 
 /// Hardcoded maxTradingFee(index) / FEE_STEP, needed because contract calls are disallowed inside forall.
 definition maxFeeUnits(uint256 index) returns mathint = index == 0 ? 14 : index == 1 ? 14 : index == 2 ? 98 : index == 3 ? 417 : index == 4 ? 1250 : index == 5 ? 2500 : index == 6 ? 5000 : 0;
@@ -76,8 +57,7 @@ rule maxFeeUnitsMatchesContract(uint256 index) {
 
 /// Default fees for any loan token at each index are bounded by its specific maxTradingFee cap.
 invariant defaultFeePerIndexBound()
-    forall address loanToken. forall uint256 index.
-        index <= 6 => ghostDefaultFeeUnits[loanToken][index] <= maxFeeUnits(index);
+    forall address loanToken. forall uint256 index. index <= 6 => ghostDefaultFeeUnits[loanToken][index] <= maxFeeUnits(index);
 
 /// Every obligation's fee breakpoints are bounded by the per-index maximum.
 invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
@@ -92,7 +72,7 @@ invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
 rule tradingFeeIsConvexCombination(bytes32 id, uint256 timeToMaturity) {
     uint256 feeLo = tradingFee(id, breakpointTime(lowerIndex(timeToMaturity)));
     uint256 feeHi = tradingFee(id, breakpointTime(upperIndex(timeToMaturity)));
-    uint256 fee   = tradingFee(id, timeToMaturity);
+    uint256 fee = tradingFee(id, timeToMaturity);
 
     assert (feeLo <= feeHi) => (fee >= feeLo && fee <= feeHi);
     assert (feeHi <= feeLo) => (fee >= feeHi && fee <= feeLo);
