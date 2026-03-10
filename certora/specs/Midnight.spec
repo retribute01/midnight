@@ -11,7 +11,7 @@ methods {
     function consumed(address user, bytes32 group) external returns (uint256) envfree;
     function sharesOf(bytes32 id, address owner) external returns (uint256) envfree;
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
-    function remainingContinuousFee(bytes32 id, address user) external returns (uint128) envfree;
+    function pendingFee(bytes32 id, address user) external returns (uint128) envfree;
     function Utils.passiveFeeRecipient() external returns (address) envfree;
 
     function _.price() external => NONDET;
@@ -113,7 +113,7 @@ strong invariant notBorrowerAndLender(bytes32 id, address user)
     !isPassiveFeeRecipient(user) => sharesOf(id, user) == 0 || debtOf(id, user) == 0;
 
 strong invariant noRemainingContinuousFeeWithoutDebt(bytes32 id, address user)
-    debtOf(id, user) == 0 => remainingContinuousFee(id, user) == 0;
+    debtOf(id, user) == 0 => pendingFee(id, user) == 0;
 
 strong invariant totalUnitsEqualsSumDebtPlusWithdrawable(bytes32 id)
     totalUnits(id) == sumDebtOf[id] + withdrawable(id);

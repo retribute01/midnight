@@ -14,7 +14,7 @@ methods {
     function Midnight.continuousFee(bytes32) external returns (uint64) envfree;
     function Midnight.obligationCreated(bytes32) external returns (bool) envfree;
     function Midnight.sharesOf(bytes32, address) external returns (uint256) envfree;
-    function Midnight.remainingContinuousFee(bytes32, address) external returns (uint128) envfree;
+    function Midnight.pendingFee(bytes32, address) external returns (uint128) envfree;
     function Midnight.lastContinuousFeeAccrual(bytes32, address) external returns (uint48) envfree;
     function Utils.hashObligation(Midnight.Obligation) external returns (bytes32) envfree;
 
@@ -115,7 +115,7 @@ definition userHasNoDebt(bytes32 id, address user) returns bool = currentContrac
 
 definition userHasNoActivatedCollaterals(bytes32 id, address user) returns bool = currentContract.borrowerState[id][user].activatedCollaterals == 0;
 
-definition userHasNoRemainingContinuousFee(bytes32 id, address user) returns bool = Midnight.remainingContinuousFee(id, user) == 0;
+definition userHasNoRemainingContinuousFee(bytes32 id, address user) returns bool = Midnight.pendingFee(id, user) == 0;
 
 definition userHasNoLastContinuousFeeAccrual(bytes32 id, address user) returns bool = Midnight.lastContinuousFeeAccrual(id, user) == 0;
 

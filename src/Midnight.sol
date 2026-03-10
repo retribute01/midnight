@@ -74,7 +74,7 @@ contract Midnight is IMidnight {
     /// feeSetter.
     mapping(address loanToken => uint16[7]) public defaultFees;
 
-    /// @dev Default continuous fee per loan token. Set when the obligation is created. Can be later updated by the
+    /// @dev Default continuous fee per loan token. Set when the obligation is created. Can be later overriden by the
     /// feeSetter.
     mapping(address loanToken => uint64) public defaultContinuousFee;
 

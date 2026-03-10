@@ -469,7 +469,7 @@ contract ContinuousFeeTest is BaseTest {
         elapsed = bound(elapsed, 1, ttm - 1);
 
         setupBorrower(debt, feeRate, ttm);
-        uint256 remaining = midnight.remainingContinuousFee(id, borrower);
+        uint256 remaining = midnight.pendingFee(id, borrower);
         vm.assume(remaining > 0);
 
         // Accrue fees
