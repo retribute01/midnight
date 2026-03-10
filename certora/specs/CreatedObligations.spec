@@ -11,7 +11,7 @@ methods {
     function Midnight.withdrawable(bytes32) external returns (uint256) envfree;
     function Midnight.fees(bytes32) external returns (uint16[7]) envfree;
     function Midnight.obligationCreated(bytes32) external returns (bool) envfree;
-    function Midnight.sharesOf(bytes32, address) external returns (uint256) envfree;
+    function Midnight.balanceOf(bytes32, address) external returns (int256) envfree;
     function Utils.hashObligation(Midnight.Obligation) external returns (bytes32) envfree;
 
     function UtilsLib.mulDivDown(uint256, uint256, uint256) internal returns (uint256) => NONDET;
@@ -100,15 +100,13 @@ rule obligationIsCreatedAfterLiquidate(env e, Midnight.Obligation obligation, ui
 invariant obligationStateIsEmptyIfNotCreated(bytes32 id, address user)
     !Midnight.obligationCreated(id) => obligationStateIsEmpty(id, user);
 
-definition obligationStateIsEmpty(bytes32 id, address user) returns bool = Midnight.totalUnits(id) == 0 && Midnight.withdrawable(id) == 0 && noFeesAreSet(id) && Midnight.sharesOf(id, user) == 0 && userHasNoDebt(id, user) && userHasNoActivatedCollaterals(id, user) && userHasNoCollateral(id, user);
+definition obligationStateIsEmpty(bytes32 id, address user) returns bool = Midnight.totalUnits(id) == 0 && Midnight.withdrawable(id) == 0 && noFeesAreSet(id) && Midnight.balanceOf(id, user) == 0 && userHasNoActivatedCollaterals(id, user) && userHasNoCollateral(id, user);
 
 function noFeesAreSet(bytes32 id) returns (bool) {
     uint16[7] fees = Midnight.fees(id);
     return fees[0] == 0 && fees[1] == 0 && fees[2] == 0 && fees[3] == 0 && fees[4] == 0 && fees[5] == 0 && fees[6] == 0;
 }
 
-definition userHasNoDebt(bytes32 id, address user) returns bool = currentContract.borrowerState[id][user].debt == 0;
-
-definition userHasNoActivatedCollaterals(bytes32 id, address user) returns bool = currentContract.borrowerState[id][user].activatedCollaterals == 0;
+definition userHasNoActivatedCollaterals(bytes32 id, address user) returns bool = currentContract.activatedCollaterals[id][user] == 0;
 
 definition userHasNoCollateral(bytes32 id, address user) returns bool = forall uint256 collateralIndex. collateralIndex < 128 => currentContract.collateralOf[id][user][collateralIndex] == 0;
