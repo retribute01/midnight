@@ -8,7 +8,7 @@ methods {
     function feeSetter() external returns (address) envfree;
     function obligationCreated(bytes32 id) external returns (bool) envfree;
 
-    // doesn't weaken the invariant but makes prover lifetime easier.
+    // doesn't weaken the invariant but improves verification time
     function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
 }
 
