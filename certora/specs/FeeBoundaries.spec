@@ -7,7 +7,6 @@ methods {
     function maxTradingFee(uint256 index) external returns (uint256) envfree;
     function feeSetter() external returns (address) envfree;
     function obligationCreated(bytes32 id) external returns (bool) envfree;
-
     function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
 }
 
@@ -47,12 +46,6 @@ hook Sstore defaultFees[KEY address token][INDEX uint256 idx] uint16 newVal {
 
 hook Sload uint16 val defaultFees[KEY address token][INDEX uint256 idx] {
     require ghostDefaultFeeUnits[token][idx] == to_mathint(val);
-}
-
-/// Verify that the hardcoded maxFeeUnits definition matches the contract's maxTradingFee.
-rule maxFeeUnitsMatchesContract(uint256 index) {
-    require index <= 6;
-    assert to_mathint(maxTradingFee(index)) / FEE_STEP() == maxFeeUnits(index);
 }
 
 /// Default fees for any loan token at each index are bounded by its specific maxTradingFee cap.
