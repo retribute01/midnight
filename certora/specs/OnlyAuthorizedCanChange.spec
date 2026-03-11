@@ -18,7 +18,7 @@ rule takeCannotChangeBothSharesAndDebt(env e, uint256 obligationShares, address 
     uint256 sharesAfter = sharesOf(id, user);
     uint256 debtAfter = debtOf(id, user);
 
-    assert !(sharesAfter != sharesBefore && debtAfter != debtBefore);
+    assert sharesAfter == sharesBefore || debtAfter == debtBefore;
 }
 
 /// SHARES CHANGE RULES ///
