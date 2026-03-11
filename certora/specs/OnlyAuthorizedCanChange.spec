@@ -10,6 +10,17 @@ methods {
     function _.price() external => NONDET;
 }
 
+/// A single take cannot change both a user's shares and debt.
+rule takeCannotChangeBothSharesAndDebt(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 id, address user) {
+    uint256 sharesBefore = sharesOf(id, user);
+    uint256 debtBefore = debtOf(id, user);
+    take(e, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
+    uint256 sharesAfter = sharesOf(id, user);
+    uint256 debtAfter = debtOf(id, user);
+
+    assert !(sharesAfter != sharesBefore && debtAfter != debtBefore);
+}
+
 /// SHARES CHANGE RULES ///
 
 /// An unauthorized caller cannot change a user's shares except via take.
