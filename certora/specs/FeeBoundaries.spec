@@ -7,6 +7,8 @@ methods {
     function maxTradingFee(uint256 index) external returns (uint256) envfree;
     function feeSetter() external returns (address) envfree;
     function obligationCreated(bytes32 id) external returns (bool) envfree;
+
+    // doesn't weaken the invariant but makes prover lifetime easier.
     function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
 }
 
@@ -55,8 +57,7 @@ invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
     {
         preserved with (env e) {
             address anyToken;
-            uint256 anyIndex;
-            requireInvariant defaultFeePerIndexBound(anyToken, anyIndex);
+            requireInvariant defaultFeePerIndexBound(anyToken, index);
         }
     }
 
