@@ -27,7 +27,7 @@ methods {
 /// ASSUMPTIONS ///
 
 // price does not change (isHealthy() can be violated if price changes)
-// isHealthy() and isHealthyNoBitmap() are equivalent (proved in TODO.spec)
+// isHealthy() and isHealthyNoBitmap() are equivalent (proved in CollateralBitmap.spec)
 // mulDivDown/Up() fulfill all the axioms defined here (proved in MulDiv.spec)
 
 /// SUMMARY ///
@@ -72,7 +72,7 @@ definition axiomAddDownUp(mathint a1, mathint a2, mathint b, mathint d) returns 
 definition axiomInverseUpDown(mathint a, mathint b, mathint d) returns bool = b > 0 && d > 0 => summaryMulDivUpM(summaryMulDivDownM(a, b, d), d, b) <= a;
 
 /* proved in mulDivLifLLTV in MulDiv.spec */
-definition axiomLifLLTV(mathint a, mathint lif, mathint lltv) returns bool = lltv * lif < WAD() * WAD() => summaryMulDivUpM(a, lltv, WAD()) <= summaryMulDivUpM(a, WAD(), lif);
+definition axiomLifLLTV(mathint a, mathint lif, mathint lltv) returns bool = lltv * lif <= WAD() * WAD() => summaryMulDivUpM(a, lltv, WAD()) <= summaryMulDivUpM(a, WAD(), lif);
 
 function summaryMulDivDown(uint256 a, uint256 b, uint256 d) returns uint256 {
     bool overflow;
@@ -109,6 +109,10 @@ persistent ghost mapping(uint256 => uint256) globalObligationCollateralLLTV;
 
 persistent ghost mapping(uint256 => uint256) globalObligationCollateralMaxLif;
 
+persistent ghost uint256 globalObligationMaturity;
+
+persistent ghost uint256 globalObligationRcfThreshold;
+
 persistent ghost bytes32 globalId;
 
 persistent ghost address globalBorrower;
@@ -117,23 +121,35 @@ persistent ghost address globalBorrower;
 // It checks for the length and also returns true if the index is out of bounds. This allows us to require this for every index.
 definition collateralMatches(Midnight.Obligation obligation, uint256 index) returns bool = (index < globalObligationCollateralLength => obligation.collaterals[index].oracle == globalObligationCollateralOracle[index] && obligation.collaterals[index].token == globalObligationCollateralToken[index] && obligation.collaterals[index].lltv == globalObligationCollateralLLTV[index] && obligation.collaterals[index].maxLif == globalObligationCollateralMaxLif[index]);
 
+function equalsGlobalObligation(Midnight.Obligation obligation) returns (bool) {
+    return obligation.loanToken == globalObligationLoanToken
+        && obligation.collaterals.length == globalObligationCollateralLength
+        && collateralMatches(obligation, 0)
+        && collateralMatches(obligation, 1)
+        && collateralMatches(obligation, 2)
+        && obligation.maturity == globalObligationMaturity
+        && obligation.rcfThreshold == globalObligationRcfThreshold;
+}
+
+function getGlobalObligation() returns (Midnight.Obligation) {
+    Midnight.Obligation obligation;
+    require equalsGlobalObligation(obligation), "read global obligation";
+    return obligation;
+}
+
 function summaryToId(Midnight.Obligation obligation, uint256 chainId, address morpho) returns (bytes32) {
     bytes32 id;
-    if (
-        obligation.loanToken == globalObligationLoanToken
-            && obligation.collaterals.length == globalObligationCollateralLength
-            && collateralMatches(obligation, 0)
-            && collateralMatches(obligation, 1)
-            && collateralMatches(obligation, 2)
-            && morpho == currentContract
-    ) {
-        require id == globalId;
+    if (equalsGlobalObligation(obligation) && morpho == currentContract) {
+        require id == globalId, "toId() is deterministic";
     } else {
-        require id != globalId;
+        require id != globalId, "toId() is injective";
     }
     return id;
 }
 
+// Call either isHealthy() or isHealthyNoBitmap() depending on global setting. 
+// We show in CollateralBitmap.spec that both functions return the same value, so calling any of them is okay.
+// To avoid the need for bitprecise reasoning, we select for each case the most suitable function, by setting the variable useIsHealthyNoBitmap. 
 function callIsHealthy(Midnight.Obligation obligation, bytes32 obligationId, address borrower) returns (bool) {
     if (useIsHealthyNoBitmap) {
         return isHealthyNoBitmap(obligation, globalId, globalBorrower);
@@ -142,17 +158,15 @@ function callIsHealthy(Midnight.Obligation obligation, bytes32 obligationId, add
     }
 }
 
+// Summary for every callback (token transfer, onLiquidate, onFlashloan, onBuy, onSell)
+// we check that the user is healthy before the callback, do some external call (to simulate changes by the callback),
+// and then require that the user is still healthy after the callback.
 function genericCallback() {
     address dummy;
     env e;
-    Midnight.Obligation obligation;
+    Midnight.Obligation obligation = getGlobalObligation();
 
-    require obligation.loanToken == globalObligationLoanToken;
-    require obligation.collaterals.length == globalObligationCollateralLength;
-    require collateralMatches(obligation, 0);
-    require collateralMatches(obligation, 1);
-    require collateralMatches(obligation, 2);
-
+    // check that isHealthy holds before the callback.  We remember any violation and check that none occurred at the end of each rule.
     if (!callIsHealthy(obligation, globalId, globalBorrower)) {
         healthyBeforeCallback = false;
     }
@@ -162,29 +176,35 @@ function genericCallback() {
     require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy after callback";
 }
 
+// Same as the summary above except that it also returns a non-deterministic value.
 function genericCallbackBool() returns (bool) {
     bool result;
-
     genericCallback();
     return result;
 }
 
+//// RULES //////
+
+// The remaining rules show that a healthy borrower cannot get unhealthy by calling any function of the contract.
+// Since we have a ghost summary for price(), we assume the price will not change during the call.
+
+// To avoid timeouts, we split out two cases for liquidate: 
+//  1) the borrower under consideration is the one that is liquidated on the obligation under consideration.
+//  2) the borrower is different from the liquidated user, or the obligation is different.
+// and then we have a final rule for all other functions of the contract.
+
+// Show that the user stays healthy on liquidate, if the user gets liquidated (can occur if blocktime exceeds maturity)
 rule stayHealthyLiquidateSameBorrower(env e, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, bytes someData) {
-    Midnight.Obligation obligation;
     useIsHealthyNoBitmap = true;
 
-    // reset the ghost variable that tracks whether the user was healthy before the callbacks.
+    // This variable is set to false whenever isHealthy() is violated before a callback.  Initially we set it to true to indicate no violations detected.
     healthyBeforeCallback = true;
 
-    require globalObligationCollateralLLTV[someCollateralIndex] * globalObligationCollateralMaxLif[someCollateralIndex] < WAD() * WAD(), "collateral lltv must be less then 1/maxLif";
+    require globalObligationCollateralLLTV[someCollateralIndex] * globalObligationCollateralMaxLif[someCollateralIndex] <= WAD() * WAD(), "collateral lltv must be less then 1/maxLif";
 
     require globalObligationCollateralLength <= 1, "too many collaterals for the spec to handle";
 
-    require obligation.loanToken == globalObligationLoanToken;
-    require obligation.collaterals.length == globalObligationCollateralLength;
-    require collateralMatches(obligation, 0);
-    // require collateralMatches(obligation, 1);
-    // require collateralMatches(obligation, 2);
+    Midnight.Obligation obligation = getGlobalObligation();
 
     require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
@@ -201,56 +221,46 @@ rule stayHealthyLiquidateSameBorrower(env e, uint256 someCollateralIndex, uint25
     // require all the axioms that are needed to prove the healthiness after liquidation. These are the same axioms that are proved in the MulDiv.spec
     require axiomInverseUpDown(repaidUnits, globalObligationCollateralMaxLif[someCollateralIndex], WAD()), "axiom";
     require axiomInverseUpDown(summaryMulDivDownM(repaidUnits, globalObligationCollateralMaxLif[someCollateralIndex], WAD()), ORACLE_PRICE_SCALE(), price), "axiom";
-    require axiomLifLLTV(summaryMulDivUpM(seizedAssets, price, ORACLE_PRICE_SCALE()), globalObligationCollateralMaxLif[someCollateralIndex], globalObligationCollateralLLTV[someCollateralIndex]);
+    require axiomLifLLTV(summaryMulDivUpM(seizedAssets, price, ORACLE_PRICE_SCALE()), globalObligationCollateralMaxLif[someCollateralIndex], globalObligationCollateralLLTV[someCollateralIndex]), "axiom";
     require axiomAddDownUp(collateralAfter, seizedAssets, price, ORACLE_PRICE_SCALE()), "axiom";
     require axiomAddDownUp(summaryMulDivDownM(collateralAfter, price, ORACLE_PRICE_SCALE()), summaryMulDivUpM(seizedAssets, price, ORACLE_PRICE_SCALE()), globalObligationCollateralLLTV[someCollateralIndex], WAD()), "axiom";
 
+    // check that the user was healthy before all callbacks.  We can only assert this after we included all the needed axioms.
     assert healthyBeforeCallback, "user is healthy before callbacks";
     assert callIsHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
 }
 
+// Show that the user stays healthy on liquidate, if another user gets liquidated or obligation differs.
 rule stayHealthyLiquidateOtherBorrower(env e, Midnight.Obligation someObligation, uint256 someCollateralIndex, uint256 someSeizedAssets, uint256 someRepaidUnits, address someBorrower, bytes someData) {
-    Midnight.Obligation obligation;
     useIsHealthyNoBitmap = true;
 
-    // reset the ghost variable that tracks whether the user was healthy before the callbacks.
+    // This variable is set to false whenever isHealthy() is violated before a callback.  Initially we set it to true to indicate no violations detected.
     healthyBeforeCallback = true;
 
     require globalObligationCollateralLength <= 1, "too many collaterals for the spec to handle";
 
-    require obligation.loanToken == globalObligationLoanToken;
-    require obligation.collaterals.length == globalObligationCollateralLength;
-    require collateralMatches(obligation, 0);
-    // require collateralMatches(obligation, 1);
-    // require collateralMatches(obligation, 2);
-
-    require someBorrower != globalBorrower || someObligation.loanToken != globalObligationLoanToken || someObligation.collaterals.length != globalObligationCollateralLength || !collateralMatches(someObligation, 0) || !collateralMatches(someObligation, 1) || !collateralMatches(someObligation, 2), "either user or obligation in the liquidation call is different";
+    Midnight.Obligation obligation = getGlobalObligation();
+    require someBorrower != globalBorrower || !equalsGlobalObligation(someObligation);
 
     require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
-    uint256 seizedAssets;
-    uint256 repaidUnits;
-
-    seizedAssets, repaidUnits = liquidate(e, someObligation, someCollateralIndex, someSeizedAssets, someRepaidUnits, someBorrower, someData);
+    liquidate(e, someObligation, someCollateralIndex, someSeizedAssets, someRepaidUnits, someBorrower, someData);
 
     assert healthyBeforeCallback, "user is healthy before callbacks";
     assert callIsHealthy(obligation, globalId, globalBorrower), "user is healthy after call";
 }
 
+// Show that the user stays healthy on any other function than liquidate or take.
 rule stayHealthy(env e, method f, calldataarg args) filtered { f -> f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector } {
-    Midnight.Obligation obligation;
+    // for withdraw collateral we choose isHealthy() for all others the isHealthyNoBitmap function.
     useIsHealthyNoBitmap = (f.selector != sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector);
 
-    // reset the ghost variable that tracks whether the user was healthy before the callbacks.
+    // This variable is set to false whenever isHealthy() is violated before a callback.  Initially we set it to true to indicate no violations detected.
     healthyBeforeCallback = true;
 
     require globalObligationCollateralLength <= 3, "too many collaterals for the spec to handle";
 
-    require obligation.loanToken == globalObligationLoanToken;
-    require obligation.collaterals.length == globalObligationCollateralLength;
-    require collateralMatches(obligation, 0);
-    require collateralMatches(obligation, 1);
-    require collateralMatches(obligation, 2);
+    Midnight.Obligation obligation = getGlobalObligation();
 
     require callIsHealthy(obligation, globalId, globalBorrower), "user is healthy before call";
 
