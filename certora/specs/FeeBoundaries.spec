@@ -56,7 +56,7 @@ invariant defaultFeePerIndexBound()
 
 /// Every obligation's fee breakpoints are bounded by the per-index maximum.
 invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
-    index <= 6 => ghostObligationFeeUnits[id][index] <= maxFeeUnits(index);
+    index <= 6 => ghostObligationFeeUnits[id][index] <= maxFeeUnits(index)
     {
         preserved with (env e) {
             requireInvariant defaultFeePerIndexBound();
