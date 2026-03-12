@@ -20,7 +20,7 @@ definition lowerIndex(uint256 ttm) returns uint256 = ttm >= breakpointTime(6) ? 
 /// Upper enclosing breakpoint index for a given time-to-maturity.
 definition upperIndex(uint256 ttm) returns uint256 = ttm >= breakpointTime(6) ? 6 : ttm >= breakpointTime(5) ? 6 : ttm >= breakpointTime(4) ? 5 : ttm >= breakpointTime(3) ? 4 : ttm >= breakpointTime(2) ? 3 : ttm >= breakpointTime(1) ? 2 : 1;
 
-definition FEE_STEP() returns mathint = 1000000000000;
+definition FEE_STEP() returns uint256 = 1000000000000;
 
 definition defaultFee(address loanToken, uint256 index) returns uint256 = assert_uint256(currentContract.defaultFees[loanToken][index] * FEE_STEP());
 
@@ -53,7 +53,7 @@ invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
 
 /// Only the fee setter can modify default fees (multicall is DELETEd and not checked here).
 rule onlyFeeSetterCanChangeDefaultFees(method f, env e, address token, uint256 index) filtered { f -> !f.isView } {
-    mathint defaultFeeBefore = defaultFee(token, index);
+    uint256 defaultFeeBefore = defaultFee(token, index);
     calldataarg args;
     f(e, args);
     assert defaultFee(token, index) != defaultFeeBefore => e.msg.sender == currentContract.feeSetter() && f.selector == sig:setDefaultTradingFee(address, uint256, uint256).selector;
@@ -62,7 +62,7 @@ rule onlyFeeSetterCanChangeDefaultFees(method f, env e, address token, uint256 i
 /// Once an obligation is created, only the fee setter can modify its fees.
 rule onlyFeeSetterCanChangeObligationFeesPostCreation(method f, env e, bytes32 id, uint256 index) filtered { f -> !f.isView } {
     require obligationCreated(id);
-    mathint obligationFeeBefore = obligationFee(id, index);
+    uint256 obligationFeeBefore = obligationFee(id, index);
     calldataarg args;
     f(e, args);
 
