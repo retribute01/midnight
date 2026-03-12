@@ -317,7 +317,9 @@ contract ContinuousFeeTest is BaseTest {
         }
     }
 
-    function testExitViaLiquidation(uint256 debt, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
+    function testExitViaLiquidation(uint256 debt, uint256 repaidUnits, uint256 feeRate, uint256 ttm, uint256 elapsed)
+        public
+    {
         debt = bound(debt, 1e18, MAX_DEBT);
         feeRate = bound(feeRate, 0, MAX_CONTINUOUS_FEE);
         ttm = bound(ttm, 10, 360 days);
@@ -342,14 +344,27 @@ contract ContinuousFeeTest is BaseTest {
             collateralAmount.mulDivUp(oracle1.price(), ORACLE_PRICE_SCALE)
                 .mulDivUp(WAD, obligation.collaterals[0].maxLif)
         );
-        uint256 expectedRemaining = remainingAfterAccrual - remainingAfterAccrual.mulDivUp(badDebt, debtAfterAccrual);
+        uint256 maxDebt = collateralAmount.mulDivDown(oracle1.price(), ORACLE_PRICE_SCALE)
+            .mulDivDown(obligation.collaterals[0].lltv, WAD);
+        uint256 debtAfterBadDebt = debtAfterAccrual - badDebt;
+        assertGe(debtAfterBadDebt, maxDebt, "setup should leave a repayable liquidation slice");
+        uint256 lif = obligation.collaterals[0].maxLif;
+        uint256 maxRepaid =
+            (debtAfterBadDebt - maxDebt).mulDivUp(WAD, WAD - lif.mulDivUp(obligation.collaterals[0].lltv, WAD));
+        uint256 collateralSafeRepaid =
+            collateralAmount.mulDivDown(oracle1.price(), ORACLE_PRICE_SCALE).mulDivDown(WAD, lif);
+        maxRepaid = UtilsLib.min(maxRepaid, collateralSafeRepaid);
+        assertGt(maxRepaid, 0, "setup should allow nonzero repaidUnits");
+        repaidUnits = bound(repaidUnits, 1, maxRepaid);
+        uint256 expectedRemaining =
+            remainingAfterAccrual - remainingAfterAccrual.mulDivUp(badDebt + repaidUnits, debtAfterAccrual);
 
-        deal(address(loanToken), address(this), debtAfterAccrual);
+        deal(address(loanToken), address(this), repaidUnits);
         vm.expectEmit();
         emit EventsLib.AccrueContinuousFee(id, borrower, feeUnits, feeShares, remainingAfterAccrual);
         vm.expectEmit();
         emit EventsLib.SetPendingFee(id, borrower, expectedRemaining);
-        midnight.liquidate(obligation, 0, 0, 0, borrower, "");
+        midnight.liquidate(obligation, 0, 0, repaidUnits, borrower, "");
 
         assertApproxEqAbs(midnight.pendingFee(id, borrower), expectedRemaining, 1, "remaining after liquidation");
     }
