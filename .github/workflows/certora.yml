@@ -22,7 +22,7 @@ jobs:
           - Liquidate
           - Midnight
           - MulDiv
-          - OnlyAuthorizedCanDecreaseShares
+          - OnlyAuthorizedCanChange
           - SharePrice
           - Solvency
           - WithdrawableMonotonicity
