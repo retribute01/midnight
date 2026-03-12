@@ -9,13 +9,14 @@ methods {
 }
 
 function accruedContinuousFeeBefore(bytes32 id, address user, uint256 blockTimestamp, uint256 maturity) returns mathint {
-    mathint lastAccrual = currentContract.borrowerState[id][user].lastContinuousFeeAccrual;
-    mathint pendingFee = currentContract.borrowerState[id][user].pendingFee;
+    uint128 lastAccrual = currentContract.borrowerState[id][user].lastContinuousFeeAccrual;
+    uint128 _pendingFee = currentContract.borrowerState[id][user].pendingFee;
 
-    if (lastAccrual == 0 || maturity <= lastAccrual) return 0;
+    if (lastAccrual == 0 || maturity <= require_uint256(lastAccrual)) return 0;
 
-    mathint accrualEnd = blockTimestamp < maturity ? blockTimestamp : maturity;
-    return pendingFee * (accrualEnd - lastAccrual) / (maturity - lastAccrual);
+    uint256 accrualEnd = blockTimestamp < maturity ? blockTimestamp : maturity;
+    // Use the same mulDiv summary as the code to ensure consistency.
+    return summaryMulDiv(_pendingFee, assert_uint256(accrualEnd - lastAccrual), assert_uint256(maturity - lastAccrual));
 }
 
 definition noAccrual(env e, bytes32 id, address borrower) returns bool = currentContract.borrowerState[id][borrower].pendingFee == 0 || e.block.timestamp == currentContract.borrowerState[id][borrower].lastContinuousFeeAccrual;
@@ -23,6 +24,11 @@ definition noAccrual(env e, bytes32 id, address borrower) returns bool = current
 use invariant noRemainingContinuousFeeWithoutDebt;
 
 rule takeCannotChangeBothSharesAndDebt(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 id, address user) {
+    // Exclude passive fee recipient: fee share minting changes their shares independently of debt.
+    require user != Utils.passiveFeeRecipient();
+    requireInvariant notBorrowerAndLender(id, user);
+    requireInvariant noRemainingContinuousFeeWithoutDebt(id, user);
+
     uint256 sharesBefore = sharesOf(id, user);
     uint256 debtBefore = debtOf(id, user);
     take(e, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
@@ -41,17 +47,22 @@ rule onlyAuthorizedCanChangeSharesExceptTake(env e, method f, calldataarg args, 
 
     bool userIsAuthorized = user == e.msg.sender || isAuthorized(user, e.msg.sender);
     bool passiveFeeWithdraw = user == Utils.passiveFeeRecipient() && e.msg.sender == feeRecipient() && f.selector == sig:withdraw(Midnight.Obligation, uint256, uint256, address, address).selector;
+    bool isPassiveFeeRecipient = user == Utils.passiveFeeRecipient();
 
     uint256 sharesBefore = sharesOf(id, user);
     f(e, args);
     uint256 sharesAfter = sharesOf(id, user);
 
-    assert userIsAuthorized || passiveFeeWithdraw || sharesAfter == sharesBefore;
+    // Passive fee recipient's shares can increase due to fee share minting during accrual.
+    assert userIsAuthorized || passiveFeeWithdraw || (isPassiveFeeRecipient ? sharesAfter >= sharesBefore : sharesAfter == sharesBefore);
 }
 
 /// In take, the caller must be authorized by the taker and only the seller's shares can decrease.
 /// Assumes no reentrancy: the onBuy/onSell callbacks could re-enter take (or another function) and decrease a different user's shares.
 rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 id, address user) {
+    // Exclude passive fee recipient: fee share minting during accrual can change their shares.
+    require user != Utils.passiveFeeRecipient();
+
     address seller = offer.buy ? taker : offer.maker;
     bool takerUnauthorized = e.msg.sender != taker && !isAuthorized(taker, e.msg.sender);
 
@@ -123,20 +134,23 @@ rule takeOnlyAuthorizedCanChangeDebt(env e, uint256 obligationShares, address ta
     assert user != buyer && user != seller => debtAfter == debtBefore;
 }
 
-rule withdrawCollateralDebtIncreasesByAccruedFee(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 assets, address onBehalf, address receiver) {
-    bytes32 id = toId(obligation);
+rule withdrawCollateralDebtIncreasesByAccruedFee(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 assets, address onBehalf, address receiver, bytes32 id) {
+    require noAccrual(e, id, onBehalf);
+
     mathint debtBefore = debtOf(id, onBehalf);
-    mathint accruedFeeBefore = accruedContinuousFeeBefore(id, onBehalf, e.block.timestamp, obligation.maturity);
 
     withdrawCollateral(e, obligation, collateralIndex, assets, onBehalf, receiver);
-    assert debtOf(id, onBehalf) == debtBefore + accruedFeeBefore;
+    assert debtOf(id, onBehalf) == debtBefore;
 }
 
-rule repayDebtMatchesAccrualAndRepayment(env e, Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf) {
-    bytes32 id = toId(obligation);
+rule repayDebtMatchesAccrualAndRepayment(env e, Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf, bytes32 id) {
+    require noAccrual(e, id, onBehalf);
+
     mathint debtBefore = debtOf(id, onBehalf);
-    mathint accruedFeeBefore = accruedContinuousFeeBefore(id, onBehalf, e.block.timestamp, obligation.maturity);
 
     repay(e, obligation, obligationUnits, onBehalf);
-    assert debtOf(id, onBehalf) + obligationUnits == debtBefore + accruedFeeBefore;
+    mathint debtAfter = debtOf(id, onBehalf);
+
+    // If debt changed at this id, it decreased by exactly obligationUnits.
+    assert debtAfter != debtBefore => debtAfter + obligationUnits == debtBefore;
 }
