@@ -76,7 +76,7 @@ contract TakeBundler {
     }
 
     /// @dev Same as bundleTakeShares but targets obligation units.
-    /// @dev unitsToShares is evaluated before midnight.take, so reverts there (e.g. underflow when offerPrice <
+    /// @dev expectedUnitsToShares is evaluated before midnight.take, so reverts there (e.g. underflow when offerPrice <
     /// tradingFee) are not caught by the try/catch and will abort the bundle.
     function bundleTakeUnits(
         Midnight midnight,
@@ -101,7 +101,9 @@ contract TakeBundler {
         for (uint256 i; i < takes.length && totalFilledUnits < targetUnits; i++) {
             try midnight.take(
                 UtilsLib.min(
-                    TakeAmountsLib.unitsToShares(midnight, id, taker, takes[i].offer, targetUnits - totalFilledUnits),
+                    TakeAmountsLib.expectedUnitsToShares(
+                        midnight, id, taker, takes[i].offer, targetUnits - totalFilledUnits
+                    ),
                     takes[i].obligationShares
                 ),
                 taker,
@@ -136,8 +138,8 @@ contract TakeBundler {
 
     /// @dev Same as bundleTakeShares but targets buyer assets.
     /// @dev Not usable if buyerPrice > WAD, because not all buyerAssets are reachable then.
-    /// @dev buyerAssetsToShares is evaluated before midnight.take, so reverts there (e.g. underflow when offerPrice <
-    /// tradingFee) are not caught by the try/catch and will abort the bundle.
+    /// @dev expectedBuyerAssetsToShares is evaluated before midnight.take, so reverts there (e.g. underflow when
+    /// offerPrice < tradingFee) are not caught by the try/catch and will abort the bundle.
     function bundleTakeBuyerAssets(
         Midnight midnight,
         uint256 targetBuyerAssets,
@@ -158,8 +160,8 @@ contract TakeBundler {
         for (uint256 i; i < takes.length && totalFilledBuyerAssets < targetBuyerAssets; i++) {
             try midnight.take(
                 UtilsLib.min(
-                    TakeAmountsLib.buyerAssetsToShares(
-                        midnight, id, takes[i].offer, targetBuyerAssets - totalFilledBuyerAssets
+                    TakeAmountsLib.expectedBuyerAssetsToShares(
+                        midnight, id, taker, takes[i].offer, targetBuyerAssets - totalFilledBuyerAssets
                     ),
                     takes[i].obligationShares
                 ),
@@ -188,8 +190,8 @@ contract TakeBundler {
     }
 
     /// @dev Same as bundleTakeShares but targets seller assets.
-    /// @dev sellerAssetsToShares is evaluated before midnight.take, so reverts there (e.g. underflow when offerPrice <
-    /// tradingFee) are not caught by the try/catch and will abort the bundle.
+    /// @dev expectedSellerAssetsToShares is evaluated before midnight.take, so reverts there (e.g. underflow when
+    /// offerPrice < tradingFee) are not caught by the try/catch and will abort the bundle.
     function bundleTakeSellerAssets(
         Midnight midnight,
         uint256 targetSellerAssets,
@@ -210,8 +212,8 @@ contract TakeBundler {
         for (uint256 i; i < takes.length && totalFilledSellerAssets < targetSellerAssets; i++) {
             try midnight.take(
                 UtilsLib.min(
-                    TakeAmountsLib.sellerAssetsToShares(
-                        midnight, id, takes[i].offer, targetSellerAssets - totalFilledSellerAssets
+                    TakeAmountsLib.expectedSellerAssetsToShares(
+                        midnight, id, taker, takes[i].offer, targetSellerAssets - totalFilledSellerAssets
                     ),
                     takes[i].obligationShares
                 ),
