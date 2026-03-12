@@ -62,7 +62,7 @@ function summaryPendingContinuousFee(bytes32 id, address borrower) returns uint2
     return res;
 }
 
-definition liquidationAccruesNoFee(bytes32 id, address borrower) returns bool = currentContract.borrowerState[id][borrower].pendingFee == 0 || currentContract.borrowerState[id][borrower].lastContinuousFeeAccrual == 0;
+definition noAccrual(env e, bytes32 id, address borrower) returns bool = currentContract.borrowerState[id][borrower].pendingFee == 0 || e.block.timestamp == currentContract.borrowerState[id][borrower].lastContinuousFeeAccrual;
 
 // Check the ratio of units over shares is below or equal to 1.
 strong invariant sharePriceBelowOrEqOne(bytes32 id)
@@ -70,7 +70,7 @@ strong invariant sharePriceBelowOrEqOne(bytes32 id)
 
 /// If liquidation cannot accrue fee in the current call, it does not change the total shares.
 rule liquidateWithoutFeeAccrualDoesNotChangeShares(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data, bytes32 id) {
-    require liquidationAccruesNoFee(id, borrower), "exclude fee accrual";
+    require noAccrual(e, id, borrower), "exclude fee accrual";
     mathint sharesBefore = totalShares(id);
     liquidate(e, obligation, collateralIndex, seizedAssets, repaidUnits, borrower, data);
     assert totalShares(id) == sharesBefore;
@@ -78,7 +78,7 @@ rule liquidateWithoutFeeAccrualDoesNotChangeShares(env e, Midnight.Obligation ob
 
 /// If liquidation cannot accrue fee in the current call, it does not increase the total units.
 rule liquidateWithoutFeeAccrualDoesNotIncreaseUnits(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data, bytes32 id) {
-    require liquidationAccruesNoFee(id, borrower), "exclude fee accrual";
+    require noAccrual(e, id, borrower), "exclude fee accrual";
     mathint unitsBefore = totalUnits(id);
     liquidate(e, obligation, collateralIndex, seizedAssets, repaidUnits, borrower, data);
     assert totalUnits(id) <= unitsBefore;

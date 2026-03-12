@@ -44,12 +44,10 @@ rule onlyAuthorizedCanDecreaseSharesExceptTake(env e, method f, bytes32 id, addr
 /// In take, the caller must be authorized by the taker and only the seller's shares can decrease.
 /// Assumes no reentrancy: the onBuy/onSell callbacks could re-enter take (or another function) and decrease a different user's shares.
 rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 id, address user) {
-    // Exclude passive fee recipient: fee share minting during accrual can change their shares.
-    require user != Utils.passiveFeeRecipient();
-
     address seller = offer.buy ? taker : offer.maker;
     address buyer = offer.buy ? offer.maker : taker;
     bool takerUnauthorized = e.msg.sender != taker && !isAuthorized(taker, e.msg.sender);
+    bool isPassiveFeeRecipient = user == Utils.passiveFeeRecipient();
 
     uint256 sharesBefore = sharesOf(id, user);
 
@@ -61,7 +59,8 @@ rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, add
     assert takerUnauthorized => reverted;
     assert user == seller => sharesAfter <= sharesBefore;
     assert user == buyer => sharesAfter >= sharesBefore;
-    assert user != buyer && user != seller => sharesAfter == sharesBefore;
+    // Passive fee recipient's shares can only increase (fee share minting during accrual).
+    assert user != buyer && user != seller => isPassiveFeeRecipient ? sharesAfter >= sharesBefore : sharesAfter == sharesBefore;
 }
 
 /// No function other than take can increase a user's debt beyond accrual.
