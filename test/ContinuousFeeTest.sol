@@ -80,7 +80,7 @@ contract ContinuousFeeTest is BaseTest {
         vm.expectEmit();
         emit EventsLib.AccrueContinuousFee(id, borrower, expectedFee, feeShares, remaining - expectedFee);
         vm.expectEmit();
-        emit EventsLib.SetPendingFee(id, borrower, remaining - expectedFee);
+        emit EventsLib.UpdatePendingFee(id, borrower, remaining - expectedFee);
         midnight.repay(obligation, 0, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + expectedFee, "debt after repay");
         assertEq(midnight.pendingFee(id, borrower), remaining - expectedFee, "remaining after repay");
@@ -111,7 +111,7 @@ contract ContinuousFeeTest is BaseTest {
         vm.expectEmit();
         emit EventsLib.AccrueContinuousFee(id, borrower, expectedFee, feeShares, remaining - expectedFee);
         vm.expectEmit();
-        emit EventsLib.SetPendingFee(id, borrower, remaining - expectedFee + addedPending);
+        emit EventsLib.UpdatePendingFee(id, borrower, remaining - expectedFee + addedPending);
         take(1, borrower, lenderOffer);
         assertApproxEqAbs(midnight.debtOf(id, borrower), debt + expectedFee + 1, 1, "debt after take");
         assertApproxEqAbs(
@@ -139,7 +139,7 @@ contract ContinuousFeeTest is BaseTest {
         vm.expectEmit();
         emit EventsLib.AccrueContinuousFee(id, borrower, remaining, feeShares, 0);
         vm.expectEmit();
-        emit EventsLib.SetPendingFee(id, borrower, 0);
+        emit EventsLib.UpdatePendingFee(id, borrower, 0);
         midnight.repay(obligation, 0, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + remaining, "all remaining consumed (repay)");
         assertEq(midnight.pendingFee(id, borrower), 0, "remaining is zero (repay)");
@@ -167,7 +167,7 @@ contract ContinuousFeeTest is BaseTest {
         vm.expectEmit();
         emit EventsLib.AccrueContinuousFee(id, borrower, remaining, feeShares, 0);
         vm.expectEmit();
-        emit EventsLib.SetPendingFee(id, borrower, 0);
+        emit EventsLib.UpdatePendingFee(id, borrower, 0);
         take(1, borrower, lenderOffer);
         assertApproxEqAbs(midnight.debtOf(id, borrower), debt + remaining + 1, 1, "all remaining consumed (take)");
         assertEq(midnight.pendingFee(id, borrower), 0, "remaining is zero (take)");
@@ -307,7 +307,7 @@ contract ContinuousFeeTest is BaseTest {
         emit EventsLib.AccrueContinuousFee(id, borrower, feeUnits, feeShares, remainingAfterAccrual);
         uint256 expectedRemaining = remainingAfterAccrual - remainingAfterAccrual.mulDivUp(exitAmount, debtAfterAccrual);
         vm.expectEmit();
-        emit EventsLib.SetPendingFee(id, borrower, expectedRemaining);
+        emit EventsLib.UpdatePendingFee(id, borrower, expectedRemaining);
         midnight.repay(obligation, exitAmount, borrower);
         assertEq(midnight.debtOf(id, borrower), debtAfterAccrual - exitAmount, "debt after repay");
         assertApproxEqAbs(midnight.pendingFee(id, borrower), expectedRemaining, 1, "remaining after repay");
@@ -363,7 +363,7 @@ contract ContinuousFeeTest is BaseTest {
         vm.expectEmit();
         emit EventsLib.AccrueContinuousFee(id, borrower, feeUnits, feeShares, remainingAfterAccrual);
         vm.expectEmit();
-        emit EventsLib.SetPendingFee(id, borrower, expectedRemaining);
+        emit EventsLib.UpdatePendingFee(id, borrower, expectedRemaining);
         midnight.liquidate(obligation, 0, 0, repaidUnits, borrower, "");
 
         assertApproxEqAbs(midnight.pendingFee(id, borrower), expectedRemaining, 1, "remaining after liquidation");
