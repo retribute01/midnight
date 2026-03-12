@@ -40,6 +40,6 @@ contract FlashLoanTest is BaseTest, IFlashLoanCallback {
         assertEq(amount, amountStored, "wrong amount");
         assertEq(data, dataStored, "wrong data");
         ERC20(token).approve(address(midnight), amount);
-        if (reverts) ERC20(token).transfer(address(0xdead), amount);
+        if (reverts) assertTrue(ERC20(token).transfer(address(0xdead), amount));
     }
 }
