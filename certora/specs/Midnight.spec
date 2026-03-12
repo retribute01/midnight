@@ -183,6 +183,15 @@ strong invariant pendingFeeImpliesLastAccrual(bytes32 id, address user)
         }
     }
 
+strong invariant lenderHasNoPendingFee(bytes32 id, address user)
+    !isPassiveFeeRecipient(user) && sharesOf(id, user) > 0 => pendingFee(id, user) == 0
+    {
+        preserved {
+            requireInvariant notBorrowerAndLender(id, user);
+            requireInvariant noRemainingContinuousFeeWithoutDebt(id, user);
+        }
+    }
+
 strong invariant totalUnitsEqualsSumDebtPlusWithdrawable(bytes32 id)
     totalUnits(id) == sumDebtOf[id] + withdrawable(id);
 

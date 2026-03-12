@@ -13,6 +13,17 @@ methods {
     function Utils.passiveFeeRecipient() external returns (address) envfree;
 
     function _.price() external => NONDET;
+    function IdLib.toId(Midnight.Obligation memory, uint256, address) internal returns (bytes32) => NONDET;
+    function UtilsLib.mulDivDown(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDiv(x, y, d);
+    function UtilsLib.mulDivUp(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDiv(x, y, d);
+}
+
+function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
+    if (x == 0 || y == 0) return 0;
+    if (d > 0 && y == d) return x;
+    if (d > 0 && x == d) return y;
+    uint256 res;
+    return res;
 }
 
 /// An unauthorized caller cannot decrease a user's shares except via take.
@@ -51,9 +62,7 @@ rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, add
 }
 
 /// No function other than take can increase a user's debt beyond accrual.
-rule debtOnlyIncreasesViaTake(env e, method f, bytes32 id, address user)
-    filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector
-                  && !f.isView } {
+rule debtOnlyIncreasesViaTake(env e, method f, bytes32 id, address user) filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector && !f.isView } {
     uint256 debtBefore = debtOf(id, user);
     uint256 pendingFeeBefore = require_uint256(pendingFee(id, user));
 
