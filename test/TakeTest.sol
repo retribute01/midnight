@@ -654,8 +654,7 @@ contract TakeTest is BaseTest {
         deal(obligation.collaterals[0].token, borrowerOffer.callback, collateral);
         assertEq(midnight.collateralOf(id, borrower, 0), 0);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, borrowerOffer.callback, true);
+        authorize(borrower, borrowerOffer.callback);
 
         take(shares, lender, borrowerOffer);
 
@@ -674,8 +673,7 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lender, units.mulDivDown(price, WAD));
         deal(obligation.collaterals[0].token, callback, collateral);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, callback, true);
+        authorize(borrower, callback);
 
         vm.prank(borrower);
         midnight.take(

@@ -44,8 +44,7 @@ contract MaxAmountsTest is BaseTest {
 
         deal(address(loanToken), lender, amount);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(this));
 
         // Set a very high oracle price so a small collateral amount is sufficient.
         // With price = ORACLE_PRICE_SCALE * 1e36, 1 collateral token = 1e36 loan tokens.
@@ -95,8 +94,7 @@ contract MaxAmountsTest is BaseTest {
         deal(address(collateralToken1), address(this), amount);
         collateralToken1.approve(address(midnight), amount);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(this));
 
         midnight.supplyCollateral(obligation, 0, amount, borrower);
 
@@ -109,8 +107,7 @@ contract MaxAmountsTest is BaseTest {
         deal(address(collateralToken1), address(this), amount);
         collateralToken1.approve(address(midnight), amount);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(this));
 
         vm.expectRevert("uint256 overflows uint128");
         midnight.supplyCollateral(obligation, 0, amount, borrower);
