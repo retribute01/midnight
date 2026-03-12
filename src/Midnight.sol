@@ -722,14 +722,15 @@ contract Midnight is IMidnight {
     function accrueContinuousFee(bytes32 id, address borrower, uint256 maturity) internal {
         require(obligationState[id].created, "not created");
 
+        BorrowerState storage _borrowerState = borrowerState[id][borrower];
         // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
         uint128 accruedFee = uint128(pendingContinuousFee(id, borrower, maturity));
         uint256 feeShares;
         if (accruedFee > 0) {
             ObligationState storage _obligationState = obligationState[id];
             feeShares = accruedFee.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
-            _state.pendingFee -= accruedFee;
-            _state.debt += accruedFee;
+            _borrowerState.pendingFee -= accruedFee;
+            _borrowerState.debt += accruedFee;
             _obligationState.totalUnits += accruedFee;
             if (feeShares > 0) {
                 sharesOf[id][PASSIVE_FEE_RECIPIENT] += feeShares;
@@ -737,7 +738,7 @@ contract Midnight is IMidnight {
             }
         }
 
-        borrowerState[id][borrower].lastContinuousFeeAccrual = uint128(block.timestamp);
+        _borrowerState.lastContinuousFeeAccrual = uint128(block.timestamp);
         emit EventsLib.AccrueContinuousFee(id, borrower, accruedFee, feeShares, borrowerState[id][borrower].pendingFee);
     }
 
