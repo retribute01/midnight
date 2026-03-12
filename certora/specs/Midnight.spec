@@ -108,14 +108,15 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
     assert repaidUnits == 0 && seizedAssets == 0 => seizedAssetsOutput == 0 && repaidUnitsOutput == 0;
 }
 
-rule debtChangeUpdatesLastAccrual(env e, method f, calldataarg args, bytes32 id, address user) {
+rule debtIncreaseUpdatesLastAccrual(env e, method f, calldataarg args, bytes32 id, address user) {
     uint256 debtBefore = debtOf(id, user);
 
     require e.block.timestamp < 2 ^ 128;
 
     f(e, args);
 
-    assert debtOf(id, user) != debtBefore => lastContinuousFeeAccrual(id, user) == assert_uint128(e.block.timestamp);
+    // If debt increased (from fee accrual or new borrowing), lastAccrual is current timestamp.
+    assert debtOf(id, user) > debtBefore => lastContinuousFeeAccrual(id, user) == assert_uint128(e.block.timestamp);
 }
 
 rule lastAccrualMonotonicity(env e, method f, calldataarg args, bytes32 id, address user) {
@@ -128,6 +129,42 @@ rule lastAccrualMonotonicity(env e, method f, calldataarg args, bytes32 id, addr
     f(e, args);
 
     assert lastContinuousFeeAccrual(id, user) >= before;
+}
+
+rule feeConservation(env e, bytes32 id, address user, Midnight.Obligation obligation) {
+    uint256 debtBefore = debtOf(id, user);
+    uint128 pendingFeeBefore = pendingFee(id, user);
+
+    repay(e, obligation, 0, user);  // 0-amount repay only triggers accrual
+
+    uint256 debtAfter = debtOf(id, user);
+    uint128 pendingFeeAfter = pendingFee(id, user);
+
+    // What left pendingFee was added to debt.
+    assert to_mathint(debtAfter) - to_mathint(debtBefore) == to_mathint(pendingFeeBefore) - to_mathint(pendingFeeAfter);
+}
+
+rule pendingFeeOnlyIncreasesViaTake(env e, method f, calldataarg args, bytes32 id, address user)
+    filtered { f -> f.selector != sig:take(uint256,address,address,bytes,address,Midnight.Offer,Midnight.Signature,bytes32,bytes32[]).selector
+                  && !f.isView } {
+    uint128 pendingFeeBefore = pendingFee(id, user);
+
+    f(e, args);
+
+    assert pendingFee(id, user) <= pendingFeeBefore;
+}
+
+rule lenderAccrualIsNoOp(env e, bytes32 id, address user, Midnight.Obligation obligation) {
+    require debtOf(id, user) == 0;
+    require pendingFee(id, user) == 0;
+
+    uint128 lastAccrualBefore = lastContinuousFeeAccrual(id, user);
+
+    repay(e, obligation, 0, user);  // triggers accrueContinuousFee
+
+    assert lastContinuousFeeAccrual(id, user) == lastAccrualBefore;
+    assert debtOf(id, user) == 0;
+    assert pendingFee(id, user) == 0;
 }
 
 /// INVARIANTS ///
