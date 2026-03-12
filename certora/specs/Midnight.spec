@@ -129,12 +129,12 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
     assert repaidUnits == 0 && seizedAssets == 0 => seizedAssetsOutput == 0 && repaidUnitsOutput == 0;
 }
 
-rule debtIncreaseUpdatesLastAccrual(env e, method f, calldataarg args, bytes32 id, address user) filtered {
-    f ->
-        f.selector == sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector ||
-        f.selector == sig:repay(Midnight.Obligation, uint256, address).selector ||
-        f.selector == sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector ||
-        f.selector == sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
+rule debtIncreaseUpdatesLastAccrual(env e, method f, calldataarg args, bytes32 id, address user)
+filtered {
+    f -> f.selector == sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector
+        || f.selector == sig:repay(Midnight.Obligation, uint256, address).selector
+        || f.selector == sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector
+        || f.selector == sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
 } {
     uint256 debtBefore = debtOf(id, user);
 
@@ -146,12 +146,12 @@ rule debtIncreaseUpdatesLastAccrual(env e, method f, calldataarg args, bytes32 i
     assert debtOf(id, user) > debtBefore => lastContinuousFeeAccrual(id, user) == assert_uint128(e.block.timestamp);
 }
 
-rule lastAccrualMonotonicity(env e, method f, calldataarg args, bytes32 id, address user) filtered {
-    f ->
-        f.selector == sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector ||
-        f.selector == sig:repay(Midnight.Obligation, uint256, address).selector ||
-        f.selector == sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector ||
-        f.selector == sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
+rule lastAccrualMonotonicity(env e, method f, calldataarg args, bytes32 id, address user)
+filtered {
+    f -> f.selector == sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector
+        || f.selector == sig:repay(Midnight.Obligation, uint256, address).selector
+        || f.selector == sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector
+        || f.selector == sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
 } {
     uint128 before = lastContinuousFeeAccrual(id, user);
 
@@ -177,12 +177,7 @@ rule feeConservation(env e, bytes32 id, address user, Midnight.Obligation obliga
     assert to_mathint(debtAfter) - to_mathint(debtBefore) == to_mathint(pendingFeeBefore) - to_mathint(pendingFeeAfter);
 }
 
-rule pendingFeeOnlyIncreasesViaTake(env e, method f, calldataarg args, bytes32 id, address user) filtered {
-    f ->
-        f.selector == sig:repay(Midnight.Obligation, uint256, address).selector ||
-        f.selector == sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector ||
-        f.selector == sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
-} {
+rule pendingFeeOnlyIncreasesViaTake(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> f.selector == sig:repay(Midnight.Obligation, uint256, address).selector || f.selector == sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector || f.selector == sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector } {
     uint128 pendingFeeBefore = pendingFee(id, user);
 
     f(e, args);

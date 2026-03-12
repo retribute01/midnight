@@ -18,9 +18,7 @@ function accruedContinuousFeeBefore(bytes32 id, address user, uint256 blockTimes
     return pendingFee * (accrualEnd - lastAccrual) / (maturity - lastAccrual);
 }
 
-definition noAccrual(env e, bytes32 id, address borrower) returns bool =
-    currentContract.borrowerState[id][borrower].pendingFee == 0
-    || e.block.timestamp == currentContract.borrowerState[id][borrower].lastContinuousFeeAccrual;
+definition noAccrual(env e, bytes32 id, address borrower) returns bool = currentContract.borrowerState[id][borrower].pendingFee == 0 || e.block.timestamp == currentContract.borrowerState[id][borrower].lastContinuousFeeAccrual;
 
 use invariant noRemainingContinuousFeeWithoutDebt;
 
