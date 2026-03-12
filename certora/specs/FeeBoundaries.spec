@@ -57,7 +57,7 @@ invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
         }
     }
 
-/// Only the fee setter can modify default fees (multicall is DELETEd and not checked here).
+/// Only the fee setter can modify default fees.
 rule onlyFeeSetterCanChangeDefaultFees(method f, env e, address token, uint256 index) filtered { f -> !f.isView } {
     uint256 defaultFeeBefore = defaultFee(token, index);
     calldataarg args;
@@ -67,7 +67,7 @@ rule onlyFeeSetterCanChangeDefaultFees(method f, env e, address token, uint256 i
 
 /// Once an obligation is created, only the fee setter can modify its fees.
 rule onlyFeeSetterCanChangeObligationFeesPostCreation(method f, env e, bytes32 id, uint256 index) filtered { f -> !f.isView } {
-    require obligationCreated(id);
+    require obligationCreated(id), "assume that the obligation is created";
     uint256 obligationFeeBefore = obligationFee(id, index);
     calldataarg args;
     f(e, args);
@@ -81,7 +81,7 @@ rule tradingFeeAtBreakpoint(bytes32 id, uint256 index) {
 }
 
 /// For any time-to-maturity the trading fee is enclosed between the two adjacent breakpoint values (never overshoots or undershoots).
-rule tradingFeeIsConvexCombination(bytes32 id, uint256 timeToMaturity) {
+rule tradingFeeIsBoundedByBreakpointFees(bytes32 id, uint256 timeToMaturity) {
     uint256 feeLo = obligationFee(id, lowerIndex(timeToMaturity));
     uint256 feeHi = obligationFee(id, upperIndex(timeToMaturity));
     uint256 fee = tradingFee(id, timeToMaturity);
