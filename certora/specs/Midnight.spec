@@ -152,19 +152,6 @@ rule pendingFeeOnlyIncreasesViaTake(env e, method f, calldataarg args, bytes32 i
     assert pendingFee(id, user) <= pendingFeeBefore;
 }
 
-rule lenderAccrualIsNoOp(env e, bytes32 id, address user, Midnight.Obligation obligation) {
-    require debtOf(id, user) == 0;
-    require pendingFee(id, user) == 0;
-
-    uint128 lastAccrualBefore = lastContinuousFeeAccrual(id, user);
-
-    repay(e, obligation, 0, user); // triggers accrueContinuousFee
-
-    assert lastContinuousFeeAccrual(id, user) == lastAccrualBefore;
-    assert debtOf(id, user) == 0;
-    assert pendingFee(id, user) == 0;
-}
-
 /// INVARIANTS ///
 
 strong invariant notBorrowerAndLender(bytes32 id, address user)

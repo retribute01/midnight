@@ -51,14 +51,16 @@ rule takeOnlyAuthorizedSellerSharesDecrease(env e, uint256 obligationShares, add
 }
 
 /// No function other than take can increase a user's debt beyond accrual.
-rule debtOnlyIncreasesViaTake(env e, method f, bytes32 id, address user) {
+rule debtOnlyIncreasesViaTake(env e, method f, bytes32 id, address user)
+    filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector
+                  && !f.isView } {
     uint256 debtBefore = debtOf(id, user);
     uint256 pendingFeeBefore = require_uint256(pendingFee(id, user));
 
     calldataarg args;
     f(e, args);
 
-    assert debtOf(id, user) <= debtBefore + pendingFeeBefore || f.selector == sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector;
+    assert debtOf(id, user) <= debtBefore + pendingFeeBefore;
 }
 
 /// In take, the caller must be authorized by the taker, and only the seller's debt can increase.
