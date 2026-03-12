@@ -22,8 +22,6 @@ methods {
 
     function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
 
-    function pendingContinuousFee(bytes32 id, address borrower, uint256 maturity) internal returns (uint256) => summaryPendingContinuousFee(id, borrower);
-
     function UtilsLib.mulDivDown(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivDown(x, y, d);
     function UtilsLib.mulDivUp(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivUp(x, y, d);
 }
@@ -49,16 +47,6 @@ function summaryMulDivUp(uint256 x, uint256 y, uint256 d) returns uint256 {
     // Exact ceil: res = ceil(x*y/d).
     require to_mathint(res) * to_mathint(d) >= to_mathint(x) * to_mathint(y);
     require res == 0 || (to_mathint(res) - 1) * to_mathint(d) < to_mathint(x) * to_mathint(y);
-    return res;
-}
-
-function summaryPendingContinuousFee(bytes32 id, address borrower) returns uint256 {
-    uint128 pf = currentContract.borrowerState[id][borrower].pendingFee;
-    if (pf == 0) return 0;
-    uint128 lastAccrual = currentContract.borrowerState[id][borrower].lastContinuousFeeAccrual;
-    if (lastAccrual == 0) return 0;
-    uint256 res;
-    require to_mathint(res) <= to_mathint(pf);
     return res;
 }
 
