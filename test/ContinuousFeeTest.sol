@@ -3,6 +3,7 @@
 pragma solidity ^0.8.0;
 
 import {WAD, ORACLE_PRICE_SCALE, MAX_CONTINUOUS_FEE, PASSIVE_FEE_RECIPIENT} from "../src/libraries/ConstantsLib.sol";
+import {EventsLib} from "../src/libraries/EventsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {MAX_TICK} from "../src/libraries/TickLib.sol";
 import {Obligation, Offer, Collateral} from "../src/interfaces/IMidnight.sol";
@@ -67,12 +68,19 @@ contract ContinuousFeeTest is BaseTest {
 
         setupBorrower(debt, feeRate, ttm);
         uint256 remaining = midnight.pendingFee(id, borrower);
+        uint256 totalSharesBefore = midnight.totalShares(id);
+        uint256 totalUnitsBefore = midnight.totalUnits(id);
 
         vm.warp(block.timestamp + elapsed);
         uint256 expectedFee = remaining.mulDivDown(elapsed, ttm);
+        uint256 feeShares = expectedFee.mulDivDown(totalSharesBefore + 1, totalUnitsBefore + 1);
 
         // Via repay
         uint256 snap = vm.snapshotState();
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, expectedFee, feeShares, remaining - expectedFee);
+        vm.expectEmit();
+        emit EventsLib.SetPendingFee(id, borrower, remaining - expectedFee);
         midnight.repay(obligation, 0, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + expectedFee, "debt after repay");
         assertEq(midnight.pendingFee(id, borrower), remaining - expectedFee, "remaining after repay");
@@ -80,9 +88,12 @@ contract ContinuousFeeTest is BaseTest {
 
         // Via withdrawCollateral
         snap = vm.snapshotState();
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, expectedFee, feeShares, remaining - expectedFee);
         vm.prank(borrower);
         midnight.withdrawCollateral(obligation, 0, 0, borrower, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + expectedFee, "debt after withdrawCollateral");
+        assertEq(midnight.pendingFee(id, borrower), remaining - expectedFee, "remaining after withdrawCollateral");
         vm.revertToState(snap);
 
         // Via take
@@ -92,8 +103,20 @@ contract ContinuousFeeTest is BaseTest {
         lenderOffer.expiry = block.timestamp;
         lenderOffer.group = keccak256("accrual-take");
         collateralize(obligation, borrower, 1);
+        uint256 expectedObligationUnitsTaken =
+            uint256(1).mulDivUp(totalUnitsBefore + expectedFee + 1, totalSharesBefore + feeShares + 1);
+        uint256 addedPending = uint256(feeRate).mulDivDown(expectedObligationUnitsTaken * (ttm - elapsed), WAD);
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, otherLender, 0, 0, 0);
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, expectedFee, feeShares, remaining - expectedFee);
+        vm.expectEmit();
+        emit EventsLib.SetPendingFee(id, borrower, remaining - expectedFee + addedPending);
         take(1, borrower, lenderOffer);
         assertApproxEqAbs(midnight.debtOf(id, borrower), debt + expectedFee + 1, 1, "debt after take");
+        assertApproxEqAbs(
+            midnight.pendingFee(id, borrower), remaining - expectedFee + addedPending, 1, "remaining after take"
+        );
     }
 
     function testAccrualPostMaturity(uint256 debt, uint256 feeRate, uint256 ttm, uint256 extraTime) public {
@@ -105,11 +128,18 @@ contract ContinuousFeeTest is BaseTest {
         setupBorrower(debt, feeRate, ttm);
         uint256 remaining = midnight.pendingFee(id, borrower);
         vm.assume(remaining > 0);
+        uint256 totalSharesBefore = midnight.totalShares(id);
+        uint256 totalUnitsBefore = midnight.totalUnits(id);
+        uint256 feeShares = remaining.mulDivDown(totalSharesBefore + 1, totalUnitsBefore + 1);
 
         vm.warp(obligation.maturity + extraTime);
 
         // Via repay
         uint256 snap = vm.snapshotState();
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, remaining, feeShares, 0);
+        vm.expectEmit();
+        emit EventsLib.SetPendingFee(id, borrower, 0);
         midnight.repay(obligation, 0, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + remaining, "all remaining consumed (repay)");
         assertEq(midnight.pendingFee(id, borrower), 0, "remaining is zero (repay)");
@@ -117,6 +147,8 @@ contract ContinuousFeeTest is BaseTest {
 
         // Via withdrawCollateral
         snap = vm.snapshotState();
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, remaining, feeShares, 0);
         vm.prank(borrower);
         midnight.withdrawCollateral(obligation, 0, 0, borrower, borrower);
         assertEq(midnight.debtOf(id, borrower), debt + remaining, "all remaining consumed (withdrawCollateral)");
@@ -130,6 +162,12 @@ contract ContinuousFeeTest is BaseTest {
         lenderOffer.expiry = block.timestamp;
         lenderOffer.group = keccak256("postmaturity-take");
         collateralize(obligation, borrower, 1);
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, otherLender, 0, 0, 0);
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, remaining, feeShares, 0);
+        vm.expectEmit();
+        emit EventsLib.SetPendingFee(id, borrower, 0);
         take(1, borrower, lenderOffer);
         assertApproxEqAbs(midnight.debtOf(id, borrower), debt + remaining + 1, 1, "all remaining consumed (take)");
         assertEq(midnight.pendingFee(id, borrower), 0, "remaining is zero (take)");
@@ -255,17 +293,22 @@ contract ContinuousFeeTest is BaseTest {
 
         // Compute state after accrual
         uint256 remaining = midnight.pendingFee(id, borrower);
+        uint256 totalSharesBefore = midnight.totalShares(id);
+        uint256 totalUnitsBefore = midnight.totalUnits(id);
         uint256 feeUnits = remaining.mulDivDown(elapsed, ttm);
+        uint256 feeShares = feeUnits.mulDivDown(totalSharesBefore + 1, totalUnitsBefore + 1);
         uint256 debtAfterAccrual = debt + feeUnits;
         uint256 remainingAfterAccrual = remaining - feeUnits;
 
         exitAmount = bound(exitAmount, 0, debtAfterAccrual);
 
         deal(address(loanToken), address(this), exitAmount);
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, feeUnits, feeShares, remainingAfterAccrual);
+        uint256 expectedRemaining = remainingAfterAccrual - remainingAfterAccrual.mulDivUp(exitAmount, debtAfterAccrual);
+        vm.expectEmit();
+        emit EventsLib.SetPendingFee(id, borrower, expectedRemaining);
         midnight.repay(obligation, exitAmount, borrower);
-
-        uint256 expectedRemaining =
-            remainingAfterAccrual - remainingAfterAccrual.mulDivDown(exitAmount, debtAfterAccrual);
         assertEq(midnight.debtOf(id, borrower), debtAfterAccrual - exitAmount, "debt after repay");
         assertApproxEqAbs(midnight.pendingFee(id, borrower), expectedRemaining, 1, "remaining after repay");
 
@@ -288,21 +331,27 @@ contract ContinuousFeeTest is BaseTest {
 
         // Compute expected state after accrual
         uint256 remaining = midnight.pendingFee(id, borrower);
+        uint256 totalSharesBefore = midnight.totalShares(id);
+        uint256 totalUnitsBefore = midnight.totalUnits(id);
         uint256 feeUnits = remaining.mulDivDown(elapsed, ttm);
+        uint256 feeShares = feeUnits.mulDivDown(totalSharesBefore + 1, totalUnitsBefore + 1);
         uint256 debtAfterAccrual = debt + feeUnits;
         uint256 remainingAfterAccrual = remaining - feeUnits;
+        uint256 collateralAmount = midnight.collateralOf(id, borrower, 0);
+        uint256 badDebt = debtAfterAccrual.zeroFloorSub(
+            collateralAmount.mulDivUp(oracle1.price(), ORACLE_PRICE_SCALE)
+                .mulDivUp(WAD, obligation.collaterals[0].maxLif)
+        );
+        uint256 expectedRemaining = remainingAfterAccrual - remainingAfterAccrual.mulDivUp(badDebt, debtAfterAccrual);
 
         deal(address(loanToken), address(this), debtAfterAccrual);
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, feeUnits, feeShares, remainingAfterAccrual);
+        vm.expectEmit();
+        emit EventsLib.SetPendingFee(id, borrower, expectedRemaining);
         midnight.liquidate(obligation, 0, 0, 0, borrower, "");
 
-        uint256 debtAfterLiquidation = midnight.debtOf(id, borrower);
-        uint256 totalRemoved = debtAfterAccrual - debtAfterLiquidation;
-
-        if (debtAfterAccrual > 0 && totalRemoved > 0) {
-            uint256 expectedRemaining =
-                remainingAfterAccrual - remainingAfterAccrual.mulDivDown(totalRemoved, debtAfterAccrual);
-            assertApproxEqAbs(midnight.pendingFee(id, borrower), expectedRemaining, 1, "remaining after liquidation");
-        }
+        assertApproxEqAbs(midnight.pendingFee(id, borrower), expectedRemaining, 1, "remaining after liquidation");
     }
 
     function testFeeSharesMintedToRecipient(uint256 debt, uint256 feeRate, uint256 ttm, uint256 elapsed) public {

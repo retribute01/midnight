@@ -260,12 +260,14 @@ contract Midnight is IMidnight {
             BorrowerState storage _buyerState = borrowerState[id][buyer];
             // forge-lint: disable-next-item(unsafe-typecast) as if obligationUnits > debt, an underflow occurs later.
             _buyerState.pendingFee -= uint128(_buyerState.pendingFee.mulDivUp(obligationUnits, _buyerState.debt));
+            emit EventsLib.SetPendingFee(id, buyer, _buyerState.pendingFee);
         }
 
         if (sellerIsBorrower) {
             borrowerState[id][seller].pendingFee += UtilsLib.toUint128(
                 _obligationState.continuousFee.mulDivDown(obligationUnits * timeToMaturity, WAD)
             );
+            emit EventsLib.SetPendingFee(id, seller, borrowerState[id][seller].pendingFee);
         }
 
         if (buyerIsLender && sellerIsBorrower) {
@@ -386,6 +388,7 @@ contract Midnight is IMidnight {
         if (_state.debt > 0) {
             // forge-lint: disable-next-item(unsafe-typecast) as if obligationUnits > debt, an underflow occurs later.
             _state.pendingFee -= uint128(_state.pendingFee.mulDivUp(obligationUnits, _state.debt));
+            emit EventsLib.SetPendingFee(id, onBehalf, _state.pendingFee);
         }
         _state.debt -= UtilsLib.toUint128(obligationUnits);
         obligationState[id].withdrawable += obligationUnits;
@@ -540,6 +543,7 @@ contract Midnight is IMidnight {
             // forge-lint: disable-next-item(unsafe-typecast) as badDebt and repaidUnits have been deducted from
             // originalDebt earlier without underflow
             _state.pendingFee -= uint128(_state.pendingFee.mulDivUp(badDebt + repaidUnits, originalDebt));
+            emit EventsLib.SetPendingFee(id, borrower, _state.pendingFee);
         }
 
         emit EventsLib.Liquidate(msg.sender, id, collateralIndex, seizedAssets, repaidUnits, borrower, badDebt);
@@ -715,14 +719,15 @@ contract Midnight is IMidnight {
         return tentativeSigner;
     }
 
-    function accrueContinuousFee(bytes32 id, address borrower, uint256 maturity) public {
+    function accrueContinuousFee(bytes32 id, address borrower, uint256 maturity) internal {
         // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
         uint128 accruedFee = uint128(pendingContinuousFee(id, borrower, maturity));
+        uint256 feeShares;
 
         if (accruedFee > 0) {
             BorrowerState storage _state = borrowerState[id][borrower];
             ObligationState storage _obligationState = obligationState[id];
-            uint256 feeShares = accruedFee.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
+            feeShares = accruedFee.mulDivDown(_obligationState.totalShares + 1, _obligationState.totalUnits + 1);
             _state.pendingFee -= accruedFee;
             _state.debt += accruedFee;
             _obligationState.totalUnits += accruedFee;
@@ -733,6 +738,7 @@ contract Midnight is IMidnight {
         }
 
         borrowerState[id][borrower].lastContinuousFeeAccrual = uint48(block.timestamp);
+        emit EventsLib.AccrueContinuousFee(id, borrower, accruedFee, feeShares, borrowerState[id][borrower].pendingFee);
     }
 
     function maxLif(uint256 lltv, uint256 cursor) public pure returns (uint256) {

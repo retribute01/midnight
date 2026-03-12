@@ -3,7 +3,7 @@
 pragma solidity ^0.8.0;
 
 import {Obligation, Offer, Collateral} from "../src/interfaces/IMidnight.sol";
-import {WAD} from "../src/libraries/ConstantsLib.sol";
+import {WAD, MAX_CONTINUOUS_FEE} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {TickLib, MAX_TICK} from "../src/libraries/TickLib.sol";
 import {BaseTest} from "./BaseTest.sol";
@@ -78,7 +78,7 @@ contract TakeAmountsTest is BaseTest {
     function _createPosition(uint256 positionUnits) internal returns (uint256 currentUnits, uint256 currentShares) {
         deal(address(loanToken), lender, type(uint128).max);
         collateralize(obligation, borrower, positionUnits);
-        uint256 positionShares = TakeAmountsLib.unitsToShares(midnight, id, borrower, offer, positionUnits);
+        uint256 positionShares = TakeAmountsLib.expectedUnitsToShares(midnight, id, borrower, offer, positionUnits);
         offer.maker = borrower;
         offer.tick = 1;
         take(positionShares, lender, offer);
@@ -96,7 +96,7 @@ contract TakeAmountsTest is BaseTest {
         targetUnits = bound(targetUnits, 1, 1e30);
         tick = bound(tick, 1, MAX_TICK);
 
-        uint256 shares = TakeAmountsLib.unitsToShares(midnight, id, lender, offer, targetUnits);
+        uint256 shares = TakeAmountsLib.expectedUnitsToShares(midnight, id, lender, offer, targetUnits);
         deal(address(loanToken), lender, type(uint256).max);
         collateralize(obligation, borrower, targetUnits);
         offer.maker = borrower;
@@ -115,7 +115,7 @@ contract TakeAmountsTest is BaseTest {
         tick = bound(tick, 1, _maxTick(tradingFee));
 
         offer.tick = tick;
-        uint256 shares = TakeAmountsLib.buyerAssetsToShares(midnight, id, offer, targetBuyerAssets);
+        uint256 shares = TakeAmountsLib.expectedBuyerAssetsToShares(midnight, id, lender, offer, targetBuyerAssets);
         deal(address(loanToken), lender, type(uint256).max);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
         offer.maker = borrower;
@@ -133,7 +133,7 @@ contract TakeAmountsTest is BaseTest {
         tick = bound(tick, 1, MAX_TICK);
 
         offer.tick = tick;
-        uint256 shares = TakeAmountsLib.sellerAssetsToShares(midnight, id, offer, targetSellerAssets);
+        uint256 shares = TakeAmountsLib.expectedSellerAssetsToShares(midnight, id, lender, offer, targetSellerAssets);
         deal(address(loanToken), lender, type(uint256).max);
         collateralize(obligation, borrower, shares.mulDivUp(initialUnits + 1, initialShares + 1));
         offer.maker = borrower;
@@ -152,7 +152,7 @@ contract TakeAmountsTest is BaseTest {
 
         _createPosition(2 * targetUnits);
 
-        uint256 shares = TakeAmountsLib.unitsToShares(midnight, id, borrower, offer, targetUnits);
+        uint256 shares = TakeAmountsLib.expectedUnitsToShares(midnight, id, borrower, offer, targetUnits);
         deal(address(loanToken), borrower, type(uint256).max);
         offer.maker = lender;
         offer.tick = tick;
@@ -160,6 +160,25 @@ contract TakeAmountsTest is BaseTest {
         (,, uint256 obligationUnits,) = take(shares, borrower, offer);
 
         assertEq(obligationUnits, targetUnits, "e2e units");
+    }
+
+    function testExpectedUnitsToSharesBuyerIsBorrowerWithAccruedFee() public {
+        midnight.setObligationContinuousFee(id, MAX_CONTINUOUS_FEE);
+        _createPosition(100e18);
+
+        vm.warp(block.timestamp + 50);
+        assertGt(midnight.pendingContinuousFee(id, borrower, obligation.maturity), 0, "fee should accrue");
+
+        uint256 targetUnits = 10e18;
+        offer.maker = lender;
+        offer.tick = MAX_TICK;
+
+        uint256 shares = TakeAmountsLib.expectedUnitsToShares(midnight, id, borrower, offer, targetUnits);
+        deal(address(loanToken), borrower, type(uint256).max);
+
+        (,, uint256 obligationUnits,) = take(shares, borrower, offer);
+
+        assertEq(obligationUnits, targetUnits, "e2e units with accrued fee");
     }
 
     function testBuyerAssetsToSharesBuyerIsBorrower(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1)
@@ -173,7 +192,7 @@ contract TakeAmountsTest is BaseTest {
 
         offer.maker = lender;
         offer.tick = tick;
-        uint256 shares = TakeAmountsLib.buyerAssetsToShares(midnight, id, offer, targetBuyerAssets);
+        uint256 shares = TakeAmountsLib.expectedBuyerAssetsToShares(midnight, id, borrower, offer, targetBuyerAssets);
         deal(address(loanToken), borrower, type(uint256).max);
 
         (uint256 buyerAssets,,,) = take(shares, borrower, offer);
@@ -195,7 +214,7 @@ contract TakeAmountsTest is BaseTest {
 
         offer.maker = lender;
         offer.tick = tick;
-        uint256 shares = TakeAmountsLib.sellerAssetsToShares(midnight, id, offer, targetSellerAssets);
+        uint256 shares = TakeAmountsLib.expectedSellerAssetsToShares(midnight, id, borrower, offer, targetSellerAssets);
         deal(address(loanToken), borrower, type(uint256).max);
 
         (, uint256 sellerAssets,,) = take(shares, borrower, offer);
