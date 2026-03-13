@@ -139,8 +139,7 @@ abstract contract BaseTest is Test {
         badBorrowerOffer.expiry = block.timestamp + 200;
         badBorrowerOffer.tick = MAX_TICK;
 
-        vm.prank(badBorrower);
-        midnight.setIsAuthorized(badBorrower, address(this), true);
+        authorize(badBorrower, address(this));
 
         deal(obligation.collaterals[0].token, address(this), 135);
         midnight.supplyCollateral(obligation, 0, 135, badBorrower);
@@ -156,8 +155,7 @@ abstract contract BaseTest is Test {
         midnight.liquidate(obligation, 0, 0, 0, badBorrower, "");
 
         // then empty the market (borrow side only).
-        vm.prank(badBorrower);
-        midnight.setIsAuthorized(badBorrower, address(this), true);
+        authorize(badBorrower, address(this));
         deal(address(loanToken), address(this), midnight.debtOf(toId(obligation), badBorrower));
         midnight.repay(obligation, midnight.debtOf(toId(obligation), badBorrower), badBorrower);
         assertEq(midnight.debtOf(toId(obligation), badBorrower), 0, "debt");
@@ -168,6 +166,11 @@ abstract contract BaseTest is Test {
 
     function toId(Obligation memory obligation) internal view returns (bytes32) {
         return IdLib.toId(obligation, block.chainid, address(midnight));
+    }
+
+    function authorize(address from, address to) internal {
+        vm.prank(from);
+        midnight.setIsAuthorized(from, to, true);
     }
 
     function root(Offer[1] memory offers) internal pure returns (bytes32) {
