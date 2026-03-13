@@ -50,7 +50,7 @@ contract TakeAmountsTest is BaseTest {
         offer.expiry = block.timestamp + 200;
         offer.tick = MAX_TICK;
 
-        createBadDebt(obligation); // to create non trivial shares <=> units conversion.
+        createBadDebt(obligation); // to create non trivial lossIndex.
     }
 
     function _setFees(uint256 fee0, uint256 fee1) internal returns (uint256 tradingFee) {
@@ -84,7 +84,7 @@ contract TakeAmountsTest is BaseTest {
 
     // buyerIsLender = true: buyer = taker (lender, no debt), seller = maker (borrower).
 
-    function testBuyerAssetsToSharesBuyerIsLender(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1)
+    function testBuyerAssetsToUnitsBuyerIsLender(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1)
         public
     {
         uint256 tradingFee = _setFees(fee0, fee1);
@@ -122,7 +122,7 @@ contract TakeAmountsTest is BaseTest {
 
     // buyerIsLender = false: buyer = taker (borrower, has debt), seller = maker (lender, has obligation units).
 
-    function testBuyerAssetsToSharesBuyerIsBorrower(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1)
+    function testBuyerAssetsToUnitsBuyerIsBorrower(uint256 targetBuyerAssets, uint256 tick, uint256 fee0, uint256 fee1)
         public
     {
         uint256 tradingFee = _setFees(fee0, fee1);
