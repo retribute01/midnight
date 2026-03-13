@@ -19,6 +19,8 @@ contract LiquidationTest is BaseTest {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
 
+    event Slash(address caller, bytes32 indexed id_, address indexed user, int256 balance, uint256 userLossIndex);
+
     Obligation internal obligation;
     bytes32 internal id;
 
@@ -271,6 +273,25 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), units - expectedBadDebt, "debt");
         assertEq(midnight.totalUnits(id), units - expectedBadDebt, "total units");
         assertEq(midnight.balanceOf(id, lender), int256(units), "lender units");
+    }
+
+    function testSlashEvent(uint256 units) public {
+        units = bound(units, 10, MAX_UNITS);
+        collateralize(obligation, borrower, units);
+        setupObligation(obligation, units);
+        Oracle(obligation.collaterals[0].oracle).setPrice(badDebtPriceDown(units));
+
+        midnight.liquidate(obligation, 0, 0, 0, borrower, "");
+
+        int256 expectedBalance = midnight.balanceOfAfterSlashing(id, lender);
+        (,, uint256 lossIndex,) = midnight.obligationState(id);
+
+        vm.expectEmit(true, true, false, true);
+        emit Slash(address(this), id, lender, expectedBalance, lossIndex);
+        midnight.slash(id, lender);
+
+        assertEq(midnight.balanceOf(id, lender), expectedBalance, "balance");
+        assertEq(midnight.userLossIndex(id, lender), lossIndex, "user loss index");
     }
 
     function testLiquidateWithBadDebtSeizedInput(uint256 units, uint256 seized, uint256 liquidationOraclePrice) public {

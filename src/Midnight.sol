@@ -516,11 +516,14 @@ contract Midnight is IMidnight {
         uint256 lossIndex = obligationState[id].lossIndex;
         if (_userLossIndex != lossIndex) {
             int256 balance = balanceOf[id][user];
+            int256 newBalance = balance;
             if (balance > 0) {
                 // forge-lint: disable-next-line(unsafe-typecast)
-                balanceOf[id][user] = int256(uint256(balance).mulDivDown(WAD - lossIndex, WAD - _userLossIndex));
+                newBalance = int256(uint256(balance).mulDivDown(WAD - lossIndex, WAD - _userLossIndex));
+                balanceOf[id][user] = newBalance;
             }
             userLossIndex[id][user] = lossIndex;
+            emit EventsLib.Slash(msg.sender, id, user, newBalance, lossIndex);
         }
     }
 

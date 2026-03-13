@@ -54,6 +54,7 @@ library EventsLib {
         address indexed borrower,
         uint256 badDebt
     );
+    event Slash(address caller, bytes32 indexed id_, address indexed user, int256 balance, uint256 userLossIndex);
 
     event SetConsumed(address indexed caller, address indexed onBehalf, bytes32 indexed group, uint256 amount);
     event ShuffleSession(address indexed caller, address indexed onBehalf, bytes32 session);
