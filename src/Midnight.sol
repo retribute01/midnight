@@ -528,7 +528,7 @@ contract Midnight is IMidnight {
         if (_userLossIndex != lossIndex) {
             int256 balance = _position.balance;
             if (balance > 0) {
-                // forge-lint: disable-next-line(unsafe-typecast)
+                // forge-lint: disable-next-item(unsafe-typecast)
                 _position.balance = int256(
                     uint256(balance).mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex)
                 );
@@ -573,7 +573,7 @@ contract Midnight is IMidnight {
         uint128 _userLossIndex = _position.lossIndex;
         uint128 lossIndex = obligationState[id].lossIndex;
         if (balance > 0 && _userLossIndex != lossIndex) {
-            // forge-lint: disable-next-line(unsafe-typecast)
+            // forge-lint: disable-next-item(unsafe-typecast)
             return
                 int256(uint256(balance).mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex));
         }
