@@ -503,7 +503,6 @@ contract OtherFunctionsTest is BaseTest {
         // Warp to maturity + TIME_TO_MAX_LIF to bypass recovery close factor.
         vm.warp(_obligation.maturity + TIME_TO_MAX_LIF);
 
-        // Seize one full collateral.
         deal(address(loanToken), address(this), 1e18);
         midnight.liquidate(_obligation, collateralIndex, 1e18, 0, borrower, "");
 
