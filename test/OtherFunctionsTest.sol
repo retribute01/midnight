@@ -8,7 +8,13 @@ import {ERC20} from "./helpers/ERC20.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 import {RevertingOracle} from "./helpers/RevertingOracle.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
-import {MAX_COLLATERALS, MAX_COLLATERALS_PER_BORROWER, WAD} from "../src/libraries/ConstantsLib.sol";
+import {
+    MAX_COLLATERALS,
+    MAX_COLLATERALS_PER_BORROWER,
+    WAD,
+    ORACLE_PRICE_SCALE,
+    TIME_TO_MAX_LIF
+} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 
 // Collateral = units / lltv (~1.33x). Some tests add additional collateral on top.
@@ -47,8 +53,7 @@ contract OtherFunctionsTest is BaseTest {
         obligation.collaterals = sortCollaterals(obligation.collaterals);
         obligation.rcfThreshold = 0;
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(this));
 
         id = toId(obligation);
     }
@@ -472,6 +477,38 @@ contract OtherFunctionsTest is BaseTest {
         uint128 bitmap = midnight.activatedCollaterals(_id, borrower);
         assertEq(UtilsLib.countBits(bitmap), numCollaterals - 1, "one bit cleared");
         assertEq(bitmap & (1 << collateralIndex), 0, "withdrawn collateral bit should be cleared");
+    }
+
+    function testBitmapClearedOnFullLiquidation(uint256 collateralIndex) public {
+        uint256 numCollaterals = MAX_COLLATERALS_PER_BORROWER;
+        collateralIndex = bound(collateralIndex, 0, numCollaterals - 1);
+        Obligation memory _obligation = _createMultiCollateralObligation(numCollaterals);
+
+        for (uint256 i = 0; i < numCollaterals; i++) {
+            Oracle(_obligation.collaterals[i].oracle).setPrice(ORACLE_PRICE_SCALE);
+        }
+
+        for (uint256 i = 0; i < numCollaterals; i++) {
+            address token = _obligation.collaterals[i].token;
+            deal(token, address(this), 1e18);
+            ERC20(token).approve(address(midnight), 1e18);
+            midnight.supplyCollateral(_obligation, i, 1e18, borrower);
+        }
+
+        bytes32 _id = toId(_obligation);
+        assertEq(UtilsLib.countBits(midnight.activatedCollaterals(_id, borrower)), numCollaterals, "all bits set");
+
+        setupObligation(_obligation, 1e18);
+
+        // Warp to maturity + TIME_TO_MAX_LIF to bypass recovery close factor.
+        vm.warp(_obligation.maturity + TIME_TO_MAX_LIF);
+
+        deal(address(loanToken), address(this), 1e18);
+        midnight.liquidate(_obligation, collateralIndex, 1e18, 0, borrower, "");
+
+        uint128 bitmap = midnight.activatedCollaterals(_id, borrower);
+        assertEq(UtilsLib.countBits(bitmap), numCollaterals - 1, "one bit cleared");
+        assertEq(bitmap & (1 << collateralIndex), 0, "liquidated collateral bit should be cleared");
     }
 
     // LIF validation tests.
