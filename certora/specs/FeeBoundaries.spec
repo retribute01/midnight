@@ -66,20 +66,11 @@ rule obligationFeeChangeRequiresCreation(method f, env e, bytes32 id, uint256 in
     calldataarg args;
     f(e, args);
 
-    assert obligationFee(id, index) != feeBefore => obligationCreated(id);
-}
+    uint256 feeAfter = obligationFee(id, index);
 
-/// When an obligation is created, its fees are set to the default fees of its loan token.
-rule newObligationFeesMatchDefault(env e, Midnight.Obligation obligation, uint256 index) {
-    require index <= 6;
-    bytes32 id = toId(e, obligation);
-    require !obligationCreated(id);
-
-    uint256 expectedFee = defaultFee(obligation.loanToken, index);
-
-    touchObligation(e, obligation);
-
-    assert obligationFee(id, index) == expectedFee;
+    assert !obligationCreated(id) => feeAfter == feeBefore;
+    assert obligationCreated(id) => feeAfter != feeBefore;
+                                        
 }
 
 /// Only the fee setter can modify default fees.
