@@ -28,9 +28,9 @@ rule liquidateIncreasesWithdrawable(env e, Midnight.Obligation obligation, uint2
 rule withdrawDecreasesWithdrawableExactly(env e, Midnight.Obligation obligation, uint256 obligationUnitsInput, address onBehalf, address receiver) {
     bytes32 id = toId(e, obligation);
     uint256 withdrawableBefore = withdrawable(id);
-    uint256 withdrawnUnits = withdraw(e, obligation, obligationUnitsInput, onBehalf, receiver);
+    withdraw(e, obligation, obligationUnitsInput, onBehalf, receiver);
     uint256 withdrawableAfter = withdrawable(id);
-    assert withdrawableAfter == withdrawableBefore - withdrawnUnits;
+    assert withdrawableAfter == withdrawableBefore - obligationUnitsInput;
 }
 
 rule withdrawableUnchanged(method f, env e, calldataarg args, bytes32 id)

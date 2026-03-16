@@ -117,20 +117,19 @@ contract OtherFunctionsTest is BaseTest {
         assertEq(loanToken.balanceOf(borrower), 0);
     }
 
-    function testWithdrawWithObligations(uint256 units, uint256 withdraw) public {
+    function testWithdraw(uint256 units, uint256 withdraw) public {
         units = bound(units, 1, MAX_UNITS);
         withdraw = bound(withdraw, 1, units);
         testRepay(units, withdraw);
 
         vm.prank(lender);
-        uint256 returnedObligationUnits = midnight.withdraw(obligation, withdraw, lender, lender);
+        midnight.withdraw(obligation, withdraw, lender, lender);
 
         assertEq(midnight.balanceOf(id, lender), int256(units - withdraw), "balanceOf");
         assertEq(midnight.withdrawable(id), 0, "withdrawable");
         assertEq(midnight.totalUnits(id), units - withdraw, "totalUnits");
         assertEq(loanToken.balanceOf(address(midnight)), 0, "balance of midnight");
         assertEq(loanToken.balanceOf(lender), withdraw, "balance of lender");
-        assertEq(returnedObligationUnits, withdraw, "returned obligation units");
     }
 
     function testWithdrawToReceiver(uint256 units, uint256 withdraw) public {
