@@ -272,6 +272,12 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), units - expectedBadDebt, "debt");
         assertEq(midnight.totalUnits(id), units - expectedBadDebt, "total units");
         assertEq(midnight.balanceOf(id, lender), int256(units), "lender units");
+        assertApproxEqAbs(
+            midnight.balanceOfAfterSlashing(id, lender),
+            int256(units - expectedBadDebt),
+            1,
+            "lender units after slashing"
+        );
     }
 
     function testLiquidateEmitsLossIndex(uint256 units) public {
@@ -324,6 +330,9 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), debtAfterBadDebt - repaid, "debt");
         assertEq(midnight.totalUnits(id), debtAfterBadDebt, "total units");
         assertEq(midnight.balanceOf(id, lender), int256(units), "lender units");
+        assertApproxEqAbs(
+            midnight.balanceOfAfterSlashing(id, lender), int256(debtAfterBadDebt), 1, "lender units after slashing"
+        );
     }
 
     function testLiquidateWithBadDebtRepaidInput(uint256 units, uint256 repaid, uint256 liquidationOraclePrice) public {
@@ -344,6 +353,9 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), debtAfterBadDebt - repaid, "debt");
         assertEq(midnight.totalUnits(id), debtAfterBadDebt, "total units");
         assertEq(midnight.balanceOf(id, lender), int256(units), "lender units");
+        assertApproxEqAbs(
+            midnight.balanceOfAfterSlashing(id, lender), int256(debtAfterBadDebt), 1, "lender units after slashing"
+        );
     }
 
     // Check that if there is bad debt it is possible to seize almost all collateral.
@@ -567,8 +579,7 @@ contract LiquidationTest is BaseTest {
 
         // Collateralize with both collaterals.
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(this));
 
         deal(obligation.collaterals[0].token, address(this), collateral1);
         ERC20(obligation.collaterals[0].token).approve(address(midnight), collateral1);
@@ -603,8 +614,7 @@ contract LiquidationTest is BaseTest {
         uint256 lltv0 = obligation.collaterals[0].lltv;
         uint256 lltv1 = obligation.collaterals[1].lltv;
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(this));
 
         // Deposit enough for each collateral so position is healthy at par.
         uint256 collatPerToken = units.mulDivUp(WAD, lltv0 + lltv1) + 1;
@@ -644,8 +654,7 @@ contract LiquidationTest is BaseTest {
         uint256 units = 1000e18;
         uint256 collateralAmount = units.mulDivUp(WAD, obligation.collaterals[0].lltv);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(this));
 
         // Supply both collaterals.
         for (uint256 i = 0; i < 2; i++) {

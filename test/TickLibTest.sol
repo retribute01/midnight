@@ -25,12 +25,6 @@ contract TickLibTest is BaseTest {
         }
     }
 
-    function testTickToPriceRange() public pure {
-        for (uint256 i = 0; i <= MAX_TICK; i++) {
-            console.log(TickLib.tickToPrice(i));
-        }
-    }
-
     function testReturnJumps() public pure {
         for (uint256 i = 207; i <= 729; i++) {
             uint256 previousReturn = _return(TickLib.tickToPrice(i - 1));

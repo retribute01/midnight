@@ -90,14 +90,14 @@ contract TradingFeeTest is BaseTest {
 
         uint256 buyerPrice = sellerPrice + tradingFee;
         vm.assume(buyerPrice <= WAD);
-        uint256 expectedBuyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-        uint256 expectedSellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
+        uint256 expectedBuyerAssets = obligationUnits.mulDivUp(buyerPrice, WAD);
+        uint256 expectedSellerAssets = obligationUnits.mulDivUp(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
 
         collateralize(obligation, borrower, MAX_DEBT);
         take(obligationUnits, lender, borrowerOffer);
 
-        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+        assertEq(loanToken.balanceOf(feeRecipient), expectedFee, "fee recipient balance");
     }
 
     function testSellObligationUnits(uint256 tradingFee, uint256 buyerTick, uint256 obligationUnits) public {
@@ -117,7 +117,7 @@ contract TradingFeeTest is BaseTest {
         collateralize(obligation, borrower, MAX_DEBT);
         take(obligationUnits, borrower, lenderOffer);
 
-        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+        assertEq(loanToken.balanceOf(feeRecipient), expectedFee, "fee recipient balance");
     }
 
     function testDefaultFee(uint256 obligationUnits, uint256 sellerTick, uint256 tradingFee) public {
@@ -131,14 +131,14 @@ contract TradingFeeTest is BaseTest {
 
         uint256 buyerPrice = sellerPrice + tradingFee;
         vm.assume(buyerPrice <= WAD);
-        uint256 expectedBuyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-        uint256 expectedSellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
+        uint256 expectedBuyerAssets = obligationUnits.mulDivUp(buyerPrice, WAD);
+        uint256 expectedSellerAssets = obligationUnits.mulDivUp(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
 
         collateralize(obligation, borrower, MAX_DEBT);
         take(obligationUnits, lender, borrowerOffer);
 
-        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+        assertEq(loanToken.balanceOf(feeRecipient), expectedFee, "fee recipient balance");
     }
 
     function testSevenDayTtmFee(uint256 obligationUnits, uint256 sellerTick, uint256 fee1Day, uint256 fee7Days) public {
@@ -150,7 +150,7 @@ contract TradingFeeTest is BaseTest {
         fee7Days = bound(fee7Days, fee1Day, midnight.maxTradingFee(2)) / 1e12 * 1e12;
 
         obligation.maturity = block.timestamp + 3 days;
-        id = toId(obligation);
+        id = midnight.touchObligation(obligation);
         lenderOffer.obligation = obligation;
         borrowerOffer.obligation = obligation;
 
@@ -159,19 +159,18 @@ contract TradingFeeTest is BaseTest {
         midnight.setDefaultTradingFee(address(loanToken), 2, fee7Days);
         borrowerOffer.tick = sellerTick;
 
-        // Calculate expected interpolated fee: fee = fee1Day + (fee7Days - fee1Day) * (3 - 1) / (7 - 1)
-        uint256 tradingFee = fee1Day + (fee7Days - fee1Day) * 2 / 6;
+        uint256 tradingFee = midnight.tradingFee(id, obligation.maturity - block.timestamp);
 
         uint256 buyerPrice = sellerPrice + tradingFee;
         vm.assume(buyerPrice <= WAD);
-        uint256 expectedBuyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-        uint256 expectedSellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
+        uint256 expectedBuyerAssets = obligationUnits.mulDivUp(buyerPrice, WAD);
+        uint256 expectedSellerAssets = obligationUnits.mulDivUp(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
 
         collateralize(obligation, borrower, MAX_DEBT);
         take(obligationUnits, lender, borrowerOffer);
 
-        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+        assertEq(loanToken.balanceOf(feeRecipient), expectedFee, "fee recipient balance");
     }
 
     function testPostMaturityFee(uint256 obligationUnits, uint256 sellerTick, uint256 fee0Day, uint256 maturity)
@@ -195,14 +194,14 @@ contract TradingFeeTest is BaseTest {
 
         uint256 buyerPrice = sellerPrice + tradingFee;
         vm.assume(buyerPrice <= WAD);
-        uint256 expectedBuyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-        uint256 expectedSellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
+        uint256 expectedBuyerAssets = obligationUnits.mulDivUp(buyerPrice, WAD);
+        uint256 expectedSellerAssets = obligationUnits.mulDivUp(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
 
         collateralize(obligation, borrower, MAX_DEBT);
         take(obligationUnits, lender, borrowerOffer);
 
-        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+        assertEq(loanToken.balanceOf(feeRecipient), expectedFee, "fee recipient balance");
     }
 
     function testEarlyFee(uint256 obligationUnits, uint256 sellerTick, uint256 fee360Days, uint256 maturity) public {
@@ -225,13 +224,13 @@ contract TradingFeeTest is BaseTest {
 
         uint256 buyerPrice = sellerPrice + tradingFee;
         vm.assume(buyerPrice <= WAD);
-        uint256 expectedBuyerAssets = obligationUnits.mulDivDown(buyerPrice, WAD);
-        uint256 expectedSellerAssets = obligationUnits.mulDivDown(sellerPrice, WAD);
+        uint256 expectedBuyerAssets = obligationUnits.mulDivUp(buyerPrice, WAD);
+        uint256 expectedSellerAssets = obligationUnits.mulDivUp(sellerPrice, WAD);
         uint256 expectedFee = expectedBuyerAssets - expectedSellerAssets;
 
         collateralize(obligation, borrower, MAX_DEBT);
         take(obligationUnits, lender, borrowerOffer);
 
-        assertApproxEqAbs(loanToken.balanceOf(feeRecipient), expectedFee, 100, "fee recipient balance");
+        assertEq(loanToken.balanceOf(feeRecipient), expectedFee, "fee recipient balance");
     }
 }

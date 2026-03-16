@@ -145,12 +145,9 @@ contract TakeTest is BaseTest {
 
         take(obligationUnits, lender, otherLenderOffer);
 
-        assertApproxEqAbs(midnight.balanceOf(id, lender), int256(obligationUnits), 1, "lender units");
-        assertApproxEqAbs(
-            midnight.balanceOf(id, otherLender),
-            actualOtherLenderUnits - int256(obligationUnits),
-            1,
-            "other lender units"
+        assertEq(midnight.balanceOf(id, lender), int256(obligationUnits), "lender units");
+        assertEq(
+            midnight.balanceOf(id, otherLender), actualOtherLenderUnits - int256(obligationUnits), "other lender units"
         );
     }
 
@@ -169,12 +166,9 @@ contract TakeTest is BaseTest {
 
         take(obligationUnits, otherLender, lenderOffer);
 
-        assertApproxEqAbs(midnight.balanceOf(id, lender), int256(obligationUnits), 1, "lender units");
-        assertApproxEqAbs(
-            midnight.balanceOf(id, otherLender),
-            actualOtherLenderUnits - int256(obligationUnits),
-            1,
-            "other lender units"
+        assertEq(midnight.balanceOf(id, lender), int256(obligationUnits), "lender units");
+        assertEq(
+            midnight.balanceOf(id, otherLender), actualOtherLenderUnits - int256(obligationUnits), "other lender units"
         );
     }
 
@@ -214,10 +208,8 @@ contract TakeTest is BaseTest {
 
         take(obligationUnits, otherBorrower, borrowerOffer);
 
-        assertApproxEqAbs(midnight.debtOf(id, borrower), obligationUnits, 1, "borrower debt");
-        assertApproxEqAbs(
-            midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, 1, "otherBorrower debt"
-        );
+        assertEq(midnight.debtOf(id, borrower), obligationUnits, "borrower debt");
+        assertEq(midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, "otherBorrower debt");
     }
 
     function testSell3(uint256 obligationUnits, uint256 tick, uint256 existingUnits) public {
@@ -232,10 +224,8 @@ contract TakeTest is BaseTest {
 
         take(obligationUnits, borrower, otherBorrowerOffer);
 
-        assertApproxEqAbs(midnight.debtOf(id, borrower), obligationUnits, 1, "borrower debt");
-        assertApproxEqAbs(
-            midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, 1, "otherBorrower debt"
-        );
+        assertEq(midnight.debtOf(id, borrower), obligationUnits, "borrower debt");
+        assertEq(midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, "otherBorrower debt");
     }
 
     // Borrower buys more than their debt, crossing to lender.
@@ -279,14 +269,12 @@ contract TakeTest is BaseTest {
 
         take(obligationUnits, otherBorrower, otherLenderOffer);
 
-        assertApproxEqAbs(
-            midnight.balanceOf(id, otherLender), otherLenderUnitsVal - int256(obligationUnits), 1, "otherLender units"
+        assertEq(
+            midnight.balanceOf(id, otherLender), otherLenderUnitsVal - int256(obligationUnits), "otherLender units"
         );
-        assertApproxEqAbs(
-            midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, 1, "otherBorrower debt"
-        );
-        assertApproxEqAbs(midnight.totalUnits(id), otherBorrowerDebt - obligationUnits, 1, "total units");
-        assertApproxEqAbs(loanToken.balanceOf(otherLender), buyerAssets, 1, "otherLender balance");
+        assertEq(midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, "otherBorrower debt");
+        assertEq(midnight.totalUnits(id), otherBorrowerDebt - obligationUnits, "total units");
+        assertEq(loanToken.balanceOf(otherLender), buyerAssets, "otherLender balance");
     }
 
     function testSell4(uint256 obligationUnits, uint256 tick, uint256 existingUnits) public {
@@ -305,14 +293,12 @@ contract TakeTest is BaseTest {
 
         take(obligationUnits, otherLender, otherBorrowerOffer);
 
-        assertApproxEqAbs(
-            midnight.balanceOf(id, otherLender), otherLenderUnitsVal - int256(obligationUnits), 1, "otherLender units"
+        assertEq(
+            midnight.balanceOf(id, otherLender), otherLenderUnitsVal - int256(obligationUnits), "otherLender units"
         );
-        assertApproxEqAbs(
-            midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, 1, "otherBorrower debt"
-        );
-        assertApproxEqAbs(midnight.totalUnits(id), otherBorrowerDebt - obligationUnits, 1, "total units");
-        assertApproxEqAbs(loanToken.balanceOf(otherLender), buyerAssets, 1, "otherLender balance");
+        assertEq(midnight.debtOf(id, otherBorrower), otherBorrowerDebt - obligationUnits, "otherBorrower debt");
+        assertEq(midnight.totalUnits(id), otherBorrowerDebt - obligationUnits, "total units");
+        assertEq(loanToken.balanceOf(otherLender), buyerAssets, "otherLender balance");
     }
 
     // group tests.
@@ -637,8 +623,7 @@ contract TakeTest is BaseTest {
         deal(obligation.collaterals[0].token, borrowerOffer.callback, collateral);
         assertEq(midnight.collateralOf(id, borrower, 0), 0);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, borrowerOffer.callback, true);
+        authorize(borrower, borrowerOffer.callback);
 
         take(units, lender, borrowerOffer);
 
@@ -656,8 +641,7 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lender, units.mulDivDown(price, WAD));
         deal(obligation.collaterals[0].token, callback, collateral);
 
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, callback, true);
+        authorize(borrower, callback);
 
         vm.prank(borrower);
         midnight.take(

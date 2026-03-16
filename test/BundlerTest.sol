@@ -73,11 +73,8 @@ contract BundlerTest is BaseTest {
     }
 
     function _authorizeBundler() internal {
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(takeBundler), true);
-
-        vm.prank(borrower);
-        midnight.setIsAuthorized(borrower, address(this), true);
+        authorize(borrower, address(takeBundler));
+        authorize(borrower, address(this));
     }
 
     function testUnauthorized() public {
@@ -224,7 +221,7 @@ contract BundlerTest is BaseTest {
 
         _authorizeBundler();
 
-        // Splitting across offers can cause up to 1 extra share of debt due to rounding.
+        // Splitting across offers can cause up to 1 extra unit of debt due to rounding.
         if (fromOffer0 >= units || offerUnits1 >= units + 1 - fromOffer0) {
             vm.prank(borrower);
             takeBundler.bundleTakeSellerAssets(
@@ -253,23 +250,23 @@ contract BundlerTest is BaseTest {
     }
 
     /// @dev Computes the expected totalBuyerAssets for bundleTakeUnits.
-    /// @dev Since buy=true and the obligation starts empty, units == shares and buyerPrice == tickToPrice(tick).
-    function _expectedBuyerAssets(uint256 targetShares, uint256 offerShares0, uint256 tick0, uint256 tick1)
+    /// @dev Since buy=true and the obligation starts empty, buyerPrice == tickToPrice(tick).
+    function _expectedBuyerAssets(uint256 targetUnits, uint256 offerUnits0, uint256 tick0, uint256 tick1)
         internal
         pure
         returns (uint256)
     {
-        uint256 fromOffer0 = UtilsLib.min(targetShares, offerShares0);
-        uint256 fromOffer1 = targetShares - fromOffer0;
+        uint256 fromOffer0 = UtilsLib.min(targetUnits, offerUnits0);
+        uint256 fromOffer1 = targetUnits - fromOffer0;
         return
             fromOffer0.mulDivDown(TickLib.tickToPrice(tick0), WAD)
                 + fromOffer1.mulDivDown(TickLib.tickToPrice(tick1), WAD);
     }
 
     function testAveragePriceTooHigh(
-        uint256 offerShares0,
-        uint256 offerShares1,
-        uint256 targetShares,
+        uint256 offerUnits0,
+        uint256 offerUnits1,
+        uint256 targetUnits,
         uint256 tick0,
         uint256 tick1,
         uint256 maxBuyerAssets
@@ -279,32 +276,32 @@ contract BundlerTest is BaseTest {
         tick1 = bound(tick1, minTick, MAX_TICK);
         // Ensure buyerAssets > 0 so the max bound actually triggers.
         uint256 minPrice = UtilsLib.min(TickLib.tickToPrice(tick0), TickLib.tickToPrice(tick1));
-        targetShares = bound(targetShares, WAD / minPrice + 1, uint256(type(uint128).max) * 3 / 4);
-        offers[0].obligationUnits = offerShares0;
+        targetUnits = bound(targetUnits, WAD / minPrice + 1, uint256(type(uint128).max) * 3 / 4);
+        offers[0].obligationUnits = offerUnits0;
         offers[0].tick = tick0;
-        offers[1].obligationUnits = offerShares1;
+        offers[1].obligationUnits = offerUnits1;
         offers[1].tick = tick1;
 
-        uint256 fromOffer0 = UtilsLib.min(targetShares, offerShares0);
-        vm.assume(offerShares1 >= targetShares - fromOffer0);
+        uint256 fromOffer0 = UtilsLib.min(targetUnits, offerUnits0);
+        vm.assume(offerUnits1 >= targetUnits - fromOffer0);
 
-        uint256 expected = _expectedBuyerAssets(targetShares, offerShares0, tick0, tick1);
+        uint256 expected = _expectedBuyerAssets(targetUnits, offerUnits0, tick0, tick1);
         vm.assume(expected > 0);
         maxBuyerAssets = bound(maxBuyerAssets, 0, expected - 1);
 
-        collateralize(obligation, borrower, targetShares);
+        collateralize(obligation, borrower, targetUnits);
 
         TakeBundler.Take[] memory takes = new TakeBundler.Take[](2);
         takes[0] = TakeBundler.Take({
             offer: offers[0],
-            obligationUnits: offerShares0,
+            obligationUnits: offerUnits0,
             sig: sig([offers[0]]),
             root: root([offers[0]]),
             proof: proof([offers[0]])
         });
         takes[1] = TakeBundler.Take({
             offer: offers[1],
-            obligationUnits: offerShares1,
+            obligationUnits: offerUnits1,
             sig: sig([offers[1]]),
             root: root([offers[1]]),
             proof: proof([offers[1]])
@@ -315,14 +312,14 @@ contract BundlerTest is BaseTest {
         vm.prank(borrower);
         vm.expectRevert("buyer assets above max");
         takeBundler.bundleTakeUnits(
-            midnight, targetShares, borrower, address(0), takes, 0, maxBuyerAssets, 0, type(uint256).max
+            midnight, targetUnits, borrower, address(0), takes, 0, maxBuyerAssets, 0, type(uint256).max
         );
     }
 
     function testAveragePriceTooLow(
-        uint256 offerShares0,
-        uint256 offerShares1,
-        uint256 targetShares,
+        uint256 offerUnits0,
+        uint256 offerUnits1,
+        uint256 targetUnits,
         uint256 tick0,
         uint256 tick1,
         uint256 minBuyerAssets
@@ -330,31 +327,31 @@ contract BundlerTest is BaseTest {
         uint256 minTick = _minTick();
         tick0 = bound(tick0, minTick, MAX_TICK);
         tick1 = bound(tick1, minTick, MAX_TICK);
-        targetShares = bound(targetShares, 1, uint256(type(uint128).max) * 3 / 4);
-        offers[0].obligationUnits = offerShares0;
+        targetUnits = bound(targetUnits, 1, uint256(type(uint128).max) * 3 / 4);
+        offers[0].obligationUnits = offerUnits0;
         offers[0].tick = tick0;
-        offers[1].obligationUnits = offerShares1;
+        offers[1].obligationUnits = offerUnits1;
         offers[1].tick = tick1;
 
-        uint256 fromOffer0 = UtilsLib.min(targetShares, offerShares0);
-        vm.assume(offerShares1 >= targetShares - fromOffer0);
+        uint256 fromOffer0 = UtilsLib.min(targetUnits, offerUnits0);
+        vm.assume(offerUnits1 >= targetUnits - fromOffer0);
 
-        uint256 expected = _expectedBuyerAssets(targetShares, offerShares0, tick0, tick1);
+        uint256 expected = _expectedBuyerAssets(targetUnits, offerUnits0, tick0, tick1);
         minBuyerAssets = bound(minBuyerAssets, expected + 1, type(uint256).max);
 
-        collateralize(obligation, borrower, targetShares);
+        collateralize(obligation, borrower, targetUnits);
 
         TakeBundler.Take[] memory takes = new TakeBundler.Take[](2);
         takes[0] = TakeBundler.Take({
             offer: offers[0],
-            obligationUnits: offerShares0,
+            obligationUnits: offerUnits0,
             sig: sig([offers[0]]),
             root: root([offers[0]]),
             proof: proof([offers[0]])
         });
         takes[1] = TakeBundler.Take({
             offer: offers[1],
-            obligationUnits: offerShares1,
+            obligationUnits: offerUnits1,
             sig: sig([offers[1]]),
             root: root([offers[1]]),
             proof: proof([offers[1]])
@@ -365,7 +362,7 @@ contract BundlerTest is BaseTest {
         vm.prank(borrower);
         vm.expectRevert("buyer assets below min");
         takeBundler.bundleTakeUnits(
-            midnight, targetShares, borrower, address(0), takes, minBuyerAssets, type(uint256).max, 0, type(uint256).max
+            midnight, targetUnits, borrower, address(0), takes, minBuyerAssets, type(uint256).max, 0, type(uint256).max
         );
     }
 }

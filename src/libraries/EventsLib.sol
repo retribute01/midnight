@@ -26,7 +26,8 @@ library EventsLib {
         uint256 obligationUnits,
         address sellerReceiver,
         bytes32 group,
-        uint256 consumed
+        uint256 consumed,
+        uint256 totalUnits
     );
     event Withdraw(
         address caller, bytes32 indexed id_, uint256 obligationUnits, address indexed onBehalf, address indexed receiver
