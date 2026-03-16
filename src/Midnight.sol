@@ -213,10 +213,8 @@ contract Midnight is IMidnight {
 
         int256 oldBuyerBalance = position[id][buyer].balance;
         int256 oldSellerBalance = position[id][seller].balance;
-        // forge-lint: disable-next-line(unsafe-typecast) as obligationUnits <= offer.obligationUnits <= uint128.max
-        int256 newBuyerBalance = oldBuyerBalance + int256(obligationUnits);
-        // forge-lint: disable-next-line(unsafe-typecast) as obligationUnits <= offer.obligationUnits <= uint128.max
-        int256 newSellerBalance = oldSellerBalance - int256(obligationUnits);
+        int256 newBuyerBalance = oldBuyerBalance + UtilsLib.toInt256(obligationUnits);
+        int256 newSellerBalance = oldSellerBalance - UtilsLib.toInt256(obligationUnits);
         position[id][buyer].balance = newBuyerBalance;
         position[id][seller].balance = newSellerBalance;
         if (offer.exitOnly) require(offer.buy ? newBuyerBalance <= 0 : newSellerBalance >= 0, "crossed");
@@ -264,15 +262,13 @@ contract Midnight is IMidnight {
     /// @dev Will revert if there is no withdrawable funds.
     function withdraw(Obligation memory obligation, uint256 obligationUnits, address onBehalf, address receiver)
         external
-        returns (uint256)
     {
         require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "unauthorized");
         bytes32 id = touchObligation(obligation);
         ObligationState storage _obligationState = obligationState[id];
         slash(id, onBehalf);
 
-        // forge-lint: disable-next-line(unsafe-typecast) as obligationUnits <= totalUnits <= uint128.max
-        position[id][onBehalf].balance -= int256(obligationUnits);
+        position[id][onBehalf].balance -= UtilsLib.toInt256(obligationUnits);
         require(position[id][onBehalf].balance >= 0, "withdraw too much");
         _obligationState.withdrawable -= obligationUnits;
         _obligationState.totalUnits -= UtilsLib.toUint128(obligationUnits);
@@ -280,8 +276,6 @@ contract Midnight is IMidnight {
         emit EventsLib.Withdraw(msg.sender, id, obligationUnits, onBehalf, receiver);
 
         SafeTransferLib.safeTransfer(obligation.loanToken, receiver, obligationUnits);
-
-        return obligationUnits;
     }
 
     function repay(Obligation memory obligation, uint256 obligationUnits, address onBehalf) external {
@@ -393,8 +387,7 @@ contract Midnight is IMidnight {
         require(block.timestamp > obligation.maturity || originalDebt > maxDebt, "position is not liquidatable");
 
         if (badDebt > 0) {
-            // forge-lint: disable-next-line(unsafe-typecast) as badDebt <= originalDebt <= totalUnits <= uint128.max
-            _position.balance += int256(badDebt);
+            _position.balance += UtilsLib.toInt256(badDebt);
             uint256 oldTotalUnits = _obligationState.totalUnits;
             _obligationState.lossIndex = UtilsLib.toUint128(
                 type(uint128).max
@@ -527,8 +520,7 @@ contract Midnight is IMidnight {
         if (_userLossIndex != lossIndex) {
             int256 balance = _position.balance;
             if (balance > 0) {
-                // forge-lint: disable-next-item(unsafe-typecast) as result <= uint256(balance) <= int256.max
-                _position.balance = int256(
+                _position.balance = UtilsLib.toInt256(
                     uint256(balance).mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex)
                 );
             }
