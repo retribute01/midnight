@@ -70,7 +70,6 @@ rule obligationFeeChangeRequiresCreation(method f, env e, bytes32 id, uint256 in
 
     assert !obligationCreated(id) => feeAfter == feeBefore;
     assert obligationCreated(id) => feeAfter != feeBefore;
-                                        
 }
 
 /// Only the fee setter can modify default fees.
