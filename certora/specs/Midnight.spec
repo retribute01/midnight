@@ -100,8 +100,7 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
     assert repaidUnits == 0 && seizedAssets == 0 => seizedAssetsOutput == 0 && repaidUnitsOutput == 0;
 }
 
-rule onlyUserCanAuthorizeWithoutSig(env e, method f, calldataarg data)
-filtered { f -> !f.isView && f.selector != sig:setAuthorizedWithSig(Midnight.Authorization memory, Midnight.Signature calldata).selector } {
+rule onlyUserCanAuthorizeWithoutSig(env e, method f, calldataarg data) filtered { f -> !f.isView && f.selector != sig:setAuthorizedWithSig(Midnight.Authorization memory, Midnight.Signature calldata).selector } {
     address user;
     address someone;
 
@@ -121,15 +120,15 @@ rule onlyUserOrAuthorizedCanRatify(env e, address onBehalf, bytes32 root, bool n
     assert !lastReverted => (onBehalf == e.msg.sender || isAuthorized(onBehalf, e.msg.sender));
 }
 
-rule unauthorizedTakeFails(env e, uint256 buyerAssets, uint256 sellerAssets, uint256 obligationUnits, uint256 obligationShares, address taker, address receiver, Midnight.Offer offer, bytes32 root, bytes32[] proof, Midnight.Signature signature, address takerCallbackAddress, bytes takerCallbackData) {
-    take@withrevert(e, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, takerCallbackAddress, takerCallbackData, receiver, offer, root, proof, signature);
+rule unauthorizedTakeFails(env e, uint256 obligationSharesInput, address taker, address receiver, Midnight.Offer offer, bytes32 root, bytes32[] proof, Midnight.Signature signature, address takerCallbackAddress, bytes takerCallbackData) {
+    take@withrevert(e, obligationSharesInput, taker, takerCallbackAddress, takerCallbackData, receiver, offer, root, proof, signature);
     assert !lastReverted => e.msg.sender == taker || isAuthorized(taker, e.msg.sender);
 }
 
-rule unauthorizedOnRatifyFails(env e, uint256 buyerAssets, uint256 sellerAssets, uint256 obligationUnits, uint256 obligationShares, address taker, address receiver, Midnight.Offer offer, bytes32 root, bytes32[] proof, Midnight.Signature signature, address takerCallbackAddress, bytes takerCallbackData) {
+rule unauthorizedOnRatifyFails(env e, uint256 obligationSharesInput, address taker, address receiver, Midnight.Offer offer, bytes32 root, bytes32[] proof, Midnight.Signature signature, address takerCallbackAddress, bytes takerCallbackData) {
     require signature.v != 0;
     require offer.ratifier != 0;
-    take@withrevert(e, buyerAssets, sellerAssets, obligationUnits, obligationShares, taker, takerCallbackAddress, takerCallbackData, receiver, offer, root, proof, signature);
+    take@withrevert(e, obligationSharesInput, taker, takerCallbackAddress, takerCallbackData, receiver, offer, root, proof, signature);
     assert !lastReverted => offer.maker == offer.ratifier || isAuthorized(offer.maker, offer.ratifier);
 }
 
