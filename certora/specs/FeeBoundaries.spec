@@ -60,19 +60,29 @@ invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
 
 /// Before an obligation is created, its fees can only change through creation (touchObligation copies defaultFees).
 rule obligationFeeChangeRequiresCreation(method f, env e, bytes32 id, uint256 index) filtered { f -> !f.isView } {
-    require !obligationCreated(id), "obligation not yet created";
+    require !obligationCreated(id);
 
     uint256 feeBefore = obligationFee(id, index);
     calldataarg args;
     f(e, args);
 
-    uint256 feeAfter = obligationFee(id, index);
-
-    assert !obligationCreated(id) => feeAfter == feeBefore;
-    assert obligationCreated(id) => feeAfter != feeBefore;
+    assert !obligationCreated(id) => obligationFee(id, index) == feeBefore;
 }
 
-/// Only the fee setter can modify default fees.
+/// When an obligation is created, its fees are set to the default fees of its loan token.
+rule newObligationFeesMatchDefault(env e, Midnight.Obligation obligation, uint256 index) {
+    require index <= 6;
+    bytes32 id = toId(e, obligation);
+    require !obligationCreated(id);
+
+    uint256 expectedFee = defaultFee(obligation.loanToken, index);
+
+    touchObligation(e, obligation);
+
+    assert obligationFee(id, index) == expectedFee;
+}
+
+/// Only the fee setter can modify default fees (multicall is DELETEd and not checked here).
 rule onlyFeeSetterCanChangeDefaultFees(method f, env e, address token, uint256 index) filtered { f -> !f.isView } {
     uint256 defaultFeeBefore = defaultFee(token, index);
     calldataarg args;
