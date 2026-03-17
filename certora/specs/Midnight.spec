@@ -124,3 +124,6 @@ strong invariant totalUnitsEqualsSumNegativeBalancePlusWithdrawable(bytes32 id)
 
 strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
     userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex;
+
+strong invariant noDebtAndCredit(bytes32 id, address user)
+    creditOf(id, user) == 0 || debtOf(id, user) == 0;
