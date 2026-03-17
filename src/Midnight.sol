@@ -47,7 +47,7 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 ///
 /// ROUNDINGS
 /// @dev lossIndex is rounded up so lenders collectively lose a bit more on each bad debt realization.
-/// @dev slash rounds the balance down, so lenders lose a bit at each interaction.
+/// @dev slash rounds the credit down, so lenders lose a bit at each interaction.
 /// @dev If an obligation loses more than 99%+ of its value to bad debt over its lifetime, it won't function properly
 /// afterwards (bad debt can no longer be realized).
 contract Midnight is IMidnight {

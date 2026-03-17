@@ -18,24 +18,8 @@ methods {
 
 /// HELPERS ///
 
-persistent ghost mapping(bytes32 => mathint) sumPositiveBalanceOf {
-    init_state axiom (forall bytes32 id. sumPositiveBalanceOf[id] == 0);
-}
-
 persistent ghost mapping(bytes32 => mathint) sumDebt {
     init_state axiom (forall bytes32 id. sumDebt[id] == 0);
-}
-
-function negativePart(mathint x) returns mathint {
-    return x < 0 ? -x : 0;
-}
-
-function positivePart(mathint x) returns mathint {
-    return x > 0 ? x : 0;
-}
-
-hook Sstore position[KEY bytes32 id][KEY address owner].credit uint128 newCredit (uint128 oldCredit) {
-    sumPositiveBalanceOf[id] = sumPositiveBalanceOf[id] - to_mathint(oldCredit) + to_mathint(newCredit);
 }
 
 hook Sstore position[KEY bytes32 id][KEY address owner].debt uint128 newDebt (uint128 oldDebt) {
@@ -113,11 +97,11 @@ rule userLossIndexMonotonicallyIncreases(bytes32 id, address user, method f, env
 
 /// INVARIANTS ///
 
-strong invariant totalUnitsEqualsSumNegativeBalancePlusWithdrawable(bytes32 id)
+strong invariant totalUnitsEqualsSumNegativeDebtPlusWithdrawable(bytes32 id)
     to_mathint(totalUnits(id)) == sumDebt[id] + to_mathint(withdrawable(id));
 
 strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
     userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex;
 
-strong invariant noDebtAndCredit(bytes32 id, address user)
+strong invariant noCreditAndDebt(bytes32 id, address user)
     creditOf(id, user) == 0 || debtOf(id, user) == 0;

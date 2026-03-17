@@ -14,11 +14,11 @@ methods {
 // Track the lossIndex at which each user was last slashed.
 persistent ghost mapping(bytes32 => mapping(address => uint128)) slashedAtLossIndex;
 
-// Track whether a positive balance was read without prior slash.
-persistent ghost bool balanceReadWithoutSlash;
+// Track whether credit was read without prior slash.
+persistent ghost bool creditReadWithoutSlash;
 
-// Track whether a positive balance was written without prior slash.
-persistent ghost bool balanceWrittenWithoutSlash;
+// Track whether credit was written without prior slash.
+persistent ghost bool creditWrittenWithoutSlash;
 
 function slashSummary(bytes32 id, address user) {
     slashedAtLossIndex[id][user] = currentContract.obligationState[id].lossIndex;
@@ -29,7 +29,7 @@ function slashSummary(bytes32 id, address user) {
 // Credit must only be read after slash at the current lossIndex.
 hook Sload uint128 value position[KEY bytes32 id][KEY address user].credit {
     if (slashedAtLossIndex[id][user] != currentContract.obligationState[id].lossIndex && value > 0) {
-        balanceReadWithoutSlash = true;
+        creditReadWithoutSlash = true;
     }
 }
 
@@ -38,16 +38,16 @@ hook Sload uint128 value position[KEY bytes32 id][KEY address user].credit {
 // even if oldValue == 0, ensuring the user's lossIndex is refreshed first.
 hook Sstore position[KEY bytes32 id][KEY address user].credit uint128 newValue (uint128 oldValue) {
     if (slashedAtLossIndex[id][user] != currentContract.obligationState[id].lossIndex && (oldValue > 0 || newValue > 0)) {
-        balanceWrittenWithoutSlash = true;
+        creditWrittenWithoutSlash = true;
     }
 }
 
 /// RULES ///
 
-// View functions that read balanceOf don't call slash (they can't mutate state).
-rule balanceReadAfterSlash(method f, env e, calldataarg args)
+// View functions that read credit don't call slash (they can't mutate state).
+rule creditReadAfterSlash(method f, env e, calldataarg args)
 filtered {
-    // Skipped: liquidate and withdrawCollateral read balance via debtOf/isHealthy without
+    // Skipped: liquidate and withdrawCollateral read credit via debtOf/isHealthy without
     // calling slash first (but don't do anything with it). TODO: improve this.
     f -> f.selector != sig:creditOf(bytes32, address).selector
         && f.selector != sig:debtOf(bytes32, address).selector
@@ -56,13 +56,13 @@ filtered {
         && f.selector != sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
         && f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector
 } {
-    require !balanceReadWithoutSlash, "initialize the ghost variable";
+    require !creditReadWithoutSlash, "initialize the ghost variable";
     f(e, args);
-    assert !balanceReadWithoutSlash;
+    assert !creditReadWithoutSlash;
 }
 
-rule balanceWrittenAfterSlash(method f, env e, calldataarg args) {
-    require !balanceWrittenWithoutSlash, "initialize the ghost variable";
+rule creditWrittenAfterSlash(method f, env e, calldataarg args) {
+    require !creditWrittenWithoutSlash, "initialize the ghost variable";
     f(e, args);
-    assert !balanceWrittenWithoutSlash;
+    assert !creditWrittenWithoutSlash;
 }
