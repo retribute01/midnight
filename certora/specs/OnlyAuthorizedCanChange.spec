@@ -5,6 +5,8 @@ methods {
 
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
     function sharesOf(bytes32 id, address user) external returns (uint256) envfree;
+    function consumed(address user, bytes32 group) external returns (uint256) envfree;
+    function session(address user) external returns (bytes32) envfree;
     function isAuthorized(address authorizer, address authorized) external returns (bool) envfree;
 
     function _.price() external => NONDET;
@@ -90,4 +92,53 @@ rule takeOnlyAuthorizedCanChangeDebt(env e, uint256 obligationShares, address ta
     assert user == buyer => debtAfter <= debtBefore;
     assert user == seller => debtAfter >= debtBefore;
     assert user != buyer && user != seller => debtAfter == debtBefore;
+}
+
+/// CONSUMED CHANGE RULES ///
+
+/// An unauthorized caller cannot change a user's consumed except via take.
+rule onlyAuthorizedCanChangeConsumedExceptTake(env e, method f, calldataarg args, address user, bytes32 group) filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector } {
+    bool userIsAuthorized = user == e.msg.sender || isAuthorized(user, e.msg.sender);
+
+    uint256 consumedBefore = consumed(user, group);
+    f(e, args);
+    uint256 consumedAfter = consumed(user, group);
+
+    assert userIsAuthorized || consumedAfter == consumedBefore;
+}
+
+/// In take, only the maker's consumed can change.
+rule takeCanChangeConsumed(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, address user, bytes32 group) {
+    uint256 consumedBefore = consumed(user, group);
+    take(e, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
+    uint256 consumedAfter = consumed(user, group);
+
+    assert user != offer.maker || group != offer.group => consumedAfter == consumedBefore;
+    assert consumedAfter >= consumedBefore;
+}
+
+/// SESSION CHANGE RULES ///
+
+/// An unauthorized caller cannot change a user's session.
+rule onlyAuthorizedCanChangeSession(env e, method f, calldataarg args, address user) {
+    bool userIsAuthorized = user == e.msg.sender || isAuthorized(user, e.msg.sender);
+
+    bytes32 sessionBefore = session(user);
+    f(e, args);
+    bytes32 sessionAfter = session(user);
+
+    assert userIsAuthorized || sessionAfter == sessionBefore;
+}
+
+/// AUTHORIZATION CHANGE RULES ///
+
+/// An unauthorized caller cannot change a user's isAuthorized mapping.
+rule onlyAuthorizedCanChangeIsAuthorized(env e, method f, calldataarg args, address authorizer, address authorized) {
+    bool callerIsAuthorized = authorizer == e.msg.sender || isAuthorized(authorizer, e.msg.sender);
+
+    bool isAuthorizedBefore = isAuthorized(authorizer, authorized);
+    f(e, args);
+    bool isAuthorizedAfter = isAuthorized(authorizer, authorized);
+
+    assert callerIsAuthorized || isAuthorizedAfter == isAuthorizedBefore;
 }
