@@ -48,7 +48,7 @@ function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
 
 /// REPAY ///
 
-/// repay decreases onBehalf's debt by exactly obligationUnits.
+/// repay decreases onBehalf's debt by exactly obligationUnits and only changes position[id][onBehalf].debt.
 rule repayEffects(env e, Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
 
@@ -59,12 +59,13 @@ rule repayEffects(env e, Midnight.Obligation obligation, uint256 obligationUnits
     repay(e, obligation, obligationUnits, onBehalf);
 
     assert debtOf(id, onBehalf) == debtBefore - obligationUnits;
-    assert anyUser != onBehalf || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore && debtOf(anyId, anyUser) == otherDebtBefore;
+    assert creditOf(anyId, anyUser) == otherCreditBefore;
+    assert anyUser != onBehalf || anyId != id => debtOf(anyId, anyUser) == otherDebtBefore;
 }
 
 /// WITHDRAW ///
 
-/// withdraw decreases onBehalf's post-slash credit by exactly obligationUnits.
+/// withdraw decreases onBehalf's post-slash credit by exactly obligationUnits, and only changes position[id][onBehalf].credit.
 rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf, address receiver, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
 
@@ -75,7 +76,8 @@ rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 obligationUn
     withdraw(e, obligation, obligationUnits, onBehalf, receiver);
 
     assert creditOf(id, onBehalf) == creditPostSlash - obligationUnits;
-    assert anyUser != onBehalf || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore && debtOf(anyId, anyUser) == otherDebtBefore;
+    assert debtOf(anyId, anyUser) == otherDebtBefore;
+    assert anyUser != onBehalf || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore;
 }
 
 /// TAKE ///
@@ -105,7 +107,7 @@ rule takeEffects(env e, uint256 obligationUnits, address taker, address takerCal
 /// LIQUIDATE ///
 
 /// liquidate decreases the borrower's debt by at least repaidUnits,
-/// and only changes position[id][borrower].
+/// and only changes position[id][borrower].debt.
 rule liquidateEffects(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
 
@@ -118,7 +120,8 @@ rule liquidateEffects(env e, Midnight.Obligation obligation, uint256 collateralI
     seizedResult, repaidResult = liquidate(e, obligation, collateralIndex, seizedAssets, repaidUnits, borrower, data);
 
     assert debtOf(id, borrower) <= debtBefore - repaidResult;
-    assert anyUser != borrower || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore && debtOf(anyId, anyUser) == otherDebtBefore;
+    assert creditOf(anyId, anyUser) == otherCreditBefore;
+    assert anyUser != borrower || anyId != id => debtOf(anyId, anyUser) == otherDebtBefore;
 }
 
 /// SLASH ///
@@ -138,9 +141,8 @@ rule slashEffects(env e, bytes32 id, address user, bytes32 anyId, address anyUse
     slash(e, id, user);
 
     assert creditOf(id, user) == expectedCredit;
-    assert creditOf(id, user) <= creditBefore;
-    assert debtOf(id, user) == debtBefore;
-    assert anyUser != user || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore && debtOf(anyId, anyUser) == otherDebtBefore;
+    assert debtOf(anyId, anyUser) == otherDebtBefore;
+    assert anyUser != user || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore;
 }
 
 /// ALL OTHER FUNCTIONS ///
