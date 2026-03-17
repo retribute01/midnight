@@ -405,7 +405,6 @@ contract TakeTest is BaseTest {
 
         assertEq(midnight.creditOf(id, address(this)), 0, "credit");
         assertEq(midnight.debtOf(id, address(this)), 0, "debt");
-        assertEq(midnight.debtOf(id, address(this)), 0, "debt");
     }
 
     // address(this) makes an arbitrage for 2 crossed offers.
@@ -432,7 +431,6 @@ contract TakeTest is BaseTest {
         take(units, address(this), borrowerOffer);
 
         assertEq(midnight.creditOf(id, address(this)), 0, "credit");
-        assertEq(midnight.debtOf(id, address(this)), 0, "debt");
         assertEq(midnight.debtOf(id, address(this)), 0, "debt");
     }
 

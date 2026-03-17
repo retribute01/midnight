@@ -219,17 +219,19 @@ contract Midnight is IMidnight {
 
         Position storage buyerPos = position[id][buyer];
         Position storage sellerPos = position[id][seller];
-        uint128 oldBuyerDebt = buyerPos.debt;
-        uint128 oldSellerCredit = sellerPos.credit;
-        uint128 oldSellerDebt = sellerPos.debt;
-        uint128 units128 = UtilsLib.toUint128(obligationUnits);
-        buyerPos.debt = UtilsLib.toUint128(UtilsLib.zeroFloorSub(oldBuyerDebt, units128));
-        buyerPos.credit += UtilsLib.toUint128(UtilsLib.zeroFloorSub(units128, oldBuyerDebt));
-        sellerPos.credit = UtilsLib.toUint128(UtilsLib.zeroFloorSub(oldSellerCredit, units128));
-        sellerPos.debt += UtilsLib.toUint128(UtilsLib.zeroFloorSub(units128, oldSellerCredit));
+        uint256 oldBuyerDebt = buyerPos.debt;
+        uint256 oldSellerDebt = sellerPos.debt;
+        uint256 buyerDebtReduction = UtilsLib.min(oldBuyerDebt, obligationUnits);
+        uint256 sellerCreditReduction = UtilsLib.min(oldSellerDebt, obligationUnits);
+        buyerPos.debt -= UtilsLib.toUint128(buyerDebtReduction);
+        buyerPos.credit += UtilsLib.toUint128(obligationUnits - buyerDebtReduction);
+        sellerPos.credit -= UtilsLib.toUint128(sellerCreditReduction);
+        sellerPos.debt += UtilsLib.toUint128(obligationUnits - sellerCreditReduction);
+        _obligationState.totalUnits = UtilsLib.toUint128(
+            _obligationState.totalUnits - oldSellerDebt - oldBuyerDebt + sellerPos.debt + buyerPos.debt
+        );
+
         if (offer.exitOnly) require(offer.buy ? buyerPos.credit == 0 : sellerPos.debt == 0, "crossed");
-        _obligationState.totalUnits =
-            _obligationState.totalUnits - oldSellerDebt - oldBuyerDebt + sellerPos.debt + buyerPos.debt;
 
         emit EventsLib.Take(
             msg.sender,
