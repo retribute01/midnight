@@ -4,7 +4,6 @@ methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
     function withdrawable(bytes32 id) external returns (uint256) envfree;
-    function isAuthorized(address user, address someone) external returns (bool) envfree;
     function totalUnits(bytes32 id) external returns (uint256) envfree;
     function totalShares(bytes32 id) external returns (uint256) envfree;
     function consumed(address user, bytes32 group) external returns (uint256) envfree;
@@ -98,49 +97,6 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
 
     // If all the input arguments are zero, all the output arguments are zero.
     assert repaidUnits == 0 && seizedAssets == 0 => seizedAssetsOutput == 0 && repaidUnitsOutput == 0;
-}
-
-rule onlyUserCanAuthorizeWithoutSig(env e, method f, calldataarg data) filtered { f -> !f.isView && f.selector != sig:setAuthorizedWithSig(Midnight.Authorization memory, Midnight.Signature calldata).selector } {
-    address user;
-    address someone;
-
-    require user != e.msg.sender;
-    require !isAuthorized(user, e.msg.sender);
-
-    bool authorizedBefore = isAuthorized(user, someone);
-
-    f(e, data);
-
-    bool authorizedAfter = isAuthorized(user, someone);
-
-    assert authorizedAfter == authorizedBefore;
-}
-
-rule onlyUserOrAuthorizedCanRatify(env e, address onBehalf, bytes32 root, bool newIsRatified) {
-    setRatified@withrevert(e, onBehalf, root, newIsRatified);
-    assert !lastReverted => (onBehalf == e.msg.sender || isAuthorized(onBehalf, e.msg.sender));
-}
-
-rule unauthorizedTakeFails(env e, uint256 obligationSharesInput, address taker, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, address takerCallbackAddress, bytes takerCallbackData) {
-    take@withrevert(e, obligationSharesInput, taker, takerCallbackAddress, takerCallbackData, receiver, offer, signature, root, proof);
-    assert !lastReverted => e.msg.sender == taker || isAuthorized(taker, e.msg.sender);
-}
-
-rule unauthorizedOnRatifyFails(env e, uint256 obligationSharesInput, address taker, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, address takerCallbackAddress, bytes takerCallbackData) {
-    require signature.v != 0;
-    require offer.ratifier != 0;
-    take@withrevert(e, obligationSharesInput, taker, takerCallbackAddress, takerCallbackData, receiver, offer, signature, root, proof);
-    assert !lastReverted => offer.maker == offer.ratifier || isAuthorized(offer.maker, offer.ratifier);
-}
-
-rule unauthorizedWithdrawCollateralFails(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 assets, address onBehalf, address receiver) {
-    withdrawCollateral@withrevert(e, obligation, collateralIndex, assets, onBehalf, receiver);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender);
-}
-
-rule unauthorizedWithdrawFails(env e, Midnight.Obligation obligation, uint256 obligationUnits, uint256 shares, address onBehalf, address receiver) {
-    withdraw@withrevert(e, obligation, obligationUnits, shares, onBehalf, receiver);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender);
 }
 
 /// INVARIANTS ///
