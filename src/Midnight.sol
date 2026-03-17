@@ -47,7 +47,7 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 ///
 /// ROUNDINGS
 /// @dev lossIndex is rounded up so lenders collectively lose a bit more on each bad debt realization.
-/// @dev slash rounds the balance down, so lenders lose a bit at each interaction.
+/// @dev slash rounds the credit down, so lenders lose a bit at each interaction.
 /// @dev If an obligation loses more than 99%+ of its value to bad debt over its lifetime, it won't function properly
 /// afterwards (bad debt can no longer be realized).
 contract Midnight is IMidnight {
@@ -564,8 +564,10 @@ contract Midnight is IMidnight {
 
     function creditAfterSlashing(bytes32 id, address user) public view returns (uint256) {
         Position storage _position = position[id][user];
-        return _position.credit
-            .mulDivDown(type(uint128).max - obligationState[id].lossIndex, type(uint128).max - _position.lossIndex);
+        uint128 _userLossIndex = _position.lossIndex;
+        uint128 lossIndex = obligationState[id].lossIndex;
+        if (_userLossIndex == lossIndex) return _position.credit;
+        return _position.credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
     }
 
     function creditOf(bytes32 id, address user) public view returns (uint256) {

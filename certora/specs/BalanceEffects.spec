@@ -9,7 +9,7 @@ methods {
     function userLossIndex(bytes32 id, address user) external returns (uint128) envfree;
     function _.price() external => NONDET;
 
-    // Summarize internals irrelevant to balance tracking.
+    // Summarize internals irrelevant to credit and debt tracking.
     function IdLib.storeInCode(Midnight.Obligation memory) internal returns (address) => NONDET;
     function SafeTransferLib.safeTransfer(address, address, uint256) internal => NONDET;
     function SafeTransferLib.safeTransferFrom(address, address, address, uint256) internal => NONDET;
@@ -23,7 +23,7 @@ methods {
 
     // Assume no reentrancy: callbacks and token transfers do not re-enter Midnight.
     // This is justified because the properties we verify are about the effect of each function's own
-    // body on balances, not the effect of the full transaction including callbacks.
+    // body on credit and debt, not the effect of the full transaction including callbacks.
     function _.onBuy(Midnight.Obligation, address, uint256, uint256, uint256, bytes) external => NONDET;
     function _.onSell(Midnight.Obligation, address, uint256, uint256, uint256, bytes) external => NONDET;
     function _.onLiquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes) external => NONDET;
@@ -85,8 +85,8 @@ rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 obligationUn
 
 /// TAKE ///
 
-/// take changes maker's and taker's net balances by +/- obligationUnits relative to their post-slash values,
-/// and only changes balances of maker and taker at the obligation id.
+/// take changes maker's and taker's net credit and debt by +/- obligationUnits relative to their post-slash values,
+/// and only changes credit and debt of maker and taker at the obligation id.
 rule takeEffects(env e, uint256 obligationUnits, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, offer.obligation);
 
@@ -151,7 +151,7 @@ rule slashEffects(env e, bytes32 id, address user, bytes32 anyId, address anyUse
 /// ALL OTHER FUNCTIONS ///
 
 /// Functions other than take, withdraw, repay, liquidate, and slash do not change any user's credit or debt.
-rule balanceUnchangedByOtherFunctions(method f, env e, calldataarg args, bytes32 id, address user)
+rule creditAndDebtUnchangedByOtherFunctions(method f, env e, calldataarg args, bytes32 id, address user)
 filtered {
     f -> !f.isView
         && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector
