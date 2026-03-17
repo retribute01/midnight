@@ -15,6 +15,7 @@ methods {
     // Summaries for complex internals irrelevant to token balance tracking.
     function UtilsLib.isLeaf(bytes32, bytes32, bytes32[] memory) internal returns (bool) => NONDET;
     function UtilsLib.msb(uint256) internal returns (uint256) => NONDET;
+
     // negativePart is no longer called after the credit/debt refactor.
     function TickLib.tickToPrice(uint256) internal returns (uint256) => NONDET;
     function TickLib.wExp(int256) internal returns (uint256) => NONDET;
