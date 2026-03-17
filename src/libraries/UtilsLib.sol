@@ -73,5 +73,4 @@ library UtilsLib {
             res := sub(255, clz(bitmap))
         }
     }
-
 }
