@@ -182,6 +182,6 @@ filtered {
     uint256 creditBefore = creditOf(id, user);
     uint256 debtBefore = debtOf(id, user);
     f(e, args);
-    assert user != passiveFeeRecipient() => creditOf(id, user) == creditBefore;
+    assert user != passiveFeeRecipient() => creditOf(id, user) == creditBefore;
     assert debtOf(id, user) == debtBefore;
 }
