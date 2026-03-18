@@ -28,6 +28,7 @@ methods {
     function _.onFlashLoan(address, uint256, bytes) external => NONDET;
     function _.transfer(address, uint256) external => NONDET;
     function signer(bytes32, Midnight.Signature memory) internal returns (address) => NONDET;
+    function Utils.passiveFeeRecipient() external returns (address) envfree;
 }
 
 /// HELPERS ///
@@ -182,6 +183,6 @@ filtered {
     uint256 creditBefore = creditOf(id, user);
     uint256 debtBefore = debtOf(id, user);
     f(e, args);
-    assert user != passiveFeeRecipient() => creditOf(id, user) == creditBefore;
+    assert user != Utils.passiveFeeRecipient() => creditOf(id, user) == creditBefore;
     assert debtOf(id, user) == debtBefore;
 }

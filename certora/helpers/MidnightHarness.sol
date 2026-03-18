@@ -2,12 +2,12 @@
 pragma solidity ^0.8.0;
 
 import {Midnight} from "../../src/Midnight.sol";
-import {Obligation} from "../../src/interfaces/IMidnight.sol";
+import {Obligation, Position} from "../../src/interfaces/IMidnight.sol";
 
 contract MidnightHarness is Midnight {
     constructor() {}
 
-    function isHealthyExternal(Obligation memory obligation, bytes32 id, address borrower)
+    function isHealthyAfterContinuousFeeAccrual(Obligation memory obligation, bytes32 id, address borrower)
         external
         view
         returns (bool)
