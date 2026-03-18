@@ -249,26 +249,24 @@ contract Midnight is IMidnight {
         uint256 oldBuyerDebt = buyerPos.debt;
         uint256 oldSellerDebt = sellerPos.debt;
         uint256 buyerDebtReduction = UtilsLib.min(oldBuyerDebt, obligationUnits);
-        uint256 buyerCreditIncrease = obligationUnits - buyerDebtReduction;
-        uint256 sellerCreditReduction = UtilsLib.min(sellerPos.credit, obligationUnits);
-        uint256 sellerDebtIncrease = obligationUnits - sellerCreditReduction;
+        uint256 sellerDebtIncrease = obligationUnits.zeroFloorSub(sellerPos.credit);
         buyerPos.debt -= UtilsLib.toUint128(buyerDebtReduction);
-        buyerPos.credit += UtilsLib.toUint128(buyerCreditIncrease);
-        sellerPos.credit -= UtilsLib.toUint128(sellerCreditReduction);
+        buyerPos.credit += UtilsLib.toUint128(obligationUnits - buyerDebtReduction);
+        sellerPos.credit -= UtilsLib.toUint128(obligationUnits - sellerDebtIncrease);
         sellerPos.debt += UtilsLib.toUint128(sellerDebtIncrease);
         _obligationState.totalUnits = UtilsLib.toUint128(
             _obligationState.totalUnits - oldSellerDebt - oldBuyerDebt + sellerPos.debt + buyerPos.debt
         );
 
         if (buyerDebtReduction > 0) {
-            // forge-lint: disable-next-item(unsafe-typecast) as if obligationUnits > debt, an underflow occurs later.
+            // forge-lint: disable-next-item(unsafe-typecast) as pendingFee reduction <= pendingFee
             buyerPos.pendingFee -= uint128(uint256(buyerPos.pendingFee).mulDivUp(buyerDebtReduction, oldBuyerDebt));
             emit EventsLib.UpdatePendingFee(id, buyer, buyerPos.pendingFee);
         }
 
         if (sellerDebtIncrease > 0) {
             sellerPos.pendingFee += UtilsLib.toUint128(
-                uint256(_obligationState.continuousFee).mulDivDown(sellerDebtIncrease * timeToMaturity, WAD)
+                _obligationState.continuousFee.mulDivDown(sellerDebtIncrease * timeToMaturity, WAD)
             );
             emit EventsLib.UpdatePendingFee(id, seller, sellerPos.pendingFee);
         }
@@ -688,6 +686,17 @@ contract Midnight is IMidnight {
         return maxDebt >= debt;
     }
 
+    function pendingContinuousFee(bytes32 id, address borrower, uint256 maturity) public view returns (uint256) {
+        Position storage _position = position[id][borrower];
+        uint256 lastAccrual = _position.lastContinuousFeeAccrual;
+        if (lastAccrual == 0 || maturity <= lastAccrual) {
+            return 0;
+        } else {
+            uint256 accrualEnd = UtilsLib.min(block.timestamp, maturity);
+            return _position.pendingFee.mulDivDown(accrualEnd - lastAccrual, maturity - lastAccrual);
+        }
+    }
+
     function domainSeparator() internal view returns (bytes32) {
         return keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(this)));
     }
@@ -706,15 +715,8 @@ contract Midnight is IMidnight {
         view
         returns (uint128)
     {
-        Position storage _position = position[id][borrower];
-        uint256 lastAccrual = _position.lastContinuousFeeAccrual;
-        uint256 accruedDuration = UtilsLib.min(block.timestamp, obligation.maturity).zeroFloorSub(lastAccrual);
-        uint256 totalDuration = obligation.maturity.zeroFloorSub(lastAccrual);
         // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
-        if (totalDuration > 0) {
-            return uint128(uint256(_position.pendingFee).mulDivDown(accruedDuration, totalDuration));
-        }
-        return 0;
+        return uint128(pendingContinuousFee(id, borrower, obligation.maturity));
     }
 
     /// @dev Expects the obligation to be touched.
