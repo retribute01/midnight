@@ -53,7 +53,7 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// afterwards (bad debt can no longer be realized).
 ///
 /// GATES
-/// @dev Gates can be used to restrict the ability to lend, borrow or liquidate an obligation.
+/// @dev Gates can be used to restrict the ability to enter an obligation or liquidate.
 /// @dev The taker gate prevent the user from either lend or borrow the obligation on the primary.
 /// @dev A reverting taker gate does not prevent the user from taking the obligation on the secondary market.
 /// @dev The liquidator gate prevent the user from liquidating the obligation.
