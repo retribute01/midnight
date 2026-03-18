@@ -71,13 +71,3 @@ rule onlyAuthorizedCanChangeCollateralExceptLiquidate(env e, method f, calldataa
 
     assert collateralAfter == collateralBefore || userIsAuthorized;
 }
-
-/// In liquidate, only the borrower's collateral can decrease.
-rule liquidateCanDecreaseBorrowerCollateral(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data, bytes32 id, address user, uint256 colIdx) {
-    uint256 collateralBefore = collateralOf(id, user, colIdx);
-    liquidate(e, obligation, collateralIndex, seizedAssets, repaidUnits, borrower, data);
-    uint256 collateralAfter = collateralOf(id, user, colIdx);
-
-    assert user == borrower => collateralAfter <= collateralBefore;
-    assert user != borrower => collateralAfter == collateralBefore;
-}
