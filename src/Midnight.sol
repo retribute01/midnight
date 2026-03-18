@@ -249,12 +249,10 @@ contract Midnight is IMidnight {
         uint256 oldBuyerDebt = buyerPos.debt;
         uint256 oldSellerDebt = sellerPos.debt;
         uint256 buyerDebtReduction = UtilsLib.min(oldBuyerDebt, obligationUnits);
-        uint256 buyerCreditIncrease = obligationUnits - buyerDebtReduction;
-        uint256 sellerCreditReduction = UtilsLib.min(sellerPos.credit, obligationUnits);
-        uint256 sellerDebtIncrease = obligationUnits - sellerCreditReduction;
+        uint256 sellerDebtIncrease = obligationUnits.zeroFloorSub(sellerPos.credit);
         buyerPos.debt -= UtilsLib.toUint128(buyerDebtReduction);
-        buyerPos.credit += UtilsLib.toUint128(buyerCreditIncrease);
-        sellerPos.credit -= UtilsLib.toUint128(sellerCreditReduction);
+        buyerPos.credit += UtilsLib.toUint128(obligationUnits - buyerDebtReduction);
+        sellerPos.credit -= UtilsLib.toUint128(obligationUnits - sellerDebtIncrease);
         sellerPos.debt += UtilsLib.toUint128(sellerDebtIncrease);
         _obligationState.totalUnits = UtilsLib.toUint128(
             _obligationState.totalUnits - oldSellerDebt - oldBuyerDebt + sellerPos.debt + buyerPos.debt
