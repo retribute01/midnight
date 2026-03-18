@@ -29,7 +29,7 @@ import {
     Position
 } from "./interfaces/IMidnight.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
-import {ITakerGate, ILiquidatorGate} from "./interfaces/IGate.sol";
+import {IEnterGate, ILiquidatorGate} from "./interfaces/IGate.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
 /// MAX AMOUNTS
@@ -228,13 +228,13 @@ contract Midnight is IMidnight {
         Position storage sellerPos = position[id][seller];
 
         require(
-            (buyerPos.debt > 0) || offer.obligation.takerGate == address(0)
-                || ITakerGate(offer.obligation.takerGate).canLend(buyer),
+            (buyerPos.debt > 0) || offer.obligation.enterGate == address(0)
+                || IEnterGate(offer.obligation.enterGate).canLend(buyer),
             "buyer gated from lending"
         );
         require(
-            (sellerPos.credit > 0) || offer.obligation.takerGate == address(0)
-                || ITakerGate(offer.obligation.takerGate).canBorrow(seller),
+            (sellerPos.credit > 0) || offer.obligation.enterGate == address(0)
+                || IEnterGate(offer.obligation.enterGate).canBorrow(seller),
             "seller gated from borrowing"
         );
 

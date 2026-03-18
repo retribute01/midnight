@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity >=0.5.0;
 
-interface ITakerGate {
+interface IEnterGate {
     function canLend(address account) external view returns (bool);
     function canBorrow(address account) external view returns (bool);
 }

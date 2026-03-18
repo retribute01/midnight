@@ -3,14 +3,14 @@
 pragma solidity ^0.8.0;
 
 import {Obligation, Offer, Collateral} from "../src/interfaces/IMidnight.sol";
-import {ITakerGate, ILiquidatorGate} from "../src/interfaces/IGate.sol";
+import {IEnterGate, ILiquidatorGate} from "../src/interfaces/IGate.sol";
 import {LIQUIDATION_CURSOR_LOW} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {MAX_TICK} from "../src/libraries/TickLib.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 
-contract WhitelistGate is ITakerGate, ILiquidatorGate {
+contract WhitelistGate is IEnterGate, ILiquidatorGate {
     mapping(address => bool) public whitelisted;
 
     function setWhitelisted(address account, bool status) external {
@@ -72,7 +72,7 @@ contract GateTest is BaseTest {
                 })
             );
         gatedObligation.collaterals = sortCollaterals(gatedObligation.collaterals);
-        gatedObligation.takerGate = address(gate);
+        gatedObligation.enterGate = address(gate);
         gatedObligation.liquidatorGate = address(gate);
 
         gatedId = toId(gatedObligation);
