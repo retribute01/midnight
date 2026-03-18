@@ -248,27 +248,27 @@ contract Midnight is IMidnight {
         Position storage sellerPos = position[id][seller];
         uint256 oldBuyerDebt = buyerPos.debt;
         uint256 oldSellerDebt = sellerPos.debt;
-        bool buyerIsLender = oldBuyerDebt == 0;
-        bool sellerIsBorrower = sellerPos.credit == 0;
         uint256 buyerDebtReduction = UtilsLib.min(oldBuyerDebt, obligationUnits);
+        uint256 buyerCreditIncrease = obligationUnits - buyerDebtReduction;
         uint256 sellerCreditReduction = UtilsLib.min(sellerPos.credit, obligationUnits);
+        uint256 sellerDebtIncrease = obligationUnits - sellerCreditReduction;
         buyerPos.debt -= UtilsLib.toUint128(buyerDebtReduction);
-        buyerPos.credit += UtilsLib.toUint128(obligationUnits - buyerDebtReduction);
+        buyerPos.credit += UtilsLib.toUint128(buyerCreditIncrease);
         sellerPos.credit -= UtilsLib.toUint128(sellerCreditReduction);
-        sellerPos.debt += UtilsLib.toUint128(obligationUnits - sellerCreditReduction);
+        sellerPos.debt += UtilsLib.toUint128(sellerDebtIncrease);
         _obligationState.totalUnits = UtilsLib.toUint128(
             _obligationState.totalUnits - oldSellerDebt - oldBuyerDebt + sellerPos.debt + buyerPos.debt
         );
 
-        if (!buyerIsLender) {
+        if (buyerDebtReduction > 0) {
             // forge-lint: disable-next-item(unsafe-typecast) as if obligationUnits > debt, an underflow occurs later.
-            buyerPos.pendingFee -= uint128(uint256(buyerPos.pendingFee).mulDivUp(obligationUnits, oldBuyerDebt));
+            buyerPos.pendingFee -= uint128(uint256(buyerPos.pendingFee).mulDivUp(buyerDebtReduction, oldBuyerDebt));
             emit EventsLib.UpdatePendingFee(id, buyer, buyerPos.pendingFee);
         }
 
-        if (sellerIsBorrower) {
+        if (sellerDebtIncrease > 0) {
             sellerPos.pendingFee += UtilsLib.toUint128(
-                uint256(_obligationState.continuousFee).mulDivDown(obligationUnits * timeToMaturity, WAD)
+                uint256(_obligationState.continuousFee).mulDivDown(sellerDebtIncrease * timeToMaturity, WAD)
             );
             emit EventsLib.UpdatePendingFee(id, seller, sellerPos.pendingFee);
         }
@@ -431,7 +431,7 @@ contract Midnight is IMidnight {
 
         uint256 maxDebt;
         uint256 liquidatedCollatPrice;
-        uint256 originalDebt = debtOf(id, borrower);
+        uint256 originalDebt = _position.debt;
         uint256 badDebt = originalDebt;
         uint256 bitmap = _position.activatedCollaterals;
         while (bitmap != 0) {
@@ -480,7 +480,7 @@ contract Midnight is IMidnight {
                 // Rounded up to avoid consecutive max liquidations.
                 // Acknowledged that the position could be slightly healthy after a liquidation.
                 // Note that debt >= maxDebt in this branch.
-                uint256 maxRepaid = (debtOf(id, borrower) - maxDebt).mulDivUp(WAD, WAD - lif.mulDivUp(lltv, WAD));
+                uint256 maxRepaid = (_position.debt - maxDebt).mulDivUp(WAD, WAD - lif.mulDivUp(lltv, WAD));
                 require(
                     repaidUnits <= maxRepaid
                         || _position.collateral[collateralIndex].mulDivDown(liquidatedCollatPrice, ORACLE_PRICE_SCALE)
@@ -603,31 +603,31 @@ contract Midnight is IMidnight {
 
     /// VIEW FUNCTIONS ///
 
-    function userLossIndex(bytes32 id, address user) public view returns (uint128) {
+    function userLossIndex(bytes32 id, address user) external view returns (uint128) {
         return position[id][user].lossIndex;
     }
 
-    function activatedCollaterals(bytes32 id, address user) public view returns (uint128) {
+    function activatedCollaterals(bytes32 id, address user) external view returns (uint128) {
         return position[id][user].activatedCollaterals;
     }
 
-    function collateralOf(bytes32 id, address user, uint256 index) public view returns (uint128) {
+    function collateralOf(bytes32 id, address user, uint256 index) external view returns (uint128) {
         return position[id][user].collateral[index];
     }
 
-    function toId(Obligation memory obligation) public view returns (bytes32) {
+    function toId(Obligation memory obligation) external view returns (bytes32) {
         return IdLib.toId(obligation, block.chainid, address(this));
     }
 
     /// @dev Returns the obligation corresponding to the given id.
     /// @dev Reverts if the id is not a valid id of a touched obligation.
-    function toObligation(bytes32 id) public view returns (Obligation memory) {
+    function toObligation(bytes32 id) external view returns (Obligation memory) {
         require(obligationState[id].created, "not created");
         address create2Address = address(uint160(uint256(id)));
         return abi.decode(create2Address.code, (Obligation));
     }
 
-    function creditAfterSlashing(bytes32 id, address user) public view returns (uint256) {
+    function creditAfterSlashing(bytes32 id, address user) external view returns (uint256) {
         Position storage _position = position[id][user];
         uint128 _userLossIndex = _position.lossIndex;
         uint128 lossIndex = obligationState[id].lossIndex;
@@ -635,11 +635,11 @@ contract Midnight is IMidnight {
         return _position.credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
     }
 
-    function creditOf(bytes32 id, address user) public view returns (uint256) {
+    function creditOf(bytes32 id, address user) external view returns (uint256) {
         return uint256(position[id][user].credit);
     }
 
-    function debtOf(bytes32 id, address user) public view returns (uint256) {
+    function debtOf(bytes32 id, address user) external view returns (uint256) {
         return uint256(position[id][user].debt);
     }
 
@@ -675,7 +675,7 @@ contract Midnight is IMidnight {
     /// @dev This function does not call any oracle if debt is 0.
     function isHealthy(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
         Position storage _position = position[id][borrower];
-        uint256 debt = debtOf(id, borrower) + pendingContinuousFee(id, borrower, obligation.maturity);
+        uint256 debt = _position.debt + pendingContinuousFee(id, borrower, obligation.maturity);
         uint256 maxDebt;
         uint256 bitmap = _position.activatedCollaterals;
         while (maxDebt < debt && bitmap != 0) {
@@ -712,6 +712,7 @@ contract Midnight is IMidnight {
     }
 
     function accrueContinuousFee(bytes32 id, address borrower, uint256 maturity) internal {
+        require(obligationState[id].created, "not created");
         // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
         uint128 accruedFee = uint128(pendingContinuousFee(id, borrower, maturity));
 
