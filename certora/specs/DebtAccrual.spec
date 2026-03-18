@@ -38,13 +38,13 @@ function summaryAccrueContinuousFee(bytes32 id, address borrower) {
 
 /// HOOKS ///
 
-hook Sstore borrowerState[KEY bytes32 id][KEY address user].debt uint128 newVal (uint128 oldVal) {
+hook Sstore position[KEY bytes32 id][KEY address user].debt uint128 newVal (uint128 oldVal) {
     if (!accrued[id][user]) {
         debtStoredBeforeAccrual[id][user] = true;
     }
 }
 
-hook Sload uint128 val borrowerState[KEY bytes32 id][KEY address user].debt {
+hook Sload uint128 val position[KEY bytes32 id][KEY address user].debt {
     if (!accrued[id][user]) {
         debtLoadedBeforeAccrual[id][user] = true;
     }
@@ -55,8 +55,8 @@ hook Sload uint128 val borrowerState[KEY bytes32 id][KEY address user].debt {
 /// Check that debt is never stored before accrueContinuousFee is called.
 /// The SSTOREs of accrueContinuousFee are ignored.
 rule debtNotStoredBeforeAccrual(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> !f.isView } {
-    require !accrued[id][user];
-    require !debtStoredBeforeAccrual[id][user];
+    require !accrued[id][user], "initialize the ghost variable";
+    require !debtStoredBeforeAccrual[id][user], "initialize the ghost variable";
 
     f(e, args);
 
@@ -65,9 +65,9 @@ rule debtNotStoredBeforeAccrual(env e, method f, calldataarg args, bytes32 id, a
 
 /// Check that debt is never loaded before accrueContinuousFee is called.
 /// The SLOADs of accrueContinuousFee are ignored.
-rule debtNotLoadedBeforeAccrual(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> f.selector != sig:isHealthy(Midnight.Obligation memory, bytes32, address).selector && f.selector != sig:debtOf(bytes32, address).selector && f.selector != sig:borrowerState(bytes32, address).selector } {
-    require !accrued[id][user];
-    require !debtLoadedBeforeAccrual[id][user];
+rule debtNotLoadedBeforeAccrual(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> f.selector != sig:isHealthy(Midnight.Obligation memory, bytes32, address).selector && f.selector != sig:debtOf(bytes32, address).selector } {
+    require !accrued[id][user], "initialize the ghost variable";
+    require !debtLoadedBeforeAccrual[id][user], "initialize the ghost variable";
 
     f(e, args);
 
