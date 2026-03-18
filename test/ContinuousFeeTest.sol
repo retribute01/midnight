@@ -358,6 +358,34 @@ contract ContinuousFeeTest is BaseTest {
         assertApproxEqAbs(midnight.pendingFee(id, borrower), expectedRemaining, 1, "remaining after liquidation");
     }
 
+    function testExitViaLiquidationBadDebtOnly(uint256 debt, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
+        debt = bound(debt, 1e18, MAX_DEBT);
+        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
+        ttm = bound(ttm, 10, 360 days);
+        elapsed = bound(elapsed, 1, ttm - 1);
+
+        setupBorrower(debt, feeRate, ttm);
+
+        uint256 remaining = midnight.pendingFee(id, borrower);
+        vm.assume(remaining > 0);
+
+        // Make liquidatable
+        oracle1.setPrice(0);
+        vm.warp(block.timestamp + elapsed);
+
+        // Compute expected state after accrual
+        uint256 feeUnits = remaining.mulDivDown(elapsed, ttm);
+        uint256 remainingAfterAccrual = remaining - feeUnits;
+
+        vm.expectEmit();
+        emit EventsLib.AccrueContinuousFee(id, borrower, feeUnits, feeUnits, remainingAfterAccrual);
+        vm.expectEmit();
+        emit EventsLib.UpdatePendingFee(id, borrower, 0);
+        midnight.liquidate(obligation, 0, 0, 0, borrower, "");
+
+        assertEq(midnight.pendingFee(id, borrower), 0, "remaining after bad debt");
+    }
+
     function testFeeCreditMintedToRecipient(uint256 debt, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
         debt = bound(debt, 1e18, MAX_DEBT);
         feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
