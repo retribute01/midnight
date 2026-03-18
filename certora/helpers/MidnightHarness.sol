@@ -2,9 +2,15 @@
 pragma solidity ^0.8.0;
 
 import {Midnight} from "../../src/Midnight.sol";
-import {Obligation, Position} from "../../src/interfaces/IMidnight.sol";
+import {Obligation, Position, Collateral} from "../../src/interfaces/IMidnight.sol";
+import {UtilsLib} from "../../src/libraries/UtilsLib.sol";
+import {IOracle} from "../../src/interfaces/IOracle.sol";
+import {WAD, ORACLE_PRICE_SCALE} from "../../src/libraries/ConstantsLib.sol";
 
 contract MidnightHarness is Midnight {
+    using UtilsLib for uint256;
+    using UtilsLib for uint128;
+
     constructor() {}
 
     function isHealthyAfterContinuousFeeAccrual(Obligation memory obligation, bytes32 id, address borrower)
