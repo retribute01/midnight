@@ -2,11 +2,8 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity >=0.5.0;
 
-interface ILenderGate {
+interface ITakerGate {
     function canLend(address account) external view returns (bool);
-}
-
-interface IBorrowerGate {
     function canBorrow(address account) external view returns (bool);
 }
 

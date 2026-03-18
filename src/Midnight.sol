@@ -29,7 +29,7 @@ import {
     Position
 } from "./interfaces/IMidnight.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
-import {ILenderGate, IBorrowerGate, ILiquidatorGate} from "./interfaces/IGate.sol";
+import {ITakerGate, ILiquidatorGate} from "./interfaces/IGate.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
 /// MAX AMOUNTS
@@ -51,6 +51,12 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// @dev slash rounds the credit down, so lenders lose a bit at each interaction.
 /// @dev If an obligation loses more than 99%+ of its value to bad debt over its lifetime, it won't function properly
 /// afterwards (bad debt can no longer be realized).
+///
+/// GATES
+/// @dev Gates can be used to restrict the ability to lend, borrow or liquidate an obligation.
+/// @dev The taker gate prevent the user from either lend or borrow the obligation on the primary.
+/// @dev A reverting taker gate does not prevent the user from taking the obligation on the secondary market.
+/// @dev The liquidator gate prevent the user from liquidating the obligation.
 contract Midnight is IMidnight {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
@@ -232,13 +238,13 @@ contract Midnight is IMidnight {
             _obligationState.totalUnits - oldSellerDebt - oldBuyerDebt + sellerPos.debt + buyerPos.debt
         );
         require(
-            (buyerPos.debt > 0) || offer.obligation.lenderGate == address(0)
-                || ILenderGate(offer.obligation.lenderGate).canLend(buyer),
+            (buyerPos.debt > 0) || offer.obligation.takerGate == address(0)
+                || ITakerGate(offer.obligation.takerGate).canLend(buyer),
             "buyer gated from lending"
         );
         require(
-            (sellerPos.credit > 0) || offer.obligation.borrowerGate == address(0)
-                || IBorrowerGate(offer.obligation.borrowerGate).canBorrow(seller),
+            (sellerPos.credit > 0) || offer.obligation.takerGate == address(0)
+                || ITakerGate(offer.obligation.takerGate).canBorrow(seller),
             "seller gated from borrowing"
         );
 
@@ -629,11 +635,11 @@ contract Midnight is IMidnight {
     }
 
     function canLend(Obligation memory obligation, address account) public view returns (bool) {
-        return obligation.lenderGate == address(0) || ILenderGate(obligation.lenderGate).canLend(account);
+        return obligation.takerGate == address(0) || ITakerGate(obligation.takerGate).canLend(account);
     }
 
     function canBorrow(Obligation memory obligation, address account) public view returns (bool) {
-        return obligation.borrowerGate == address(0) || IBorrowerGate(obligation.borrowerGate).canBorrow(account);
+        return obligation.takerGate == address(0) || ITakerGate(obligation.takerGate).canBorrow(account);
     }
 
     function canLiquidate(Obligation calldata obligation, address account) public view returns (bool) {

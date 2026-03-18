@@ -11,8 +11,7 @@ struct Obligation {
     // would not be enough to repay rcfThreshold units.
     uint256 rcfThreshold;
     // Optional gates (address(0) = unrestricted).
-    address lenderGate;
-    address borrowerGate;
+    address takerGate;
     address liquidatorGate;
 }
 

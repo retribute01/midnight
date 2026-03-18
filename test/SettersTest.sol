@@ -61,8 +61,7 @@ contract SettersTest is BaseTest {
             maturity: block.timestamp + 1 days,
             collaterals: collaterals,
             rcfThreshold: 0,
-            lenderGate: address(0),
-            borrowerGate: address(0),
+            takerGate: address(0),
             liquidatorGate: address(0)
         });
         bytes32 id = toId(obligation);
@@ -187,8 +186,7 @@ contract SettersTest is BaseTest {
             maturity: block.timestamp + 1 days,
             collaterals: collaterals,
             rcfThreshold: 0,
-            lenderGate: address(0),
-            borrowerGate: address(0),
+            takerGate: address(0),
             liquidatorGate: address(0)
         });
         bytes32 id = toId(obligation);
@@ -245,8 +243,7 @@ contract SettersTest is BaseTest {
             maturity: block.timestamp + 1 days,
             collaterals: cols,
             rcfThreshold: 0,
-            lenderGate: address(0),
-            borrowerGate: address(0),
+            takerGate: address(0),
             liquidatorGate: address(0)
         });
         bytes32 id = toId(obligation);
