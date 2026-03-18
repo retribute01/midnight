@@ -16,8 +16,6 @@ methods {
     function UtilsLib.isLeaf(bytes32, bytes32, bytes32[] memory) internal returns (bool) => NONDET;
     function UtilsLib.msb(uint256) internal returns (uint256) => NONDET;
     function TickLib.tickToPrice(uint256) internal returns (uint256) => NONDET;
-    function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
-    function tradingFee(bytes32, uint256) internal returns (uint256) => NONDET;
     function UtilsLib.mulDivDown(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDiv(x, y, d);
     function UtilsLib.mulDivUp(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDiv(x, y, d);
 
@@ -49,11 +47,18 @@ function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
     return ghostMulDiv(x, y, d);
 }
 
+// All rules in this file assume no accrual.
+definition noAccrual(env e, bytes32 id, address borrower) returns bool = currentContract.position[id][borrower].pendingFee == 0 || e.block.timestamp == currentContract.position[id][borrower].lastContinuousFeeAccrual;
+
 /// REPAY ///
 
 /// repay decreases onBehalf's debt by exactly obligationUnits and only changes position[id][onBehalf].debt.
+/// When no fee accrual occurs during repay.
 rule repayEffects(env e, Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
+
+    // Exclude fee accrual effects.
+    require noAccrual(e, id, onBehalf);
 
     uint256 debtBefore = debtOf(id, onBehalf);
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
@@ -88,10 +93,16 @@ rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 obligationUn
 
 /// take changes maker's and taker's net credit and debt by +/- obligationUnits relative to their post-slash values,
 /// and only changes credit and debt of maker and taker at the obligation id.
+/// When no fee accrual occurs, take changes maker's and taker's net credit-debt by +/- obligationUnits
+/// relative to their post-slash values. PASSIVE_FEE_RECIPIENT's credit may change from fee accrual's slash.
 rule takeEffects(env e, uint256 obligationUnits, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, offer.obligation);
     require userLossIndex(id, offer.maker) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
     require userLossIndex(id, taker) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
+
+    // Exclude fee accrual effects: fee accrual converts pendingFee to debt and mints credit to PASSIVE_FEE_RECIPIENT.
+    require noAccrual(e, id, offer.maker);
+    require noAccrual(e, id, taker);
 
     mathint makerPostSlash = to_mathint(creditAfterSlashing(id, offer.maker)) - to_mathint(debtOf(id, offer.maker));
     mathint takerPostSlash = to_mathint(creditAfterSlashing(id, taker)) - to_mathint(debtOf(id, taker));
@@ -114,8 +125,12 @@ rule takeEffects(env e, uint256 obligationUnits, address taker, address takerCal
 
 /// liquidate decreases the borrower's debt by at least repaidUnits,
 /// and only changes position[id][borrower].debt.
+/// When no fee accrual occurs during liquidate.
 rule liquidateEffects(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
+
+    // Exclude fee accrual effects.
+    require noAccrual(e, id, borrower);
 
     uint256 debtBefore = debtOf(id, borrower);
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
@@ -163,6 +178,7 @@ filtered {
         && f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector
         && f.selector != sig:slash(bytes32, address).selector
 } {
+    require noAccrual(e, id, user);
     uint256 creditBefore = creditOf(id, user);
     uint256 debtBefore = debtOf(id, user);
     f(e, args);
