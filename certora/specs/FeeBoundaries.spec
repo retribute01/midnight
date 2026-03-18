@@ -38,7 +38,7 @@ invariant obligationFeePerIndexBound(bytes32 id, uint256 index)
         preserved touchObligation(Midnight.Obligation obligation) with (env e) {
             requireInvariant defaultFeePerIndexBound(obligation.loanToken, index);
         }
-        preserved withdraw(Midnight.Obligation obligation, uint256 obligationUnits, uint256 shares, address onBehalf, address receiver) with (env e) {
+        preserved withdraw(Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf, address receiver) with (env e) {
             requireInvariant defaultFeePerIndexBound(obligation.loanToken, index);
         }
         preserved repay(Midnight.Obligation obligation, uint256 obligationUnits, address onBehalf) with (env e) {
