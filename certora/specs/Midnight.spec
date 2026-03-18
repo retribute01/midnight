@@ -12,6 +12,7 @@ methods {
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
     function pendingFee(bytes32 id, address user) external returns (uint128) envfree;
     function userLossIndex(bytes32 id, address user) external returns (uint128) envfree;
+    function Utils.passiveFeeRecipient() external returns (address) envfree;
 
     function _.price() external => NONDET;
     function IdLib.toId(Midnight.Obligation memory, uint256, address) internal returns (bytes32) => NONDET;
@@ -122,5 +123,12 @@ strong invariant noRemainingContinuousFeeWithoutDebt(bytes32 id, address user)
 strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
     userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex;
 
+/// A user cannot have both credit and debt, excluding PASSIVE_FEE_RECIPIENT who receives
+/// credit from fee accrual and could theoretically be a trade participant.
 strong invariant noCreditAndDebt(bytes32 id, address user)
-    creditOf(id, user) == 0 || debtOf(id, user) == 0;
+    user != Utils.passiveFeeRecipient() => (creditOf(id, user) == 0 || debtOf(id, user) == 0)
+    {
+        preserved {
+            requireInvariant noRemainingContinuousFeeWithoutDebt(id, user);
+        }
+    }

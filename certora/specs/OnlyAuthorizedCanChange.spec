@@ -4,6 +4,7 @@ import "Midnight.spec";
 
 methods {
     function feeRecipient() external returns (address) envfree;
+    function Utils.passiveFeeRecipient() external returns (address) envfree;
     function toId(Midnight.Obligation obligation) external returns (bytes32) envfree;
     function creditOf(bytes32 id, address user) external returns (uint256) envfree;
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
