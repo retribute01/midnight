@@ -53,11 +53,12 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// afterwards (bad debt can no longer be realized).
 ///
 /// GATES
-/// @dev Gates can be used to restrict the ability to enter an obligation or liquidate.
-/// @dev The entry gate can gates entries (increasing credit or debt) in the obligation.
-/// @dev The entry gate does not prevent the user from exiting the obligation.
-/// @dev even when it is reverting thus blacklisting addresses does not work.
-/// @dev The liquidator gate prevent the user from liquidating the obligation.
+/// @dev Gates can restrict increasing exposure in an obligation and who may liquidate positions.
+/// @dev The entry gate can gate entry actions (increasing credit or debt) in the obligation.
+/// @dev In particular, it does not prevent the user from exiting the obligation
+/// @dev (even when the entry gate is reverting), so blacklisting addresses does not work.
+/// @dev The liquidator gate prevents the user from liquidating the obligation
+/// @dev but bad debt realization can still be performed permissionlessly.
 contract Midnight is IMidnight {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
