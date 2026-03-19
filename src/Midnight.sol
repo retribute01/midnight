@@ -228,12 +228,12 @@ contract Midnight is IMidnight {
         Position storage sellerPos = position[id][seller];
 
         require(
-            (buyerPos.debt > 0) || offer.obligation.enterGate == address(0)
+            (buyerPos.debt >= obligationUnits) || offer.obligation.enterGate == address(0)
                 || IEnterGate(offer.obligation.enterGate).canLend(buyer),
             "buyer gated from lending"
         );
         require(
-            (sellerPos.credit > 0) || offer.obligation.enterGate == address(0)
+            (sellerPos.credit >= obligationUnits) || offer.obligation.enterGate == address(0)
                 || IEnterGate(offer.obligation.enterGate).canBorrow(seller),
             "seller gated from borrowing"
         );
