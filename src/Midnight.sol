@@ -243,12 +243,12 @@ contract Midnight is IMidnight {
         if (offer.exitOnly) require(offer.buy ? buyerPos.credit == 0 : sellerPos.debt == 0, "crossed");
 
         require(
-            (buyerPos.credit == 0) || offer.obligation.enterGate == address(0)
+            buyerPos.credit == 0 || offer.obligation.enterGate == address(0)
                 || IEnterGate(offer.obligation.enterGate).canLend(buyer),
             "buyer gated from lending"
         );
         require(
-            (sellerPos.debt == 0) || offer.obligation.enterGate == address(0)
+            sellerPos.debt == 0 || offer.obligation.enterGate == address(0)
                 || IEnterGate(offer.obligation.enterGate).canBorrow(seller),
             "seller gated from borrowing"
         );
