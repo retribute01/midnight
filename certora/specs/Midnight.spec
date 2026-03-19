@@ -117,8 +117,8 @@ rule userLossIndexMonotonicallyIncreases(bytes32 id, address user, method f, env
 strong invariant totalUnitsEqualsSumNegativeDebtPlusWithdrawable(bytes32 id)
     to_mathint(totalUnits(id)) == sumDebt[id] + to_mathint(withdrawable(id));
 
-strong invariant noRemainingContinuousFeeWithoutDebt(bytes32 id, address user)
-    debtOf(id, user) == 0 => pendingFee(id, user) == 0;
+strong invariant noRemainingContinuousFeeWithoutCredit(bytes32 id, address user)
+    creditOf(id, user) == 0 => pendingFee(id, user) == 0;
 
 strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
     userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex;
@@ -129,6 +129,6 @@ strong invariant noCreditAndDebt(bytes32 id, address user)
     user != Utils.passiveFeeRecipient() => (creditOf(id, user) == 0 || debtOf(id, user) == 0)
     {
         preserved {
-            requireInvariant noRemainingContinuousFeeWithoutDebt(id, user);
+            requireInvariant noRemainingContinuousFeeWithoutCredit(id, user);
         }
     }

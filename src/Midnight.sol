@@ -35,7 +35,7 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 
 /// MAX AMOUNTS
 /// @dev The max amount of totalUnits and collateral is type(uint128).max (~1e38).
-/// @dev The max amount of debt is type(uint128).max * (1 - TTM * 0.01) due to continuous fees (with TTM in years).
+/// @dev The max amount of credit is type(uint128).max * (1 - TTM * 0.01) due to continuous fees (with TTM in years).
 ///
 /// OBLIGATIONS
 /// @dev Obligations' collaterals must be sorted by token address.
@@ -199,8 +199,8 @@ contract Midnight is IMidnight {
         require(offer.session == session[offer.maker], "invalid session");
         bytes32 id = touchObligation(offer.obligation);
         slash(id, offer.maker);
-        slash(id, taker);
         accrueContinuousFee(offer.obligation, id, offer.maker);
+        slash(id, taker);
         accrueContinuousFee(offer.obligation, id, taker);
         ObligationState storage _obligationState = obligationState[id];
 
@@ -247,20 +247,20 @@ contract Midnight is IMidnight {
         Position storage sellerPos = position[id][seller];
         uint256 oldBuyerDebt = buyerPos.debt;
         uint256 oldSellerDebt = sellerPos.debt;
-        uint256 buyerDebtDecrease = UtilsLib.min(oldBuyerDebt, units);
-        uint256 sellerDebtIncrease = units.zeroFloorSub(sellerPos.credit);
-        if (oldBuyerDebt > 0) {
-            buyerPos.pendingFee -= UtilsLib.toUint128(
-                uint256(buyerPos.pendingFee).mulDivUp(buyerDebtDecrease, oldBuyerDebt)
+        uint256 buyerCreditIncrease = UtilsLib.zeroFloorSub(units, buyerPos.debt);
+        uint256 sellerCreditDecrease = UtilsLib.min(units, sellerPos.credit);
+        buyerPos.debt -= UtilsLib.toUint128(units - buyerCreditIncrease);
+        buyerPos.pendingFee += UtilsLib.toUint128(
+            buyerCreditIncrease.mulDivDown(_obligationState.continuousFee * timeToMaturity, WAD)
+        );
+        buyerPos.credit += UtilsLib.toUint128(buyerCreditIncrease);
+        if (sellerPos.credit > 0 && sellerCreditDecrease > 0) {
+            sellerPos.pendingFee -= UtilsLib.toUint128(
+                uint256(sellerPos.pendingFee).mulDivUp(sellerCreditDecrease, sellerPos.credit)
             );
         }
-        buyerPos.debt -= UtilsLib.toUint128(buyerDebtDecrease);
-        buyerPos.credit += UtilsLib.toUint128(units - buyerDebtDecrease);
-        sellerPos.pendingFee += UtilsLib.toUint128(
-            sellerDebtIncrease.mulDivDown(_obligationState.continuousFee * timeToMaturity, WAD)
-        );
-        sellerPos.credit -= UtilsLib.toUint128(units - sellerDebtIncrease);
-        sellerPos.debt += UtilsLib.toUint128(sellerDebtIncrease);
+        sellerPos.credit -= UtilsLib.toUint128(sellerCreditDecrease);
+        sellerPos.debt += UtilsLib.toUint128(units - sellerCreditDecrease);
         _obligationState.totalUnits = UtilsLib.toUint128(
             _obligationState.totalUnits - oldSellerDebt - oldBuyerDebt + sellerPos.debt + buyerPos.debt
         );
@@ -312,8 +312,13 @@ contract Midnight is IMidnight {
         bytes32 id = touchObligation(obligation);
         ObligationState storage _obligationState = obligationState[id];
         slash(id, onBehalf);
+        accrueContinuousFee(obligation, id, onBehalf);
 
-        position[id][onBehalf].credit -= UtilsLib.toUint128(units);
+        Position storage _position = position[id][onBehalf];
+        if (_position.credit > 0 && units > 0) {
+            _position.pendingFee -= UtilsLib.toUint128(uint256(_position.pendingFee).mulDivUp(units, _position.credit));
+        }
+        _position.credit -= UtilsLib.toUint128(units);
         _obligationState.withdrawable -= units;
         _obligationState.totalUnits -= UtilsLib.toUint128(units);
 
@@ -326,13 +331,7 @@ contract Midnight is IMidnight {
         require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "unauthorized");
         bytes32 id = touchObligation(obligation);
 
-        accrueContinuousFee(obligation, id, onBehalf);
-
         Position storage _position = position[id][onBehalf];
-        if (_position.debt > 0) {
-            // forge-lint: disable-next-item(unsafe-typecast) as if units > debt, an underflow occurs later.
-            _position.pendingFee -= uint128(uint256(_position.pendingFee).mulDivUp(units, _position.debt));
-        }
         _position.debt -= UtilsLib.toUint128(units);
         obligationState[id].withdrawable += units;
 
@@ -377,8 +376,6 @@ contract Midnight is IMidnight {
         bytes32 id = touchObligation(obligation);
         address collateralToken = obligation.collaterals[collateralIndex].token;
 
-        accrueContinuousFee(obligation, id, onBehalf);
-
         Position storage _position = position[id][onBehalf];
         uint256 newCollateralOf = _position.collateral[collateralIndex] - assets;
         _position.collateral[collateralIndex] = UtilsLib.toUint128(newCollateralOf);
@@ -418,8 +415,6 @@ contract Midnight is IMidnight {
         ObligationState storage _obligationState = obligationState[id];
         Position storage _position = position[id][borrower];
 
-        accrueContinuousFee(obligation, id, borrower);
-
         uint256 maxDebt;
         uint256 liquidatedCollatPrice;
         uint256 originalDebt = _position.debt;
@@ -441,8 +436,6 @@ contract Midnight is IMidnight {
         require(block.timestamp > obligation.maturity || originalDebt > maxDebt, "position is not liquidatable");
 
         if (badDebt > 0) {
-            // forge-lint: disable-next-item(unsafe-typecast) as badDebt <= originalDebt
-            _position.pendingFee -= uint128(uint256(_position.pendingFee).mulDivUp(badDebt, originalDebt));
             // forge-lint: disable-next-item(unsafe-typecast) as badDebt <= _position.debt
             _position.debt -= uint128(badDebt);
             uint256 oldTotalUnits = _obligationState.totalUnits;
@@ -489,8 +482,6 @@ contract Midnight is IMidnight {
                 _position.activatedCollaterals &= ~uint128(1 << collateralIndex);
             }
             _obligationState.withdrawable += repaidUnits;
-            // forge-lint: disable-next-item(unsafe-typecast) as repaidUnits <= debt
-            _position.pendingFee -= uint128(uint256(_position.pendingFee).mulDivUp(repaidUnits, _position.debt));
             _position.debt -= UtilsLib.toUint128(repaidUnits);
         }
 
@@ -588,9 +579,16 @@ contract Midnight is IMidnight {
         uint128 _userLossIndex = _position.lossIndex;
         uint128 lossIndex = obligationState[id].lossIndex;
         if (_userLossIndex != lossIndex) {
+            uint256 creditBefore = _position.credit;
             uint256 newCredit =
-                _position.credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
-            // forge-lint: disable-next-item(unsafe-typecast) as newCredit <= credits.
+                creditBefore.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
+            uint256 creditDecrease = creditBefore - newCredit;
+            if (creditBefore > 0 && creditDecrease > 0) {
+                _position.pendingFee -= UtilsLib.toUint128(
+                    uint256(_position.pendingFee).mulDivUp(creditDecrease, creditBefore)
+                );
+            }
+            // forge-lint: disable-next-item(unsafe-typecast) as newCredit <= creditBefore
             _position.credit = uint128(newCredit);
             _position.lossIndex = lossIndex;
             emit EventsLib.Slash(msg.sender, id, user, newCredit, lossIndex);
@@ -673,7 +671,7 @@ contract Midnight is IMidnight {
     /// @dev This function should be called with the id corresponding to the obligation.
     /// @dev This function does not call any oracle if debt is 0.
     /// @dev Expects the id to correspond to the obligation's id.
-    function isHealthy(Obligation memory obligation, bytes32 id, address borrower) internal view returns (bool) {
+    function isHealthy(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
         Position storage _position = position[id][borrower];
         uint256 debt = _position.debt;
         uint256 maxDebt;
@@ -724,26 +722,25 @@ contract Midnight is IMidnight {
     function accrueContinuousFee(Obligation memory obligation, address borrower) external {
         bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
         require(obligationState[id].created, "not created");
+        slash(id, borrower);
         accrueContinuousFee(obligation, id, borrower);
     }
 
     /// @dev Expects the obligation to be touched.
     /// @dev Expects the id to correspond to the obligation's id.
-    function accrueContinuousFee(Obligation memory obligation, bytes32 id, address borrower) internal {
-        Position storage _position = position[id][borrower];
-        ObligationState storage _obligationState = obligationState[id];
+    function accrueContinuousFee(Obligation memory obligation, bytes32 id, address user) internal {
+        Position storage _position = position[id][user];
         // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
-        uint128 accruedFee = uint128(_accrueContinuousFeeView(obligation, id, borrower));
+        uint128 accruedFee = uint128(_accrueContinuousFeeView(obligation, id, user));
         if (accruedFee > 0) {
             _position.pendingFee -= accruedFee;
-            _position.debt += accruedFee;
-            _obligationState.totalUnits += accruedFee;
+            _position.credit -= accruedFee;
             slash(id, PASSIVE_FEE_RECIPIENT);
             position[id][PASSIVE_FEE_RECIPIENT].credit += accruedFee;
         }
         _position.lastContinuousFeeAccrual = uint48(block.timestamp);
 
-        emit EventsLib.AccrueContinuousFee(id, borrower, accruedFee, _position.pendingFee);
+        emit EventsLib.AccrueContinuousFee(id, user, accruedFee, _position.pendingFee);
     }
 
     function maxLif(uint256 lltv, uint256 cursor) public pure returns (uint256) {

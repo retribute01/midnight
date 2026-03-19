@@ -73,10 +73,13 @@ rule repayEffects(env e, Midnight.Obligation obligation, uint256 units, address 
 
 /// WITHDRAW ///
 
-/// withdraw decreases onBehalf's post-slash credit by exactly units, and only changes position[id][onBehalf].credit.
+/// When no fee accrual occurs, withdraw decreases onBehalf's post-slash credit by exactly units, and only changes position[id][onBehalf].credit.
 rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 units, address onBehalf, address receiver, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
     require userLossIndex(id, onBehalf) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
+
+    // Exclude fee accrual effects: withdraw now calls accrueContinuousFee which decreases credit.
+    require noAccrual(e, id, onBehalf);
 
     uint256 creditPostSlash = creditAfterSlashing(id, onBehalf);
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
