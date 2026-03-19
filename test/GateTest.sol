@@ -12,21 +12,29 @@ import {Oracle} from "./helpers/Oracle.sol";
 
 contract WhitelistGate is IEnterGate, ILiquidatorGate {
     mapping(address => bool) public whitelisted;
+    bool public shouldRevert;
 
     function setWhitelisted(address account, bool status) external {
         whitelisted[account] = status;
     }
 
+    function setShouldRevert(bool val) external {
+        shouldRevert = val;
+    }
+
     function canLend(address account) external view returns (bool) {
+        require(!shouldRevert, "gate reverts");
         return whitelisted[account];
     }
 
     function canBorrow(address account) external view returns (bool) {
+        require(!shouldRevert, "gate reverts");
         return whitelisted[account];
     }
 
-    function canLiquidate(address account) external view returns (bool) {
-        return whitelisted[account];
+    function canLiquidate(address liquidator, address borrower) external view returns (bool) {
+        require(!shouldRevert, "gate reverts");
+        return whitelisted[liquidator];
     }
 }
 
@@ -196,16 +204,7 @@ contract GateTest is BaseTest {
         vm.prank(borrower);
         midnight.repay(gatedObligation, obligationUnits, borrower);
 
-        // Remove all whitelisting. Path 4 (both exit) should not check gates.
-        gate.setWhitelisted(lender, false);
-        gate.setWhitelisted(borrower, false);
-
-        // Lender exits by selling shares. Offer from lender (seller = lender exiting).
-        // Borrower (buyer) exits debt — but borrower has no debt now, so buyer is a new lender.
-        // Actually for path 4, we need buyer with debt and seller with shares.
-        // Let's create a new scenario for path 4.
-
-        // Re-setup with otherLender and otherBorrower.
+        // Setup otherLender and otherBorrower to test both-exit path.
         gate.setWhitelisted(otherLender, true);
         gate.setWhitelisted(otherBorrower, true);
 
@@ -233,7 +232,10 @@ contract GateTest is BaseTest {
         exitOffer.expiry = block.timestamp + 200;
         exitOffer.tick = MAX_TICK;
 
-        // Both parties need to remain whitelisted since gates are always checked.
+        // Gate bypassed: otherBorrower.debt > 0 and otherLender.credit > 0.
+        gate.setWhitelisted(otherLender, false);
+        gate.setWhitelisted(otherBorrower, false);
+
         deal(address(loanToken), otherBorrower, obligationUnits);
         take(obligationUnits, otherBorrower, exitOffer);
 
@@ -299,6 +301,73 @@ contract GateTest is BaseTest {
 
         bytes32 ungatedId = toId(obligation);
         assertGt(midnight.debtOf(ungatedId, borrower), 0);
+    }
+
+    // --- Repay/withdraw by taking despite gate ---
+
+    function testCanRepayOrWithdrawByTakingWhenGateReverts(uint256 obligationUnits) public {
+        obligationUnits = bound(obligationUnits, 1, MAX_TEST_AMOUNT * 3 / 4);
+        gate.setWhitelisted(lender, true);
+        gate.setWhitelisted(borrower, true);
+
+        // Setup: lender gets credit, borrower gets debt.
+        deal(address(loanToken), lender, obligationUnits);
+        collateralize(gatedObligation, borrower, obligationUnits);
+        take(obligationUnits, lender, borrowerOffer);
+        // After first take, borrower received sellerAssets ≈ obligationUnits in loan tokens.
+
+        // Make gate revert on any call.
+        gate.setShouldRevert(true);
+
+        // Lender creates a sell offer to exit their credit position.
+        Offer memory lenderSellOffer;
+        lenderSellOffer.buy = false;
+        lenderSellOffer.maker = lender;
+        lenderSellOffer.receiverIfMakerIsSeller = lender;
+        lenderSellOffer.obligationUnits = type(uint256).max;
+        lenderSellOffer.obligation = gatedObligation;
+        lenderSellOffer.expiry = block.timestamp + 200;
+        lenderSellOffer.tick = MAX_TICK;
+
+        // Borrower (buyer, debt > 0) repays by taking → buyer gate skipped.
+        // Lender (seller, credit > 0) withdraws by being taken from → seller gate skipped.
+        take(obligationUnits, borrower, lenderSellOffer);
+
+        assertEq(midnight.debtOf(gatedId, borrower), 0, "borrower should have repaid");
+        assertEq(midnight.creditOf(gatedId, lender), 0, "lender should have withdrawn");
+    }
+
+    function testCanRepayOrWithdrawByTakingWhenNotAuthorizedByGate(uint256 obligationUnits) public {
+        obligationUnits = bound(obligationUnits, 1, MAX_TEST_AMOUNT * 3 / 4);
+        gate.setWhitelisted(lender, true);
+        gate.setWhitelisted(borrower, true);
+
+        // Setup: lender gets credit, borrower gets debt.
+        deal(address(loanToken), lender, obligationUnits);
+        collateralize(gatedObligation, borrower, obligationUnits);
+        take(obligationUnits, lender, borrowerOffer);
+        // After first take, borrower received sellerAssets ≈ obligationUnits in loan tokens.
+
+        // Remove authorization for both — gate now returns false for them.
+        gate.setWhitelisted(lender, false);
+        gate.setWhitelisted(borrower, false);
+
+        // Lender creates a sell offer to exit their credit position.
+        Offer memory lenderSellOffer;
+        lenderSellOffer.buy = false;
+        lenderSellOffer.maker = lender;
+        lenderSellOffer.receiverIfMakerIsSeller = lender;
+        lenderSellOffer.obligationUnits = type(uint256).max;
+        lenderSellOffer.obligation = gatedObligation;
+        lenderSellOffer.expiry = block.timestamp + 200;
+        lenderSellOffer.tick = MAX_TICK;
+
+        // Borrower (buyer, debt > 0) repays by taking → buyer gate skipped.
+        // Lender (seller, credit > 0) withdraws by being taken from → seller gate skipped.
+        take(obligationUnits, borrower, lenderSellOffer);
+
+        assertEq(midnight.debtOf(gatedId, borrower), 0, "borrower should have repaid");
+        assertEq(midnight.creditOf(gatedId, lender), 0, "lender should have withdrawn");
     }
 
     // --- Obligation identity tests ---

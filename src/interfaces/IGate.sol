@@ -8,5 +8,5 @@ interface IEnterGate {
 }
 
 interface ILiquidatorGate {
-    function canLiquidate(address account) external view returns (bool);
+    function canLiquidate(address liquidator, address borrower) external view returns (bool);
 }
