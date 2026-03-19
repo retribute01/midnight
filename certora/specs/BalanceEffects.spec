@@ -185,7 +185,7 @@ rule withdrawCollateralEffects(env e, Midnight.Obligation obligation, uint256 co
 
 /// ALL OTHER FUNCTIONS ///
 
-/// Functions other than take, withdraw, repay, liquidate, slash, and withdrawCollateral do not change any user's credit or debt.
+/// Functions other than take, withdraw, repay, liquidate, slash, withdrawCollateral, and accrueContinuousFee do not change any user's credit or debt.
 rule creditAndDebtUnchangedByOtherFunctions(method f, env e, calldataarg args, bytes32 id, address user)
 filtered {
     f -> !f.isView

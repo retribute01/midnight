@@ -627,8 +627,11 @@ contract Midnight is IMidnight {
         Position storage _position = position[id][user];
         uint128 _userLossIndex = _position.lossIndex;
         uint128 lossIndex = obligationState[id].lossIndex;
-        if (_userLossIndex == lossIndex) return _position.credit;
-        return _position.credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
+        if (_userLossIndex == type(uint128).max) {
+            return _position.credit;
+        } else {
+            return _position.credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
+        }
     }
 
     function creditOf(bytes32 id, address user) external view returns (uint256) {
@@ -669,6 +672,7 @@ contract Midnight is IMidnight {
 
     /// @dev This function should be called with the id corresponding to the obligation.
     /// @dev This function does not call any oracle if debt is 0.
+    /// @dev Expects the id to correspond to the obligation's id.
     function isHealthy(Obligation memory obligation, bytes32 id, address borrower) internal view returns (bool) {
         Position storage _position = position[id][borrower];
         uint256 debt = _position.debt;
@@ -697,9 +701,13 @@ contract Midnight is IMidnight {
     }
 
     /// @dev Returns the accrued fee.
+    function accrueContinuousFeeView(Obligation memory obligation, address borrower) public view returns (uint256) {
+        return _accrueContinuousFeeView(obligation, IdLib.toId(obligation, block.chainid, address(this)), borrower);
+    }
+
     /// @dev Expects the id to correspond to the obligation's id.
-    function accrueContinuousFeeView(Obligation memory obligation, bytes32 id, address borrower)
-        public
+    function _accrueContinuousFeeView(Obligation memory obligation, bytes32 id, address borrower)
+        internal
         view
         returns (uint256)
     {
@@ -725,7 +733,7 @@ contract Midnight is IMidnight {
         Position storage _position = position[id][borrower];
         ObligationState storage _obligationState = obligationState[id];
         // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
-        uint128 accruedFee = uint128(accrueContinuousFeeView(obligation, id, borrower));
+        uint128 accruedFee = uint128(_accrueContinuousFeeView(obligation, id, borrower));
         if (accruedFee > 0) {
             _position.pendingFee -= accruedFee;
             _position.debt += accruedFee;
@@ -735,7 +743,7 @@ contract Midnight is IMidnight {
         }
         _position.lastContinuousFeeAccrual = uint48(block.timestamp);
 
-        emit EventsLib.AccrueContinuousFee(id, borrower, accruedFee, accruedFee, _position.pendingFee);
+        emit EventsLib.AccrueContinuousFee(id, borrower, accruedFee, _position.pendingFee);
     }
 
     function maxLif(uint256 lltv, uint256 cursor) public pure returns (uint256) {
