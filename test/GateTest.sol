@@ -32,7 +32,7 @@ contract WhitelistGate is IEnterGate, ILiquidatorGate {
         return whitelisted[account];
     }
 
-    function canLiquidate(address liquidator, address borrower) external view returns (bool) {
+    function canLiquidate(address liquidator, address) external view returns (bool) {
         require(!shouldRevert, "gate reverts");
         return whitelisted[liquidator];
     }
