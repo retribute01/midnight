@@ -123,9 +123,8 @@ rule takeEffects(env e, uint256 obligationUnits, address taker, address takerCal
 
 /// LIQUIDATE ///
 
-/// liquidate decreases the borrower's debt by at least repaidUnits,
+/// When no fee accrual occurs, liquidate decreases the borrower's debt by at least repaidUnits,
 /// and only changes position[id][borrower].debt.
-/// When no fee accrual occurs during liquidate.
 rule liquidateEffects(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
 
