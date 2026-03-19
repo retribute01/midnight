@@ -77,7 +77,7 @@ rule offerInputsLimit(env e, uint256 unitsInput, address taker, address receiver
 
     take(e, unitsInput, taker, takerCallbackAddress, takerCallbackData, receiver, offer, signature, root, proof);
 
-    assert unitsInput <= offer.units - consumedBefore;
+    assert unitsInput <= offer.maxUnits - consumedBefore;
 }
 
 rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data) {
