@@ -61,26 +61,16 @@ rule onlyAuthorizedCanChangeCreditAndDebtExceptLiquidateAndSlash(env e, method f
 
 /// CONSUMED CHANGE RULES ///
 
-/// An unauthorized caller cannot change a user's consumed except via take.
+/// An unauthorized or unsigned caller cannot change a user's consumed.
 /// Assumes no reentrancy: callbacks and token transfers are not modeled as re-entering Midnight, so re-entrant consumed changes are not covered.
-rule onlyAuthorizedCanChangeConsumedExceptTake(env e, method f, calldataarg args, address user, bytes32 group) filtered { f -> !f.isView && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector } {
+rule onlyAuthorizedCanChangeConsumed(env e, method f, calldataarg args, address user, bytes32 group) filtered { f -> !f.isView } {
     bool userIsAuthorized = user == e.msg.sender || isAuthorized(user, e.msg.sender);
 
     uint256 consumedBefore = consumed(user, group);
     f(e, args);
     uint256 consumedAfter = consumed(user, group);
 
-    assert userIsAuthorized || consumedAfter == consumedBefore;
-}
-
-/// In take, only the maker's consumed can change.
-rule takeCanChangeConsumed(env e, uint256 obligationShares, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, address user, bytes32 group) {
-    uint256 consumedBefore = consumed(user, group);
-    take(e, obligationShares, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
-    uint256 consumedAfter = consumed(user, group);
-
-    assert user != offer.maker || group != offer.group => consumedAfter == consumedBefore;
-    assert consumedAfter >= consumedBefore;
+    assert consumedAfter == consumedBefore || userIsAuthorized || signed[user];
 }
 
 /// SESSION CHANGE RULES ///
@@ -93,7 +83,7 @@ rule onlyAuthorizedCanChangeSession(env e, method f, calldataarg args, address u
     f(e, args);
     bytes32 sessionAfter = session(user);
 
-    assert userIsAuthorized || sessionAfter == sessionBefore;
+    assert sessionAfter == sessionBefore || userIsAuthorized;
 }
 
 /// AUTHORIZATION CHANGE RULES ///
@@ -106,5 +96,5 @@ rule onlyAuthorizedCanChangeIsAuthorized(env e, method f, calldataarg args, addr
     f(e, args);
     bool isAuthorizedAfter = isAuthorized(authorizer, authorized);
 
-    assert authorizerIsAuthorized || isAuthorizedAfter == isAuthorizedBefore;
+    assert isAuthorizedAfter == isAuthorizedBefore || authorizerIsAuthorized;
 }

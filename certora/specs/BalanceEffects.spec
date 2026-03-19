@@ -5,6 +5,7 @@ methods {
 
     function creditOf(bytes32 id, address user) external returns (uint256) envfree;
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
+    function consumed(address user, bytes32 group) external returns (uint256) envfree;
     function creditAfterSlashing(bytes32 id, address user) external returns (uint256) envfree;
     function userLossIndex(bytes32 id, address user) external returns (uint128) envfree;
     function _.price() external => NONDET;
@@ -149,6 +150,18 @@ rule slashEffects(env e, bytes32 id, address user, bytes32 anyId, address anyUse
     assert creditOf(id, user) == expectedCredit;
     assert debtOf(anyId, anyUser) == otherDebtBefore;
     assert anyUser != user || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore;
+}
+
+/// TAKE CONSUMED EFFECTS ///
+
+/// In take, only the maker's consumed can change, and it can only increase.
+rule takeConsumedEffects(env e, uint256 obligationUnits, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, address user, bytes32 group) {
+    uint256 consumedBefore = consumed(user, group);
+    take(e, obligationUnits, taker, takerCallback, takerCallbackData, receiver, offer, signature, root, proof);
+    uint256 consumedAfter = consumed(user, group);
+
+    assert user != offer.maker || group != offer.group => consumedAfter == consumedBefore;
+    assert consumedAfter >= consumedBefore;
 }
 
 /// ALL OTHER FUNCTIONS ///
