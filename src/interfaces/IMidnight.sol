@@ -23,7 +23,7 @@ struct Offer {
     Obligation obligation;
     bool buy;
     address maker;
-    uint256 units;
+    uint256 maxUnits;
     uint256 start;
     uint256 expiry;
     uint256 tick;
