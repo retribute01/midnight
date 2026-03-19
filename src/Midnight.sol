@@ -34,7 +34,8 @@ import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
 /// MAX AMOUNTS
-/// @dev The max amount of debt, totalUnits and collateral is type(uint128).max (~1e38).
+/// @dev The max amount of totalUnits and collateral is type(uint128).max (~1e38).
+/// @dev The max amount of debt is type(uint128).max * (1 - TTM * 0.01) due to continuous fees (with TTM in years).
 ///
 /// OBLIGATIONS
 /// @dev Obligations' collaterals must be sorted by token address.
@@ -719,6 +720,12 @@ contract Midnight is IMidnight {
             uint256 accrualEnd = UtilsLib.min(block.timestamp, obligation.maturity);
             return _position.pendingFee.mulDivDown(accrualEnd - lastAccrual, obligation.maturity - lastAccrual);
         }
+    }
+
+    function accrueContinuousFee(Obligation memory obligation, address borrower) external {
+        bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
+        require(obligationState[id].created, "not created");
+        accrueContinuousFee(obligation, id, borrower);
     }
 
     /// @dev Expects the obligation to be touched.
