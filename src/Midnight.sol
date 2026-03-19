@@ -631,8 +631,11 @@ contract Midnight is IMidnight {
         Position storage _position = position[id][user];
         uint128 _userLossIndex = _position.lossIndex;
         uint128 lossIndex = obligationState[id].lossIndex;
-        if (_userLossIndex == lossIndex) return _position.credit;
-        return _position.credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
+        if (_userLossIndex == type(uint128).max) {
+            return _position.credit;
+        } else {
+            return _position.credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
+        }
     }
 
     function creditOf(bytes32 id, address user) external view returns (uint256) {
