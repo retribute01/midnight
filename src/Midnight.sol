@@ -156,7 +156,7 @@ contract Midnight is IMidnight {
         require(msg.sender == feeSetter, "only fee setter");
         require(newContinuousFee <= MAX_CONTINUOUS_FEE, "continuous fee too high");
         require(obligationState[id].created, "obligation not created");
-        // forge-lint: disable-next-line(unsafe-typecast) as newContinuousFee <= 317097919 < type(uint64).max
+        // forge-lint: disable-next-line(unsafe-typecast) as newContinuousFee <= MAX_CONTINUOUS_FEE < type(uint64).max
         obligationState[id].continuousFee = uint64(newContinuousFee);
         emit EventsLib.SetObligationContinuousFee(id, newContinuousFee);
     }
