@@ -59,7 +59,7 @@ rule consumeNonDecreasing(env e, method f, calldataarg args, address user, bytes
     assert consumed(user, group) >= consumedBefore;
 }
 
-/// After a successful `take`, consumed[offer.maker][offer.group] does not exceed offer.units.
+/// After a successful `take`, consumed[offer.maker][offer.group] does not exceed offer.maxUnits.
 rule takeConsumedBoundedByMax(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
     take(e, units, taker, takerCallback, takerCallbackData, receiver, offer, signature, root, proof);
 
