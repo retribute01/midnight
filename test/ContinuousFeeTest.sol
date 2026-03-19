@@ -582,4 +582,59 @@ contract ContinuousFeeTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), debt + expectedFee, "fee from original rate");
         assertEq(midnight.pendingFee(id, borrower), remaining - expectedFee, "remaining after accrual");
     }
+
+    // --- Near-cap overflow tests ---
+    // Use lltv=1 so collateral = debt (no over-collateralisation needed).
+
+    /// @dev Fuzz over [MAX_TEST_AMOUNT/2, MAX_TEST_AMOUNT*9/10] with up to 10-year
+    /// terms. At 90% of max, debt + maxFees ≈ debt*1.10 ≈ max*0.99, so accrual
+    /// always fits in uint128 even for a 10y obligation at the maximum fee rate.
+    function testAccrualNearMaxDebt(uint256 debt, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
+        debt = bound(debt, MAX_TEST_AMOUNT / 2, MAX_TEST_AMOUNT * 9 / 10);
+        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
+        ttm = bound(ttm, 2, 3650 days);
+        elapsed = bound(elapsed, 1, ttm - 1);
+
+        obligation.collaterals[0].lltv = 1e18;
+        obligation.collaterals[0].maxLif = maxLif(1e18, 0.25e18);
+        obligation.maturity = block.timestamp + ttm;
+        id = toId(obligation);
+        midnight.setDefaultContinuousFee(address(loanToken), feeRate);
+        collateralize(obligation, borrower, debt);
+        setupObligation(obligation, debt);
+
+        uint256 pending = midnight.pendingFee(id, borrower);
+        uint256 feeUnits = pending.mulDivDown(elapsed, ttm);
+
+        vm.warp(block.timestamp + elapsed);
+
+        midnight.repay(obligation, 0, borrower);
+        assertEq(midnight.debtOf(id, borrower), debt + feeUnits, "debt after accrual");
+    }
+
+    /// @dev Fuzz over the overflow zone: debt ≥ 99.9% of max, max fee rate,
+    /// long term + large elapsed. At these bounds debt + accruedFee always
+    /// exceeds uint128.max, so accrueContinuousFee reverts.
+    function testAccrualOverflowNearMaxDebt(uint256 debt, uint256 ttm, uint256 elapsed) public {
+        debt = bound(debt, MAX_TEST_AMOUNT * 999 / 1000, MAX_TEST_AMOUNT);
+        ttm = bound(ttm, 180 days, 360 days);
+        elapsed = bound(elapsed, ttm / 2, ttm - 1);
+
+        obligation.collaterals[0].lltv = 1e18;
+        obligation.collaterals[0].maxLif = maxLif(1e18, 0.25e18);
+        obligation.maturity = block.timestamp + ttm;
+        id = toId(obligation);
+        midnight.setDefaultContinuousFee(address(loanToken), MAX_CONTINUOUS_FEE);
+        collateralize(obligation, borrower, debt);
+        setupObligation(obligation, debt);
+
+        uint256 pending = midnight.pendingFee(id, borrower);
+        uint256 feeUnits = pending.mulDivDown(elapsed, ttm);
+        assertGt(uint256(debt) + feeUnits, type(uint128).max, "should overflow uint128");
+
+        vm.warp(block.timestamp + elapsed);
+
+        vm.expectRevert();
+        midnight.repay(obligation, 0, borrower);
+    }
 }

@@ -687,17 +687,6 @@ contract Midnight is IMidnight {
         return maxDebt >= debt;
     }
 
-    function pendingContinuousFee(bytes32 id, address borrower, uint256 maturity) public view returns (uint256) {
-        Position storage _position = position[id][borrower];
-        uint256 lastAccrual = _position.lastContinuousFeeAccrual;
-        if (lastAccrual == 0 || maturity <= lastAccrual) {
-            return 0;
-        } else {
-            uint256 accrualEnd = UtilsLib.min(block.timestamp, maturity);
-            return _position.pendingFee.mulDivDown(accrualEnd - lastAccrual, maturity - lastAccrual);
-        }
-    }
-
     function domainSeparator() internal view returns (bytes32) {
         return keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(this)));
     }
@@ -711,13 +700,20 @@ contract Midnight is IMidnight {
     }
 
     /// @dev Returns the accrued fee.
+    /// @dev Expects the id to correspond to the obligation's id.
     function accrueContinuousFeeView(Obligation memory obligation, bytes32 id, address borrower)
         public
         view
-        returns (uint128)
+        returns (uint256)
     {
-        // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
-        return uint128(pendingContinuousFee(id, borrower, obligation.maturity));
+        Position storage _position = position[id][borrower];
+        uint256 lastAccrual = _position.lastContinuousFeeAccrual;
+        if (lastAccrual == 0 || lastAccrual >= obligation.maturity) {
+            return 0;
+        } else {
+            uint256 accrualEnd = UtilsLib.min(block.timestamp, obligation.maturity);
+            return _position.pendingFee.mulDivDown(accrualEnd - lastAccrual, obligation.maturity - lastAccrual);
+        }
     }
 
     /// @dev Expects the obligation to be touched.
@@ -725,7 +721,8 @@ contract Midnight is IMidnight {
     function accrueContinuousFee(Obligation memory obligation, bytes32 id, address borrower) internal {
         Position storage _position = position[id][borrower];
         ObligationState storage _obligationState = obligationState[id];
-        uint128 accruedFee = accrueContinuousFeeView(obligation, id, borrower);
+        // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
+        uint128 accruedFee = uint128(accrueContinuousFeeView(obligation, id, borrower));
         if (accruedFee > 0) {
             _position.pendingFee -= accruedFee;
             _position.debt += accruedFee;
