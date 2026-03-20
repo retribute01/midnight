@@ -197,10 +197,6 @@ contract Midnight is IMidnight {
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
         bytes32 id = touchObligation(offer.obligation);
-        slash(id, offer.maker);
-        accrueContinuousFee(offer.obligation, id, offer.maker);
-        slash(id, taker);
-        accrueContinuousFee(offer.obligation, id, taker);
         ObligationState storage _obligationState = obligationState[id];
 
         (
@@ -244,6 +240,13 @@ contract Midnight is IMidnight {
 
         Position storage buyerPos = position[id][buyer];
         Position storage sellerPos = position[id][seller];
+
+        if (buyerPos.credit > 0 || units > buyerPos.debt) slash(id, buyer);
+        if (buyerPos.pendingFee > 0 || units > buyerPos.debt) {
+            accrueContinuousFee(offer.obligation, id, buyer);
+        }
+        if (sellerPos.credit > 0) slash(id, seller);
+        if (sellerPos.pendingFee > 0) accrueContinuousFee(offer.obligation, id, seller);
         uint256 buyerCreditIncrease = UtilsLib.zeroFloorSub(units, buyerPos.debt);
         uint256 sellerCreditDecrease = UtilsLib.min(units, sellerPos.credit);
         buyerPos.debt -= UtilsLib.toUint128(units - buyerCreditIncrease);

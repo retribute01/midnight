@@ -252,10 +252,14 @@ contract ContinuousFeeTest is BaseTest {
         // Lender exits via take (lender is seller, otherLender is buyer)
         deal(address(loanToken), otherLender, exitAmount);
 
-        vm.expectEmit();
-        emit EventsLib.AccrueContinuousFee(id, otherLender, 0, 0);
-        vm.expectEmit();
-        emit EventsLib.AccrueContinuousFee(id, lender, feeUnits, remainingAfterAccrual);
+        if (exitAmount > 0) {
+            vm.expectEmit();
+            emit EventsLib.AccrueContinuousFee(id, otherLender, 0, 0);
+        }
+        if (remaining > 0) {
+            vm.expectEmit();
+            emit EventsLib.AccrueContinuousFee(id, lender, feeUnits, remainingAfterAccrual);
+        }
         uint256 expectedRemaining = creditAfterAccrual > 0
             ? remainingAfterAccrual - remainingAfterAccrual.mulDivUp(exitAmount, creditAfterAccrual)
             : 0;
@@ -332,7 +336,6 @@ contract ContinuousFeeTest is BaseTest {
         midnight.slashAndAccrue(obligation, lender);
 
         uint256 creditBeforeSlash = midnight.creditOf(id, lender);
-        uint256 pendingBeforeSlash = midnight.pendingFee(id, lender);
 
         // Slash.
         createBadDebt(obligation);

@@ -48,20 +48,21 @@ function summarySlash(bytes32 id, address user) { }
 /// HOOKS ///
 
 hook Sstore position[KEY bytes32 id][KEY address user].credit uint128 newVal (uint128 oldVal) {
-    if (!accrued[id][user]) {
+    if (!accrued[id][user] && (currentContract.position[id][user].pendingFee > 0 || newVal > oldVal)) {
         creditStoredBeforeAccrual[id][user] = true;
     }
 }
 
 hook Sload uint128 val position[KEY bytes32 id][KEY address user].credit {
-    if (!accrued[id][user]) {
+    if (!accrued[id][user] && currentContract.position[id][user].pendingFee > 0) {
         creditLoadedBeforeAccrual[id][user] = true;
     }
 }
 
 /// RULES ///
 
-/// Check that credit is never stored before accrueContinuousFee is called.
+/// Check that credit is never stored before accrueContinuousFee is called when
+/// there is remaining fee to realize or credit is being increased.
 /// The SSTOREs of accrueContinuousFee and slash are ignored (see summaries above).
 rule creditNotStoredBeforeAccrual(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> !f.isView } {
     require !accrued[id][user], "initialize the ghost variable";
@@ -72,7 +73,8 @@ rule creditNotStoredBeforeAccrual(env e, method f, calldataarg args, bytes32 id,
     assert !creditStoredBeforeAccrual[id][user], "credit was stored before accrueContinuousFee was called";
 }
 
-/// Check that credit is never loaded before accrueContinuousFee is called.
+/// Check that credit is never loaded before accrueContinuousFee is called when
+/// there is remaining fee to realize.
 /// The SLOADs of accrueContinuousFee and slash are ignored (see summaries above).
 rule creditNotLoadedBeforeAccrual(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> f.selector != sig:creditOf(bytes32, address).selector && f.selector != sig:slashAndAccrueView(Midnight.Obligation, address).selector } {
     require !accrued[id][user], "initialize the ghost variable";
