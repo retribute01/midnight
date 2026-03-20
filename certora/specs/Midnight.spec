@@ -174,8 +174,10 @@ strong invariant pendingContinuousFeeBoundedByCredit(bytes32 id, address user)
     {
         preserved take(uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) with (env e) {
             requireInvariant createdObligationsHaveBoundedTtm(e, offer.obligation);
-            require currentContract.defaultContinuousFee[offer.obligation.loanToken] <= MAX_CONTINUOUS_FEE();
-            require currentContract.obligationState[summaryToId(offer.obligation)].continuousFee <= MAX_CONTINUOUS_FEE();
+            requireInvariant pendingContinuousFeeBoundedByCredit(summaryToId(offer.obligation), offer.maker);
+            requireInvariant pendingContinuousFeeBoundedByCredit(summaryToId(offer.obligation), taker);
+            require currentContract.defaultContinuousFee[offer.obligation.loanToken] * MAX_TTM() <= 10^18;
+            require currentContract.obligationState[summaryToId(offer.obligation)].continuousFee * MAX_TTM() <= 10^18;
         }
     }
 

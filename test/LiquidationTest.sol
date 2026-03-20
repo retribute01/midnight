@@ -573,12 +573,13 @@ contract LiquidationTest is BaseTest {
         vm.assume(units > maxDebt);
 
         // Write debt into Position storage.
-        // Layout: slot 0 = credit | lossIndex, slot 1 = debt | activatedCollaterals.
-        // Debt is in the lower 128 bits of slot 1.
+        // Layout: slot 0 = credit | pendingFee, slot 1 = lossIndex | lastContinuousFeeAccrual,
+        // slot 2 = debt | activatedCollaterals.
+        // Debt is in the lower 128 bits of slot 2.
         uint256 mappingSlot = 0;
         bytes32 intermediateSlot = keccak256(abi.encode(id, mappingSlot));
         bytes32 borrowerSlot = keccak256(abi.encode(borrower, intermediateSlot));
-        vm.store(address(midnight), bytes32(uint256(borrowerSlot) + 1), bytes32(units));
+        vm.store(address(midnight), bytes32(uint256(borrowerSlot) + 2), bytes32(units));
 
         assertEq(midnight.debtOf(id, borrower), units, "debt");
 
