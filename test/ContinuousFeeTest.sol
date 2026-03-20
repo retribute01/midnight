@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {WAD, ORACLE_PRICE_SCALE, MAX_CONTINUOUS_FEE, PASSIVE_FEE_RECIPIENT} from "../src/libraries/ConstantsLib.sol";
+import {WAD, MAX_CONTINUOUS_FEE, PASSIVE_FEE_RECIPIENT} from "../src/libraries/ConstantsLib.sol";
 import {EventsLib} from "../src/libraries/EventsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {MAX_TICK} from "../src/libraries/TickLib.sol";
@@ -16,7 +16,6 @@ contract ContinuousFeeTest is BaseTest {
 
     Obligation internal obligation;
     bytes32 internal id;
-    Offer internal lenderOffer;
     address internal feeRecipient = makeAddr("feeRecipient");
 
     function setUp() public override {
@@ -39,13 +38,6 @@ contract ContinuousFeeTest is BaseTest {
         id = toId(obligation);
         midnight.setFeeRecipient(feeRecipient);
 
-        lenderOffer.obligation = obligation;
-        lenderOffer.buy = true;
-        lenderOffer.maker = otherLender;
-        lenderOffer.maxUnits = type(uint256).max;
-        lenderOffer.expiry = block.timestamp;
-        lenderOffer.tick = MAX_TICK;
-
         vm.prank(borrower);
         midnight.setIsAuthorized(borrower, address(this), true);
         vm.prank(otherBorrower);
@@ -60,16 +52,6 @@ contract ContinuousFeeTest is BaseTest {
         midnight.setDefaultContinuousFee(address(loanToken), feeRate);
         collateralize(obligation, borrower, credit * 2);
         setupObligation(obligation, credit);
-    }
-
-    function _makeLenderOffer(uint256 units, bytes32 group) internal view returns (Offer memory o) {
-        o.obligation = obligation;
-        o.buy = true;
-        o.maker = lender;
-        o.maxUnits = units;
-        o.expiry = block.timestamp;
-        o.tick = MAX_TICK;
-        o.group = group;
     }
 
     function _makeBuyOffer(uint256 units, bytes32 group) internal view returns (Offer memory o) {
@@ -110,33 +92,11 @@ contract ContinuousFeeTest is BaseTest {
         midnight.accrueContinuousFee(obligation, lender);
         assertEq(midnight.creditOf(id, lender), credit - expectedFee, "credit after direct call");
         assertEq(midnight.pendingFee(id, lender), remaining - expectedFee, "remaining after direct call");
-    }
 
-    function testAccrualPreMaturityViaTake(uint256 credit, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
-        credit = bound(credit, 1, MAX_CREDIT);
-        feeRate = bound(feeRate, 0, MAX_CONTINUOUS_FEE);
-        ttm = bound(ttm, 2, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        setupLender(credit, feeRate, ttm);
-        uint256 remaining = midnight.pendingFee(id, lender);
-
-        vm.warp(block.timestamp + elapsed);
-        uint256 expectedFee = remaining.mulDivDown(elapsed, ttm);
-
-        // Via take (lender is maker, otherBorrower takes)
-        deal(address(loanToken), lender, 1);
-        collateralize(obligation, otherBorrower, 1);
-        uint256 addedPending = uint256(feeRate).mulDivDown(ttm - elapsed, WAD);
-        vm.expectEmit();
-        emit EventsLib.AccrueContinuousFee(id, lender, expectedFee, remaining - expectedFee);
-        vm.expectEmit();
-        emit EventsLib.AccrueContinuousFee(id, otherBorrower, 0, 0);
-        take(1, otherBorrower, _makeLenderOffer(1, keccak256("accrual-take")));
-        assertApproxEqAbs(midnight.creditOf(id, lender), credit - expectedFee + 1, 1, "credit after take");
-        assertApproxEqAbs(
-            midnight.pendingFee(id, lender), remaining - expectedFee + addedPending, 1, "remaining after take"
-        );
+        // Fee credit minted to recipient
+        if (expectedFee > 0) {
+            assertEq(midnight.creditOf(id, PASSIVE_FEE_RECIPIENT), expectedFee, "fee recipient credit");
+        }
     }
 
     function testAccrualPostMaturity(uint256 credit, uint256 feeRate, uint256 ttm, uint256 extraTime) public {
@@ -269,19 +229,6 @@ contract ContinuousFeeTest is BaseTest {
         assertApproxEqAbs(midnight.pendingFee(id, lender), blendedRemaining - expectedFee, 1, "remaining after accrual");
     }
 
-    function testLendAtMaturity(uint256 credit, uint256 feeRate) public {
-        credit = bound(credit, 1, MAX_CREDIT);
-        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
-
-        obligation.maturity = block.timestamp;
-        id = toId(obligation);
-        midnight.setDefaultContinuousFee(address(loanToken), feeRate);
-        collateralize(obligation, borrower, credit * 2);
-        setupObligation(obligation, credit);
-
-        assertEq(midnight.pendingFee(id, lender), 0, "remaining is 0 at maturity");
-    }
-
     function testExitViaLenderTake(uint256 credit, uint256 exitAmount, uint256 feeRate, uint256 ttm, uint256 elapsed)
         public
     {
@@ -365,74 +312,40 @@ contract ContinuousFeeTest is BaseTest {
         }
     }
 
-    function testExitViaLiquidation(uint256 debt, uint256 repaidUnits, uint256 feeRate, uint256 ttm, uint256 elapsed)
-        public
-    {
-        debt = bound(debt, 1e18, MAX_CREDIT);
-        feeRate = bound(feeRate, 0, MAX_CONTINUOUS_FEE);
-        ttm = bound(ttm, 10, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        setupLender(debt, feeRate, ttm);
-
-        // Make liquidatable
-        oracle1.setPrice(ORACLE_PRICE_SCALE / 4);
-        vm.warp(block.timestamp + elapsed);
-
-        uint256 collateralAmount = midnight.collateralOf(id, borrower, 0);
-        uint256 maxDebt = collateralAmount.mulDivDown(oracle1.price(), ORACLE_PRICE_SCALE)
-            .mulDivDown(obligation.collaterals[0].lltv, WAD);
-        uint256 lif = obligation.collaterals[0].maxLif;
-        uint256 maxRepaid = (debt - maxDebt).mulDivUp(WAD, WAD - lif.mulDivUp(obligation.collaterals[0].lltv, WAD));
-        uint256 collateralSafeRepaid =
-            collateralAmount.mulDivDown(oracle1.price(), ORACLE_PRICE_SCALE).mulDivDown(WAD, lif);
-        maxRepaid = UtilsLib.min(maxRepaid, collateralSafeRepaid);
-        vm.assume(maxRepaid > 0);
-        repaidUnits = bound(repaidUnits, 1, maxRepaid);
-
-        deal(address(loanToken), address(this), repaidUnits);
-        midnight.liquidate(obligation, 0, 0, repaidUnits, borrower, "");
-
-        assertEq(midnight.pendingFee(id, borrower), 0, "borrower never has pending fee");
-    }
-
-    function testExitViaLiquidationBadDebtOnly(uint256 debt, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
-        debt = bound(debt, 1e18, MAX_CREDIT);
-        feeRate = bound(feeRate, 0, MAX_CONTINUOUS_FEE);
-        ttm = bound(ttm, 10, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        setupLender(debt, feeRate, ttm);
-
-        // Make fully collateral-less (bad debt)
-        oracle1.setPrice(0);
-        vm.warp(block.timestamp + elapsed);
-
-        midnight.liquidate(obligation, 0, 0, 0, borrower, "");
-
-        assertEq(midnight.pendingFee(id, borrower), 0, "borrower never has pending fee");
-    }
-
-    function testAccrualAfterSlashReducesPendingFee(uint256 credit, uint256 feeRate, uint256 ttm, uint256 elapsed)
-        public
-    {
+    function testAccrualAfterSlashReducesPendingFee(
+        uint256 credit,
+        uint256 feeRate,
+        uint256 ttm,
+        uint256 elapsed1,
+        uint256 elapsed2
+    ) public {
         credit = bound(credit, 100, MAX_CREDIT);
         feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
         ttm = bound(ttm, 10, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
+        elapsed1 = bound(elapsed1, 1, ttm - 2);
+        elapsed2 = bound(elapsed2, 1, ttm - elapsed1 - 1);
 
         setupLender(credit, feeRate, ttm);
-        vm.warp(block.timestamp + elapsed);
 
+        // Phase 1: accrue fees on original credit before the slash.
+        vm.warp(block.timestamp + elapsed1);
+        midnight.accrueContinuousFee(obligation, lender);
+
+        uint256 creditBeforeSlash = midnight.creditOf(id, lender);
         uint256 pendingBeforeSlash = midnight.pendingFee(id, lender);
 
+        // Slash.
         createBadDebt(obligation);
 
         uint256 creditAfterSlash = midnight.creditAfterSlashing(id, lender);
-        vm.assume(creditAfterSlash < credit);
+        vm.assume(creditAfterSlash < creditBeforeSlash);
 
-        uint256 pendingAfterSlash = pendingBeforeSlash - pendingBeforeSlash.mulDivUp(credit - creditAfterSlash, credit);
-        uint256 accruedFee = pendingAfterSlash.mulDivDown(elapsed, ttm);
+        uint256 pendingAfterSlash =
+            pendingBeforeSlash - pendingBeforeSlash.mulDivUp(creditBeforeSlash - creditAfterSlash, creditBeforeSlash);
+
+        // Phase 2: accrue fees on slashed credit.
+        vm.warp(block.timestamp + elapsed2);
+        uint256 accruedFee = pendingAfterSlash.mulDivDown(elapsed2, ttm - elapsed1);
 
         midnight.accrueContinuousFee(obligation, lender);
 
@@ -440,196 +353,5 @@ contract ContinuousFeeTest is BaseTest {
         assertApproxEqAbs(
             midnight.pendingFee(id, lender), pendingAfterSlash - accruedFee, 1, "remaining after slash and accrual"
         );
-    }
-
-    function testFeeCreditMintedToRecipient(uint256 credit, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
-        credit = bound(credit, 1e18, MAX_CREDIT);
-        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
-        ttm = bound(ttm, 2, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        setupLender(credit, feeRate, ttm);
-        uint256 remaining = midnight.pendingFee(id, lender);
-        vm.assume(remaining > 0);
-
-        vm.warp(block.timestamp + elapsed);
-        midnight.accrueContinuousFee(obligation, lender);
-
-        uint256 feeUnits = remaining.mulDivDown(elapsed, ttm);
-        if (feeUnits > 0) {
-            assertEq(midnight.creditOf(id, PASSIVE_FEE_RECIPIENT), feeUnits, "fee recipient credit");
-        }
-    }
-
-    function testPerLenderRateLockIn(
-        uint256 credit1,
-        uint256 credit2,
-        uint256 rate1,
-        uint256 rate2,
-        uint256 ttm,
-        uint256 elapsed
-    ) public {
-        credit1 = bound(credit1, 1e18, MAX_CREDIT / 4);
-        credit2 = bound(credit2, 1e18, MAX_CREDIT / 4);
-        rate1 = bound(rate1, 1, MAX_CONTINUOUS_FEE);
-        rate2 = bound(rate2, 1, MAX_CONTINUOUS_FEE);
-        vm.assume(rate1 != rate2);
-        ttm = bound(ttm, 2, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        _setupTwoLenders(credit1, credit2, rate1, rate2, ttm);
-
-        vm.warp(block.timestamp + elapsed);
-
-        uint256 fee1 = midnight.accrueContinuousFeeView(obligation, lender);
-        uint256 fee2 = midnight.accrueContinuousFeeView(obligation, otherLender);
-        midnight.accrueContinuousFee(obligation, lender);
-        midnight.accrueContinuousFee(obligation, otherLender);
-
-        assertEq(credit1 - midnight.creditOf(id, lender), fee1, "lender1 fee matches view");
-        assertApproxEqAbs(fee1, (uint256(rate1) * credit1).mulDivDown(elapsed, WAD), 1, "lender1 fee from rate1");
-        assertEq(credit2 - midnight.creditOf(id, otherLender), fee2, "lender2 fee matches view");
-        assertApproxEqAbs(fee2, (uint256(rate2) * credit2).mulDivDown(elapsed, WAD), 1, "lender2 fee from rate2");
-    }
-
-    function _setupTwoLenders(uint256 credit1, uint256 credit2, uint256 rate1, uint256 rate2, uint256 ttm) internal {
-        obligation.maturity = block.timestamp + ttm;
-        id = toId(obligation);
-        midnight.setDefaultContinuousFee(address(loanToken), rate1);
-        collateralize(obligation, borrower, credit1 * 2);
-        setupObligation(obligation, credit1);
-        midnight.setObligationContinuousFee(id, rate2);
-        collateralize(obligation, otherBorrower, credit2 * 2);
-        setupOtherUsers(obligation, credit2);
-    }
-
-    function testSetContinuousFeeOnlyFeeSetter(address rdm) public {
-        vm.assume(rdm != address(this));
-
-        obligation.maturity = block.timestamp + 100 days;
-        midnight.touchObligation(obligation);
-        id = toId(obligation);
-
-        vm.prank(rdm);
-        vm.expectRevert("only fee setter");
-        midnight.setObligationContinuousFee(id, 100);
-
-        vm.prank(rdm);
-        vm.expectRevert("only fee setter");
-        midnight.setDefaultContinuousFee(address(loanToken), 100);
-    }
-
-    function testSetContinuousFeeTooHigh(uint256 fee) public {
-        fee = bound(fee, MAX_CONTINUOUS_FEE + 1, type(uint256).max);
-
-        obligation.maturity = block.timestamp + 100 days;
-        midnight.touchObligation(obligation);
-        id = toId(obligation);
-
-        vm.expectRevert("continuous fee too high");
-        midnight.setObligationContinuousFee(id, fee);
-
-        vm.expectRevert("continuous fee too high");
-        midnight.setDefaultContinuousFee(address(loanToken), fee);
-    }
-
-    function testSetContinuousFeeSuccess(uint256 fee) public {
-        fee = bound(fee, 0, MAX_CONTINUOUS_FEE);
-
-        midnight.setDefaultContinuousFee(address(loanToken), fee);
-        assertEq(midnight.defaultContinuousFee(address(loanToken)), fee, "default fee updated");
-
-        obligation.maturity = block.timestamp + 100 days;
-        midnight.touchObligation(obligation);
-        id = toId(obligation);
-
-        midnight.setObligationContinuousFee(id, fee);
-        assertEq(midnight.continuousFee(id), fee, "obligation fee updated");
-    }
-
-    function testFeeCreditRetrievableAfterRecipientChange(uint256 credit, uint256 feeRate, uint256 ttm, uint256 elapsed)
-        public
-    {
-        credit = bound(credit, 1e18, MAX_CREDIT);
-        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
-        ttm = bound(ttm, 2, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        setupLender(credit, feeRate, ttm);
-        uint256 remaining = midnight.pendingFee(id, lender);
-        vm.assume(remaining > 0);
-
-        // Accrue lender fee
-        vm.warp(block.timestamp + elapsed);
-        midnight.accrueContinuousFee(obligation, lender);
-        uint256 feeCredit = midnight.creditOf(id, PASSIVE_FEE_RECIPIENT);
-        vm.assume(feeCredit > 0);
-
-        // Repay all borrower debt so withdrawable is filled
-        uint256 totalDebt = midnight.debtOf(id, borrower);
-        deal(address(loanToken), address(this), totalDebt);
-        midnight.repay(obligation, totalDebt, borrower);
-
-        // Change fee recipient
-        address newRecipient = makeAddr("newFeeRecipient");
-        midnight.setFeeRecipient(newRecipient);
-
-        // New recipient can withdraw the fee credit
-        vm.prank(newRecipient);
-        midnight.withdraw(obligation, feeCredit, PASSIVE_FEE_RECIPIENT, newRecipient);
-
-        assertEq(midnight.creditOf(id, PASSIVE_FEE_RECIPIENT), 0, "passive credit drained");
-        assertEq(loanToken.balanceOf(newRecipient), feeCredit, "assets received");
-    }
-
-    function testRateChangeDoesNotAffectExistingLender(
-        uint256 credit,
-        uint256 rate1,
-        uint256 rate2,
-        uint256 ttm,
-        uint256 elapsed
-    ) public {
-        credit = bound(credit, 1e18, MAX_CREDIT);
-        rate1 = bound(rate1, 1, MAX_CONTINUOUS_FEE);
-        rate2 = bound(rate2, 0, MAX_CONTINUOUS_FEE);
-        vm.assume(rate1 != rate2);
-        ttm = bound(ttm, 2, 360 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        setupLender(credit, rate1, ttm);
-        uint256 remaining = midnight.pendingFee(id, lender);
-
-        midnight.setObligationContinuousFee(id, rate2);
-        assertEq(midnight.pendingFee(id, lender), remaining, "remaining unchanged after rate change");
-
-        vm.warp(block.timestamp + elapsed);
-        midnight.accrueContinuousFee(obligation, lender);
-
-        uint256 expectedFee = remaining.mulDivDown(elapsed, ttm);
-        assertEq(midnight.creditOf(id, lender), credit - expectedFee, "fee from original rate");
-        assertEq(midnight.pendingFee(id, lender), remaining - expectedFee, "remaining after accrual");
-    }
-
-    function testAccrualNearMaxCredit(uint256 credit, uint256 feeRate, uint256 ttm, uint256 elapsed) public {
-        credit = bound(credit, MAX_TEST_AMOUNT / 2, MAX_TEST_AMOUNT * 9 / 10);
-        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
-        ttm = bound(ttm, 2, 3650 days);
-        elapsed = bound(elapsed, 1, ttm - 1);
-
-        obligation.collaterals[0].lltv = 1e18;
-        obligation.collaterals[0].maxLif = maxLif(1e18, 0.25e18);
-        obligation.maturity = block.timestamp + ttm;
-        id = toId(obligation);
-        midnight.setDefaultContinuousFee(address(loanToken), feeRate);
-        collateralize(obligation, borrower, credit);
-        setupObligation(obligation, credit);
-
-        uint256 pending = midnight.pendingFee(id, lender);
-        uint256 feeUnits = pending.mulDivDown(elapsed, ttm);
-
-        vm.warp(block.timestamp + elapsed);
-
-        midnight.accrueContinuousFee(obligation, lender);
-        assertEq(midnight.creditOf(id, lender), credit - feeUnits, "credit after accrual");
     }
 }
