@@ -234,7 +234,6 @@ abstract contract BaseTest is Test {
         }
         collaterals = sortCollaterals(collaterals);
         obligation.collaterals = collaterals;
-        obligation.maturity = min(obligation.maturity, block.timestamp + 100 * 365 days);
         return obligation;
     }
 
