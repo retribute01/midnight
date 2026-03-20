@@ -151,10 +151,10 @@ rule liquidateEffects(env e, Midnight.Obligation obligation, uint256 collateralI
 
 /// SLASH AND ACCRUE ///
 
-/// When no fee accrual occurs, slashAndAccrue can only decrease credit (or keep it unchanged),
+/// When no fee accrual occurs, updatePosition can only decrease credit (or keep it unchanged),
 /// does not change debt, and only changes position[id][user].
 /// Requires the system invariant that the obligation's lossIndex >= the user's lossIndex.
-rule slashAndAccrueEffects(env e, Midnight.Obligation obligation, address user, bytes32 anyId, address anyUser) {
+rule updatePositionEffects(env e, Midnight.Obligation obligation, address user, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
     require userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
 
@@ -165,7 +165,7 @@ rule slashAndAccrueEffects(env e, Midnight.Obligation obligation, address user, 
     uint256 otherDebtBefore = debtOf(anyId, anyUser);
     uint256 expectedCredit = creditAfterSlash(id, user);
 
-    slashAndAccrue(e, obligation, user);
+    updatePosition(e, obligation, user);
 
     assert creditOf(id, user) == expectedCredit;
     assert debtOf(anyId, anyUser) == otherDebtBefore;
@@ -192,7 +192,7 @@ rule withdrawCollateralEffects(env e, Midnight.Obligation obligation, uint256 co
 
 /// ALL OTHER FUNCTIONS ///
 
-/// Functions other than take, withdraw, repay, liquidate, slashAndAccrue, and withdrawCollateral do not change any user's credit or debt.
+/// Functions other than take, withdraw, repay, liquidate, updatePosition, and withdrawCollateral do not change any user's credit or debt.
 rule creditAndDebtUnchangedByOtherFunctions(method f, env e, calldataarg args, bytes32 id, address user)
 filtered {
     f -> !f.isView
@@ -200,7 +200,7 @@ filtered {
         && f.selector != sig:withdraw(Midnight.Obligation, uint256, address, address).selector
         && f.selector != sig:repay(Midnight.Obligation, uint256, address).selector
         && f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector
-        && f.selector != sig:slashAndAccrue(Midnight.Obligation, address).selector
+        && f.selector != sig:updatePosition(Midnight.Obligation, address).selector
         && f.selector != sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
 } {
     uint256 creditBefore = creditOf(id, user);

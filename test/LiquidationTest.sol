@@ -281,7 +281,7 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), units - expectedBadDebt, "debt");
         assertEq(midnight.totalUnits(id), units - expectedBadDebt, "total units");
         assertEq(midnight.creditOf(id, lender), units, "lender units");
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
         assertApproxEqAbs(midnight.creditOf(id, lender), units - expectedBadDebt, 1, "lender units after slashing");
     }
 
@@ -299,7 +299,7 @@ contract LiquidationTest is BaseTest {
                 - (type(uint128).max - previousLossIndex).mulDivDown(oldTotalUnits - expectedBadDebt, oldTotalUnits);
 
         vm.expectEmit(true, true, true, true);
-        emit EventsLib.Liquidate(address(this), id, 0, 0, 0, borrower, expectedBadDebt, expectedLossIndex, 0);
+        emit EventsLib.Liquidate(address(this), id, 0, 0, 0, borrower, expectedBadDebt, expectedLossIndex);
         midnight.liquidate(obligation, 0, 0, 0, borrower, "");
     }
 
@@ -313,13 +313,14 @@ contract LiquidationTest is BaseTest {
 
         (, uint256 lossIndex,,,) = midnight.obligationState(id);
         uint256 snap = vm.snapshotState();
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
         uint256 expectedCredit = midnight.creditOf(id, lender);
+        uint256 expectedPending = midnight.pendingFee(id, lender);
         vm.revertToState(snap);
 
         vm.expectEmit(true, true, false, true);
-        emit EventsLib.Slash(address(this), id, lender, expectedCredit, lossIndex);
-        midnight.slashAndAccrue(obligation, lender);
+        emit EventsLib.UpdatePosition(id, lender, expectedCredit, expectedPending, 0);
+        midnight.updatePosition(obligation, lender);
 
         assertEq(midnight.creditOf(id, lender), expectedCredit, "credit");
         assertEq(midnight.userLossIndex(id, lender), lossIndex, "user loss index");
@@ -339,7 +340,7 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), debtAfterBadDebt - repaid, "debt");
         assertEq(midnight.totalUnits(id), debtAfterBadDebt, "total units");
         assertEq(midnight.creditOf(id, lender), units, "lender units");
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
         assertApproxEqAbs(midnight.creditOf(id, lender), debtAfterBadDebt, 1, "lender units after slashing");
     }
 
@@ -361,7 +362,7 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.debtOf(id, borrower), debtAfterBadDebt - repaid, "debt");
         assertEq(midnight.totalUnits(id), debtAfterBadDebt, "total units");
         assertEq(midnight.creditOf(id, lender), units, "lender units");
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
         assertApproxEqAbs(midnight.creditOf(id, lender), debtAfterBadDebt, 1, "lender units after slashing");
     }
 
@@ -713,7 +714,7 @@ contract LiquidationTest is BaseTest {
 
         uint256 creditBefore = midnight.creditOf(id, lender);
 
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
 
         assertEq(midnight.creditOf(id, lender), creditBefore, "credit unchanged");
     }
@@ -731,7 +732,7 @@ contract LiquidationTest is BaseTest {
         (, uint128 oblLossIndex,,,) = midnight.obligationState(id);
         assertGt(oblLossIndex, midnight.userLossIndex(id, borrower), "loss index stale before");
 
-        midnight.slashAndAccrue(obligation, borrower);
+        midnight.updatePosition(obligation, borrower);
 
         assertEq(midnight.creditOf(id, borrower), 0, "no credit after");
         assertEq(midnight.debtOf(id, borrower), debtBefore, "debt unchanged");
@@ -747,12 +748,12 @@ contract LiquidationTest is BaseTest {
         midnight.liquidate(obligation, 0, 0, 0, borrower, "");
 
         uint256 creditBeforeSlash = midnight.creditOf(id, lender);
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
         uint256 creditAfterFirstSlash = midnight.creditOf(id, lender);
         uint128 lossIndexAfterFirstSlash = midnight.userLossIndex(id, lender);
         assertLt(creditAfterFirstSlash, creditBeforeSlash, "first slash reduced credit");
 
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
 
         assertEq(midnight.creditOf(id, lender), creditAfterFirstSlash, "credit unchanged");
         assertEq(midnight.userLossIndex(id, lender), lossIndexAfterFirstSlash, "loss index unchanged");
@@ -772,7 +773,7 @@ contract LiquidationTest is BaseTest {
         assertEq(midnight.totalUnits(id), 0, "total units");
         (, uint128 _lossIndex,,,) = midnight.obligationState(id);
         assertEq(_lossIndex, type(uint128).max, "loss index");
-        midnight.slashAndAccrue(obligation, lender);
+        midnight.updatePosition(obligation, lender);
         assertEq(midnight.creditOf(id, lender), 0, "credit after slashing");
 
         // withdrawCollateral still works

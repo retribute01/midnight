@@ -197,10 +197,8 @@ contract Midnight is IMidnight {
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
         bytes32 id = touchObligation(offer.obligation);
-        slash(id, offer.maker);
-        accrueContinuousFee(offer.obligation, id, offer.maker);
-        slash(id, taker);
-        accrueContinuousFee(offer.obligation, id, taker);
+        _updatePosition(offer.obligation, id, offer.maker);
+        _updatePosition(offer.obligation, id, taker);
         ObligationState storage _obligationState = obligationState[id];
 
         (
@@ -308,8 +306,7 @@ contract Midnight is IMidnight {
         );
         bytes32 id = touchObligation(obligation);
         ObligationState storage _obligationState = obligationState[id];
-        slash(id, onBehalf);
-        accrueContinuousFee(obligation, id, onBehalf);
+        _updatePosition(obligation, id, onBehalf);
 
         Position storage _position = position[id][onBehalf];
         if (_position.credit > 0) {
@@ -319,7 +316,7 @@ contract Midnight is IMidnight {
         _obligationState.withdrawable -= units;
         _obligationState.totalUnits -= UtilsLib.toUint128(units);
 
-        emit EventsLib.Withdraw(msg.sender, id, units, onBehalf, receiver);
+        emit EventsLib.Withdraw(msg.sender, id, units, onBehalf, receiver, _position.pendingFee);
 
         SafeTransferLib.safeTransfer(obligation.loanToken, receiver, units);
     }
@@ -332,7 +329,7 @@ contract Midnight is IMidnight {
         _position.debt -= UtilsLib.toUint128(units);
         obligationState[id].withdrawable += units;
 
-        emit EventsLib.Repay(msg.sender, id, units, onBehalf, _position.pendingFee);
+        emit EventsLib.Repay(msg.sender, id, units, onBehalf);
 
         SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), units);
     }
@@ -483,15 +480,7 @@ contract Midnight is IMidnight {
         }
 
         emit EventsLib.Liquidate(
-            msg.sender,
-            id,
-            collateralIndex,
-            seizedAssets,
-            repaidUnits,
-            borrower,
-            badDebt,
-            _obligationState.lossIndex,
-            _position.pendingFee
+            msg.sender, id, collateralIndex, seizedAssets, repaidUnits, borrower, badDebt, _obligationState.lossIndex
         );
 
         SafeTransferLib.safeTransfer(obligation.collaterals[collateralIndex].token, msg.sender, seizedAssets);
@@ -572,80 +561,55 @@ contract Midnight is IMidnight {
 
     /// SLASHING AND CONTINUOUS FEE ACCRUAL ///
 
-    function slashAndAccrue(Obligation memory obligation, address user) external {
-        bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
-        require(obligationState[id].created, "not created");
-        slash(id, user);
-        accrueContinuousFee(obligation, id, user);
-    }
-
-    /// @dev Returns the new credit, new pending fee, and accrued fee after simulating slash and accrue.
-    function slashAndAccrueView(Obligation memory obligation, address user)
+    /// @dev Returns the new credit, new pending fee, and accrued fee after simulating updatePosition.
+    function updatePositionView(Obligation memory obligation, address user)
         public
         view
-        returns (uint256, uint256, uint256)
+        returns (uint128, uint128, uint128)
     {
         bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
         Position storage _position = position[id][user];
+        uint256 credit = _position.credit;
+        uint256 pending = _position.pendingFee;
         uint256 lastAccrual = _position.lastContinuousFeeAccrual;
-        (uint256 creditAfterSlash, uint256 pendingAfterSlash) = positionAfterSlash(
-            _position.credit, _position.pendingFee, _position.lossIndex, obligationState[id].lossIndex
-        );
-        uint256 fee = accruedFees(lastAccrual, pendingAfterSlash, obligation.maturity);
-        return (creditAfterSlash - fee, pendingAfterSlash - fee, fee);
+        uint128 _userLossIndex = _position.lossIndex;
+        uint128 lossIndex = obligationState[id].lossIndex;
+        if (_userLossIndex != lossIndex) {
+            uint256 newCredit = credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
+            pending = credit > 0 ? pending - pending.mulDivUp(credit - newCredit, credit) : 0;
+            credit = newCredit;
+        }
+        uint256 accrualEnd = UtilsLib.min(block.timestamp, obligation.maturity);
+        // forge-lint: disable-next-item(unsafe-typecast) as fee <= pending <= credit which are uint128 position fields
+        uint128 fee = lastAccrual < obligation.maturity
+            ? uint128(pending.mulDivDown(accrualEnd - lastAccrual, obligation.maturity - lastAccrual))
+            : 0;
+        // forge-lint: disable-next-item(unsafe-typecast) as credit and pending are <= uint128 position fields
+        return (uint128(credit) - fee, uint128(pending) - fee, fee);
     }
 
-    function slash(bytes32 id, address user) internal {
+    /// @dev Slashes the position and accrues the continuous fee.
+    function updatePosition(Obligation memory obligation, address user) external {
+        bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
+        require(obligationState[id].created, "not created");
+        _updatePosition(obligation, id, user);
+    }
+
+    function _updatePosition(Obligation memory obligation, bytes32 id, address user) internal {
         Position storage _position = position[id][user];
         uint128 lossIndex = obligationState[id].lossIndex;
+        (uint128 newCredit, uint128 newPending, uint128 accruedFee) = updatePositionView(obligation, user);
         if (_position.lossIndex != lossIndex) {
-            (uint256 newCredit, uint256 newPending) =
-                positionAfterSlash(_position.credit, _position.pendingFee, _position.lossIndex, lossIndex);
-            // forge-lint: disable-next-item(unsafe-typecast) as newPending <= pendingFee
-            _position.pendingFee = uint128(newPending);
-            // forge-lint: disable-next-item(unsafe-typecast) as newCredit <= creditBefore
-            _position.credit = uint128(newCredit);
             _position.lossIndex = lossIndex;
-            emit EventsLib.Slash(msg.sender, id, user, newCredit, lossIndex);
         }
-    }
-
-    /// @dev Returns the credit and pending fee after simulating slash.
-    function positionAfterSlash(uint256 credit, uint256 pending, uint128 _userLossIndex, uint128 lossIndex)
-        internal
-        pure
-        returns (uint256, uint256)
-    {
-        if (_userLossIndex == lossIndex) {
-            return (credit, pending);
-        }
-        uint256 newCredit = credit.mulDivDown(type(uint128).max - lossIndex, type(uint128).max - _userLossIndex);
-        uint256 newPending = credit > 0 ? pending - pending.mulDivUp(credit - newCredit, credit) : 0;
-        return (newCredit, newPending);
-    }
-
-    /// @dev Expects the obligation to be touched.
-    /// @dev Expects the id to correspond to the obligation's id.
-    function accrueContinuousFee(Obligation memory obligation, bytes32 id, address user) internal {
-        Position storage _position = position[id][user];
-        // forge-lint: disable-next-item(unsafe-typecast) as accrued fee is <= pendingFee
-        uint128 accruedFee =
-            uint128(accruedFees(_position.lastContinuousFeeAccrual, _position.pendingFee, obligation.maturity));
         if (accruedFee > 0) {
-            _position.pendingFee -= accruedFee;
-            _position.credit -= accruedFee;
-            slash(id, PASSIVE_FEE_RECIPIENT);
             position[id][PASSIVE_FEE_RECIPIENT].credit += accruedFee;
         }
+        _position.credit = newCredit;
+        _position.pendingFee = newPending;
         _position.lastContinuousFeeAccrual = uint128(block.timestamp);
 
-        emit EventsLib.AccrueContinuousFee(id, user, accruedFee, _position.pendingFee);
-    }
-
-    /// @dev Returns the accrued fee after simulating accrue.
-    function accruedFees(uint256 lastAccrual, uint256 pending, uint256 maturity) internal view returns (uint256) {
-        uint256 accrualEnd = UtilsLib.min(block.timestamp, maturity);
-        return lastAccrual < maturity ? pending.mulDivDown(accrualEnd - lastAccrual, maturity - lastAccrual) : 0;
+        emit EventsLib.UpdatePosition(id, user, newCredit, newPending, accruedFee);
     }
 
     /// OTHER VIEW FUNCTIONS ///
