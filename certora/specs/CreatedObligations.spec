@@ -31,6 +31,18 @@ methods {
 
     // Summary is required because abi.encodePacked doesn't ensure injectivity of the hash function in CVL, for an unknown reason.
     function IdLib.toId(Midnight.Obligation memory obligation, uint256, address) internal returns (bytes32) => summaryToId(obligation);
+
+    // Summarize CREATE2 opcode used by IdLib.storeInCode.
+    function IdLib.storeInCode(Midnight.Obligation memory) internal returns (address) => NONDET;
+
+    // Tokens are assumed to not reenter.
+    function SafeTransferLib.safeTransferFrom(address, address, address, uint256) internal => NONDET;
+    function SafeTransferLib.safeTransfer(address, address, uint256) internal => NONDET;
+
+    // Gate functions are view and cannot modify state.
+    function _.canIncreaseCredit(address) external => NONDET;
+    function _.canIncreaseDebt(address) external => NONDET;
+    function _.canLiquidate(address) external => NONDET;
 }
 
 definition WAD() returns uint256 = 10 ^ 18;

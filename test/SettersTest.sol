@@ -336,8 +336,10 @@ contract SettersTest is BaseTest {
         midnight.setDefaultContinuousFee(address(loanToken), fee);
     }
 
-    function testSetContinuousFeeSuccess(uint256 fee) public {
+    function testSetContinuousFeeSuccess(uint256 fee, uint256 fee2) public {
         fee = bound(fee, 0, MAX_CONTINUOUS_FEE);
+        fee2 = bound(fee2, 0, MAX_CONTINUOUS_FEE);
+        vm.assume(fee != fee2);
 
         midnight.setDefaultContinuousFee(address(loanToken), fee);
         assertEq(midnight.defaultContinuousFee(address(loanToken)), fee, "default fee updated");
@@ -357,7 +359,8 @@ contract SettersTest is BaseTest {
         midnight.touchObligation(obligation);
         bytes32 id = toId(obligation);
 
-        midnight.setObligationContinuousFee(id, fee);
-        assertEq(midnight.continuousFee(id), fee, "obligation fee updated");
+        assertEq(midnight.continuousFee(id), fee, "obligation inherits default fee");
+        midnight.setObligationContinuousFee(id, fee2);
+        assertEq(midnight.continuousFee(id), fee2, "obligation fee updated");
     }
 }
