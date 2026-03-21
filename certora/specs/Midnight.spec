@@ -22,6 +22,8 @@ methods {
 
     function tradingFee(bytes32, uint256) internal returns (uint256) => NONDET;
     function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
+
+    // Tokens are assumed to not reenter.
     function SafeTransferLib.safeTransferFrom(address, address, address, uint256) internal => NONDET;
     function SafeTransferLib.safeTransfer(address, address, uint256) internal => NONDET;
     function TickLib.tickToPrice(uint256) internal returns (uint256) => NONDET;
@@ -30,8 +32,8 @@ methods {
     function UtilsLib.msb(uint256) internal returns (uint256) => NONDET;
     function UtilsLib.countBits(uint128) internal returns (uint256) => NONDET;
 
-    function UtilsLib.mulDivDown(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivDown(x, y, d);
-    function UtilsLib.mulDivUp(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDivUp(x, y, d);
+    function UtilsLib.mulDivDown(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDiv(x, y, d);
+    function UtilsLib.mulDivUp(uint256 x, uint256 y, uint256 d) internal returns (uint256) => summaryMulDiv(x, y, d);
 }
 
 /// HELPERS ///
@@ -54,19 +56,12 @@ hook Sstore position[KEY bytes32 id][KEY address owner].debt uint128 newDebt (ui
     sumDebt[id] = sumDebt[id] - to_mathint(oldDebt) + to_mathint(newDebt);
 }
 
-function summaryMulDivDown(uint256 x, uint256 y, uint256 d) returns uint256 {
+function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
     if (x == 0 || y == 0) return 0;
     if (d > 0 && y == d) return x;
     if (d > 0 && x == d) return y;
     uint256 res;
-    return res;
-}
-
-function summaryMulDivUp(uint256 x, uint256 y, uint256 d) returns uint256 {
-    if (x == 0 || y == 0) return 0;
-    if (d > 0 && y == d) return x;
-    if (d > 0 && x == d) return y;
-    uint256 res;
+    require y <= d => res <= x;
     return res;
 }
 
@@ -138,16 +133,7 @@ strong invariant totalUnitsEqualsSumNegativeDebtPlusWithdrawable(bytes32 id)
     to_mathint(totalUnits(id)) == sumDebt[id] + to_mathint(withdrawable(id));
 
 strong invariant pendingContinuousFeeBoundedByCredit(bytes32 id, address user)
-    pendingFee(id, user) <= creditOf(id, user)
-    {
-        preserved take(uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) with (env e) {
-            requireInvariant pendingContinuousFeeBoundedByCredit(summaryToId(offer.obligation), offer.maker);
-            requireInvariant pendingContinuousFeeBoundedByCredit(summaryToId(offer.obligation), taker);
-            requireInvariant pendingContinuousFeeBoundedByCredit(summaryToId(offer.obligation), Utils.passiveFeeRecipient());
-            require currentContract.defaultContinuousFee[offer.obligation.loanToken] <= MAX_CONTINUOUS_FEE();
-            require currentContract.obligationState[summaryToId(offer.obligation)].continuousFee <= MAX_CONTINUOUS_FEE();
-        }
-    }
+    pendingFee(id, user) <= creditOf(id, user);
 
 strong invariant noRemainingContinuousFeeWithoutCredit(bytes32 id, address user)
     creditOf(id, user) == 0 => pendingFee(id, user) == 0
@@ -163,9 +149,4 @@ strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
 /// A user cannot have both credit and debt, excluding PASSIVE_FEE_RECIPIENT who receives
 /// credit from fee accrual and could theoretically be a trade participant.
 strong invariant noCreditAndDebt(bytes32 id, address user)
-    user != Utils.passiveFeeRecipient() => (creditOf(id, user) == 0 || debtOf(id, user) == 0)
-    {
-        preserved {
-            requireInvariant pendingContinuousFeeBoundedByCredit(id, user);
-        }
-    }
+    user != Utils.passiveFeeRecipient() => (creditOf(id, user) == 0 || debtOf(id, user) == 0);

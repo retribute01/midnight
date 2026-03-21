@@ -58,7 +58,12 @@ contract SettersTest is BaseTest {
             token: address(collateralToken1), lltv: 0.75e18, maxLif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
         });
         Obligation memory obligation = Obligation({
-            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: collaterals, rcfThreshold: 0
+            loanToken: loanToken,
+            maturity: block.timestamp + 1 days,
+            collaterals: collaterals,
+            rcfThreshold: 0,
+            enterGate: address(0),
+            liquidatorGate: address(0)
         });
         bytes32 id = toId(obligation);
         midnight.touchObligation(obligation);
@@ -178,7 +183,12 @@ contract SettersTest is BaseTest {
             token: address(collateralToken1), lltv: 0.75e18, maxLif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
         });
         Obligation memory obligation = Obligation({
-            loanToken: loanToken, maturity: block.timestamp + 1 days, collaterals: collaterals, rcfThreshold: 0
+            loanToken: loanToken,
+            maturity: block.timestamp + 1 days,
+            collaterals: collaterals,
+            rcfThreshold: 0,
+            enterGate: address(0),
+            liquidatorGate: address(0)
         });
         bytes32 id = toId(obligation);
         midnight.touchObligation(obligation);
@@ -229,8 +239,14 @@ contract SettersTest is BaseTest {
         cols[0] = Collateral({
             token: address(collateralToken1), lltv: 0.75e18, maxLif: maxLif(0.75e18, 0.25e18), oracle: address(oracle1)
         });
-        Obligation memory obligation =
-            Obligation({loanToken: address(0), maturity: block.timestamp + 1 days, collaterals: cols, rcfThreshold: 0});
+        Obligation memory obligation = Obligation({
+            loanToken: address(0),
+            maturity: block.timestamp + 1 days,
+            collaterals: cols,
+            rcfThreshold: 0,
+            enterGate: address(0),
+            liquidatorGate: address(0)
+        });
         bytes32 id = toId(obligation);
         midnight.touchObligation(obligation);
 
@@ -279,7 +295,9 @@ contract SettersTest is BaseTest {
             loanToken: address(loanToken),
             maturity: block.timestamp + 100 days,
             collaterals: collaterals,
-            rcfThreshold: 0
+            rcfThreshold: 0,
+            enterGate: address(0),
+            liquidatorGate: address(0)
         });
         midnight.touchObligation(obligation);
         bytes32 id = toId(obligation);
@@ -304,7 +322,9 @@ contract SettersTest is BaseTest {
             loanToken: address(loanToken),
             maturity: block.timestamp + 100 days,
             collaterals: collaterals,
-            rcfThreshold: 0
+            rcfThreshold: 0,
+            enterGate: address(0),
+            liquidatorGate: address(0)
         });
         midnight.touchObligation(obligation);
         bytes32 id = toId(obligation);
@@ -330,7 +350,9 @@ contract SettersTest is BaseTest {
             loanToken: address(loanToken),
             maturity: block.timestamp + 100 days,
             collaterals: collaterals,
-            rcfThreshold: 0
+            rcfThreshold: 0,
+            enterGate: address(0),
+            liquidatorGate: address(0)
         });
         midnight.touchObligation(obligation);
         bytes32 id = toId(obligation);

@@ -15,7 +15,9 @@ library EventsLib {
     event SetFeeRecipient(address indexed feeRecipient);
     event SetObligationContinuousFee(bytes32 indexed id_, uint256 newContinuousFee);
     event SetDefaultContinuousFee(address indexed loanToken, uint256 newContinuousFee);
-    event AccrueContinuousFee(bytes32 indexed id_, address indexed borrower, uint256 accruedFee, uint256 newPendingFee);
+    event UpdatePosition(
+        bytes32 indexed id_, address indexed user, uint256 newCredit, uint256 newPendingFee, uint256 accruedFee
+    );
     event ObligationCreated(bytes32 indexed id_, Obligation obligation);
     event Take(
         address caller,
@@ -34,11 +36,14 @@ library EventsLib {
         uint256 sellerPendingFee
     );
     event Withdraw(
-        address caller, bytes32 indexed id_, uint256 units, address indexed onBehalf, address indexed receiver
+        address caller,
+        bytes32 indexed id_,
+        uint256 units,
+        address indexed onBehalf,
+        address indexed receiver,
+        uint256 pendingFee
     );
-    event Repay(
-        address indexed caller, bytes32 indexed id_, uint256 units, address indexed onBehalf, uint256 pendingFee
-    );
+    event Repay(address indexed caller, bytes32 indexed id_, uint256 units, address indexed onBehalf);
     event SupplyCollateral(
         address caller, bytes32 indexed id_, address indexed collateral, uint256 assets, address indexed onBehalf
     );
@@ -60,10 +65,8 @@ library EventsLib {
         uint256 repaidUnits,
         address indexed borrower,
         uint256 badDebt,
-        uint256 latestLossIndex,
-        uint256 pendingFee
+        uint256 latestLossIndex
     );
-    event Slash(address caller, bytes32 indexed id_, address indexed user, uint256 credit, uint256 latestLossIndex);
 
     event SetConsumed(address indexed caller, address indexed onBehalf, bytes32 indexed group, uint256 amount);
     event ShuffleSession(address indexed caller, address indexed onBehalf, bytes32 session);

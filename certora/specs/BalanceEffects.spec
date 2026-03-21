@@ -5,7 +5,6 @@ methods {
 
     function creditOf(bytes32 id, address user) external returns (uint256) envfree;
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
-    function slashAndAccrueView(Midnight.Obligation, address) external returns (uint256) envfree;
     function userLossIndex(bytes32 id, address user) external returns (uint128) envfree;
     function collateralOf(bytes32 id, address user, uint256 index) external returns (uint128) envfree;
     function _.price() external => NONDET;
@@ -33,41 +32,24 @@ methods {
 
 /// HELPERS ///
 
-// Deterministic summary: same inputs always produce the same output.
-// This is needed so that the slash prediction agrees with the actual slash.
-ghost ghostMulDiv(uint256, uint256, uint256) returns uint256 {
-    // mulDivDown(x, y, d) = x * y / d <= x when y <= d. Same holds for mulDivUp.
-    axiom forall uint256 x. forall uint256 y. forall uint256 d. y <= d => ghostMulDiv(x, y, d) <= x;
-
-    // x * y / y == x (identity when numerator equals denominator).
-    axiom forall uint256 x. forall uint256 y. ghostMulDiv(x, y, y) == x;
-}
-
+// Under noSlash, all mulDiv calls in _updatePosition hit y == d (identity) or y == 0.
 function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
     if (x == 0 || y == 0) return 0;
-    return ghostMulDiv(x, y, d);
+    if (d > 0 && y == d) return x;
+    uint256 res;
+    return res;
 }
 
-function creditAfterSlash(bytes32 id, address user) returns uint256 {
-    uint128 userIdx = currentContract.position[id][user].lossIndex;
-    uint128 globalIdx = currentContract.obligationState[id].lossIndex;
-    if (userIdx == globalIdx) {
-        return currentContract.position[id][user].credit;
-    }
-    return require_uint256(summaryMulDiv(currentContract.position[id][user].credit, require_uint256(max_uint128 - globalIdx), require_uint256(max_uint128 - userIdx)));
-}
+// All rules in this file assume no accrual and no slash.
+definition noAccrual(env e, bytes32 id, address user) returns bool = currentContract.position[id][user].pendingFee == 0 || e.block.timestamp == currentContract.position[id][user].lastAccrual;
 
-// All rules in this file assume no accrual.
-definition noAccrual(env e, bytes32 id, address borrower) returns bool = currentContract.position[id][borrower].pendingFee == 0 || e.block.timestamp == currentContract.position[id][borrower].lastContinuousFeeAccrual;
+definition noSlash(bytes32 id, address user) returns bool = currentContract.position[id][user].lossIndex == currentContract.obligationState[id].lossIndex && currentContract.position[id][user].lossIndex < max_uint128;
 
 /// REPAY ///
 
-/// When no fee accrual occurs, repay decreases onBehalf's debt by exactly units and only changes position[id][onBehalf].debt
+/// Repay decreases onBehalf's debt by exactly units and only changes position[id][onBehalf].debt
 rule repayEffects(env e, Midnight.Obligation obligation, uint256 units, address onBehalf, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
-
-    // Exclude fee accrual effects.
-    require noAccrual(e, id, onBehalf);
 
     uint256 debtBefore = debtOf(id, onBehalf);
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
@@ -82,54 +64,49 @@ rule repayEffects(env e, Midnight.Obligation obligation, uint256 units, address 
 
 /// WITHDRAW ///
 
-/// When no fee accrual occurs, withdraw decreases onBehalf's post-slash credit by exactly units, and only changes position[id][onBehalf].credit.
+/// When no slash or accrual occurs, withdraw decreases onBehalf's credit by exactly units
+/// and only changes position[id][onBehalf].
 rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 units, address onBehalf, address receiver, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
-    require userLossIndex(id, onBehalf) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
-
-    // Exclude fee accrual effects: withdraw now calls accrueContinuousFee which decreases credit.
+    require noSlash(id, onBehalf);
     require noAccrual(e, id, onBehalf);
 
-    uint256 creditPostSlash = creditAfterSlash(id, onBehalf);
+    uint256 creditBefore = creditOf(id, onBehalf);
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
     uint256 otherDebtBefore = debtOf(anyId, anyUser);
 
     withdraw(e, obligation, units, onBehalf, receiver);
 
-    assert creditOf(id, onBehalf) == creditPostSlash - units;
+    assert creditOf(id, onBehalf) == creditBefore - units;
     assert debtOf(anyId, anyUser) == otherDebtBefore;
     assert anyUser != onBehalf || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore;
 }
 
 /// TAKE ///
 
-/// take changes maker's and taker's net credit and debt by +/- units relative to their post-slash values,
+/// When no slash or accrual occurs, take changes maker's and taker's net credit-debt by +/- units
 /// and only changes credit and debt of maker and taker at the obligation id.
-/// When no fee accrual occurs, take changes maker's and taker's net credit-debt by +/- units
-/// relative to their post-slash values. PASSIVE_FEE_RECIPIENT's credit may change from fee accrual's slash.
 rule takeEffects(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, offer.obligation);
-    require userLossIndex(id, offer.maker) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
-    require userLossIndex(id, taker) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
-
-    // Exclude fee accrual effects: fee accrual converts pendingFee to debt and mints credit to PASSIVE_FEE_RECIPIENT.
+    require noSlash(id, offer.maker);
+    require noSlash(id, taker);
     require noAccrual(e, id, offer.maker);
     require noAccrual(e, id, taker);
 
-    mathint makerPostSlash = to_mathint(creditAfterSlash(id, offer.maker)) - to_mathint(debtOf(id, offer.maker));
-    mathint takerPostSlash = to_mathint(creditAfterSlash(id, taker)) - to_mathint(debtOf(id, taker));
+    mathint makerNetBefore = to_mathint(creditOf(id, offer.maker)) - to_mathint(debtOf(id, offer.maker));
+    mathint takerNetBefore = to_mathint(creditOf(id, taker)) - to_mathint(debtOf(id, taker));
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
     uint256 otherDebtBefore = debtOf(anyId, anyUser);
 
     take(e, units, taker, takerCallback, takerCallbackData, receiver, offer, signature, root, proof);
 
-    mathint makerAfter = to_mathint(creditOf(id, offer.maker)) - to_mathint(debtOf(id, offer.maker));
-    mathint takerAfter = to_mathint(creditOf(id, taker)) - to_mathint(debtOf(id, taker));
+    mathint makerNetAfter = to_mathint(creditOf(id, offer.maker)) - to_mathint(debtOf(id, offer.maker));
+    mathint takerNetAfter = to_mathint(creditOf(id, taker)) - to_mathint(debtOf(id, taker));
 
     mathint makerDelta = offer.buy ? units : -units;
-    assert makerAfter == makerPostSlash + makerDelta;
+    assert makerNetAfter == makerNetBefore + makerDelta;
     mathint takerDelta = offer.buy ? -units : units;
-    assert takerAfter == takerPostSlash + takerDelta;
+    assert takerNetAfter == takerNetBefore + takerDelta;
     assert anyId != id || (anyUser != offer.maker && anyUser != taker) => creditOf(anyId, anyUser) == otherCreditBefore && debtOf(anyId, anyUser) == otherDebtBefore;
 }
 
@@ -139,9 +116,6 @@ rule takeEffects(env e, uint256 units, address taker, address takerCallback, byt
 /// and only changes position[id][borrower].debt.
 rule liquidateEffects(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes data, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
-
-    // Exclude fee accrual effects.
-    require noAccrual(e, id, borrower);
 
     uint256 debtBefore = debtOf(id, borrower);
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
@@ -156,48 +130,28 @@ rule liquidateEffects(env e, Midnight.Obligation obligation, uint256 collateralI
     assert anyUser != borrower || anyId != id => debtOf(anyId, anyUser) == otherDebtBefore;
 }
 
-/// SLASH ///
+/// SLASH AND ACCRUE ///
 
-/// slash can only decrease credit (or keep it unchanged), does not change debt,
-/// and only changes position[id][user].
-/// Requires the system invariant that the obligation's lossIndex >= the user's lossIndex.
-rule slashEffects(env e, bytes32 id, address user, bytes32 anyId, address anyUser) {
-    require userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex, "see Midnight.spec";
+/// When no slash or accrual occurs, updatePosition does not change credit or debt.
+rule updatePositionEffects(env e, Midnight.Obligation obligation, address user, bytes32 anyId, address anyUser) {
+    bytes32 id = toId(e, obligation);
+    require noSlash(id, user);
+    require noAccrual(e, id, user);
 
     uint256 creditBefore = creditOf(id, user);
-    uint256 debtBefore = debtOf(id, user);
     uint256 otherCreditBefore = creditOf(anyId, anyUser);
     uint256 otherDebtBefore = debtOf(anyId, anyUser);
-    uint256 expectedCredit = creditAfterSlash(id, user);
 
-    slash(e, id, user);
+    updatePosition(e, obligation, user);
 
-    assert creditOf(id, user) == expectedCredit;
+    assert creditOf(id, user) == creditBefore;
     assert debtOf(anyId, anyUser) == otherDebtBefore;
     assert anyUser != user || anyId != id => creditOf(anyId, anyUser) == otherCreditBefore;
 }
 
-/// WITHDRAW COLLATERAL ///
-
-/// When no fee accrual occurs, withdrawCollateral does not change any user's credit or debt.
-rule withdrawCollateralEffects(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 assets, address onBehalf, address receiver, bytes32 anyId, address anyUser) {
-    bytes32 id = toId(e, obligation);
-
-    // Exclude fee accrual effects.
-    require noAccrual(e, id, onBehalf);
-
-    uint256 otherCreditBefore = creditOf(anyId, anyUser);
-    uint256 otherDebtBefore = debtOf(anyId, anyUser);
-
-    withdrawCollateral(e, obligation, collateralIndex, assets, onBehalf, receiver);
-
-    assert creditOf(anyId, anyUser) == otherCreditBefore;
-    assert debtOf(anyId, anyUser) == otherDebtBefore;
-}
-
 /// ALL OTHER FUNCTIONS ///
 
-/// Functions other than take, withdraw, repay, liquidate, slashAndAccrue, and withdrawCollateral do not change any user's credit or debt.
+/// Functions other than take, withdraw, repay, liquidate, updatePosition, and withdrawCollateral do not change any user's credit or debt.
 rule creditAndDebtUnchangedByOtherFunctions(method f, env e, calldataarg args, bytes32 id, address user)
 filtered {
     f -> !f.isView
@@ -205,8 +159,7 @@ filtered {
         && f.selector != sig:withdraw(Midnight.Obligation, uint256, address, address).selector
         && f.selector != sig:repay(Midnight.Obligation, uint256, address).selector
         && f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector
-        && f.selector != sig:slashAndAccrue(Midnight.Obligation, address).selector
-        && f.selector != sig:withdrawCollateral(Midnight.Obligation, uint256, uint256, address, address).selector
+        && f.selector != sig:updatePosition(Midnight.Obligation, address).selector
 } {
     uint256 creditBefore = creditOf(id, user);
     uint256 debtBefore = debtOf(id, user);

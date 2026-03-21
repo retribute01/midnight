@@ -223,7 +223,7 @@ abstract contract BaseTest is Test {
     }
 
     /// @dev Returns an obligation with sorted, unique collaterals, valid lltv/maxLif, and a creatable TTM.
-    function validObligation(Obligation memory obligation) internal view returns (Obligation memory) {
+    function validObligation(Obligation memory obligation) internal pure returns (Obligation memory) {
         uint256 len = obligation.collaterals.length > MAX_COLLATERALS ? MAX_COLLATERALS : obligation.collaterals.length;
         Collateral[] memory collaterals = new Collateral[](len);
         for (uint256 i = 0; i < len; i++) {
@@ -234,7 +234,6 @@ abstract contract BaseTest is Test {
         }
         collaterals = sortCollaterals(collaterals);
         obligation.collaterals = collaterals;
-        obligation.maturity = min(obligation.maturity, block.timestamp + 100 * 365 days);
         return obligation;
     }
 

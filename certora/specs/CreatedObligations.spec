@@ -15,7 +15,7 @@ methods {
     function Midnight.creditOf(bytes32, address) external returns (uint256) envfree;
     function Midnight.debtOf(bytes32, address) external returns (uint256) envfree;
     function Midnight.pendingFee(bytes32, address) external returns (uint128) envfree;
-    function Midnight.lastContinuousFeeAccrual(bytes32, address) external returns (uint128) envfree;
+    function Midnight.lastAccrual(bytes32, address) external returns (uint128) envfree;
     function Midnight.isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
     function Midnight.tradingFee(bytes32, uint256) internal returns (uint256) => NONDET;
     function Midnight.signer(bytes32, Midnight.Signature memory) internal returns (address) => NONDET;
@@ -132,7 +132,7 @@ strong invariant obligationPendingFeeIsEmptyIfNotCreated(bytes32 id, address use
     !Midnight.obligationCreated(id) => userHasNoRemainingContinuousFee(id, user);
 
 strong invariant obligationLastContinuousFeeAccrualIsEmptyIfNotCreated(bytes32 id, address user)
-    !Midnight.obligationCreated(id) => userHasNoLastContinuousFeeAccrual(id, user);
+    !Midnight.obligationCreated(id) => userHasNoLastAccrual(id, user);
 
 strong invariant obligationCollateralIsEmptyIfNotCreated(bytes32 id, address user, uint256 collateralIndex)
     !Midnight.obligationCreated(id) => userHasNoCollateral(id, user, collateralIndex);
@@ -149,6 +149,6 @@ definition userHasNoActivatedCollaterals(bytes32 id, address user) returns bool 
 
 definition userHasNoRemainingContinuousFee(bytes32 id, address user) returns bool = Midnight.pendingFee(id, user) == 0;
 
-definition userHasNoLastContinuousFeeAccrual(bytes32 id, address user) returns bool = Midnight.lastContinuousFeeAccrual(id, user) == 0;
+definition userHasNoLastAccrual(bytes32 id, address user) returns bool = Midnight.lastAccrual(id, user) == 0;
 
 definition userHasNoCollateral(bytes32 id, address user, uint256 collateralIndex) returns bool = collateralIndex < 128 => currentContract.position[id][user].collateral[collateralIndex] == 0;
