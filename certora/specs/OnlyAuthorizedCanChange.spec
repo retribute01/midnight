@@ -16,10 +16,30 @@ methods {
     // Summarize internal functions that use opcodes causing HAVOC (CREATE2, low-level calls).
     function IdLib.storeInCode(Midnight.Obligation memory) internal returns (address) => NONDET;
 
-    // Assume no reentrancy: callbacks do not re-enter Midnight.
+    // Summarize oracle calls.
+    function _.price() external => NONDET;
+
+    // Summarize complex internal functions irrelevant to authorization checks.
+    function tradingFee(bytes32, uint256) internal returns (uint256) => NONDET;
+    function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
+
+    // Summarize TickLib functions.
+    function TickLib.tickToPrice(uint256) internal returns (uint256) => NONDET;
+    function TickLib.wExp(int256) internal returns (uint256) => NONDET;
+
+    // Summarize UtilsLib functions.
+    function UtilsLib.isLeaf(bytes32, bytes32, bytes32[] memory) internal returns (bool) => NONDET;
+    function UtilsLib.msb(uint256) internal returns (uint256) => NONDET;
+    function UtilsLib.countBits(uint128) internal returns (uint256) => NONDET;
+    function UtilsLib.mulDivDown(uint256, uint256, uint256) internal returns (uint256) => NONDET;
+    function UtilsLib.mulDivUp(uint256, uint256, uint256) internal returns (uint256) => NONDET;
+
+    // Assume no reentrancy: callbacks and tokens do not re-enter Midnight.
     function _.onBuy(Midnight.Obligation, address, uint256, uint256, uint256, bytes) external => NONDET;
     function _.onSell(Midnight.Obligation, address, uint256, uint256, uint256, bytes) external => NONDET;
     function _.onFlashLoan(address, uint256, bytes) external => NONDET;
+    function SafeTransferLib.safeTransferFrom(address, address, address, uint256) internal => NONDET;
+    function SafeTransferLib.safeTransfer(address, address, uint256) internal => NONDET;
 
     function signer(bytes32, Midnight.Signature memory) internal returns (address) => CVL_signer();
 }
