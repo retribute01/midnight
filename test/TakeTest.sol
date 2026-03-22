@@ -602,7 +602,7 @@ contract TakeTest is BaseTest {
     }
 
     function testTakeInvalidSignature() public {
-        vm.expectRevert("invalid signature");
+        vm.expectRevert("invalid signer");
         Signature memory _sig = Signature({v: 1, r: 0, s: 0});
         vm.prank(borrower);
         midnight.take(
@@ -618,6 +618,7 @@ contract TakeTest is BaseTest {
 
         privateKey[vm.addr(otherPrivateKey)] = otherPrivateKey;
 
+        authorize(address(ratifier), address(ratifier));
         vm.prank(sender);
         midnight.take(
             0,
@@ -711,7 +712,7 @@ contract TakeTest is BaseTest {
     }
 
     function testTakeNotRatified() public {
-        vm.expectRevert("offer not ratified");
+        vm.expectRevert("invalid signer");
         vm.prank(borrower);
         midnight.take(
             100, borrower, address(0), hex"", borrower, lenderOffer, emptySig, root([lenderOffer]), proof([lenderOffer])
@@ -783,7 +784,7 @@ contract TakeTest is BaseTest {
 
         vm.prank(maker);
         midnight.setIsAuthorized(maker, address(ratifier), true);
-        vm.expectRevert("offer ratification failed");
+        vm.expectRevert("unauthorized");
         vm.prank(sender);
         midnight.take(
             0,

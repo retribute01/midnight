@@ -40,12 +40,10 @@ rule takeRequiresMakerConsent(env e, uint256 units, address taker, address taker
 
     take(e, units, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
 
-    if (signature.v == 0) {
-        assert rootRatified;
-    } else if (offer.ratifier != 0) {
-        assert offer.maker == offer.ratifier || makerAuthorizedRatifier;
+    if (offer.ratifier != 0) {
+        assert makerAuthorizedRatifier;
     } else {
-        assert ghostSigner(root) == offer.maker;
+        assert ghostSigner(root) == offer.maker || rootRatified;
     }
 }
 
