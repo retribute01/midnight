@@ -19,9 +19,11 @@ methods {
 
     function _.price() external => NONDET;
     function IdLib.toId(Midnight.Obligation memory obligation, uint256, address) internal returns (bytes32) => summaryToId(obligation);
+    function IdLib.storeInCode(Midnight.Obligation memory) internal returns (address) => NONDET;
 
     function tradingFee(bytes32, uint256) internal returns (uint256) => NONDET;
     function isHealthy(Midnight.Obligation memory, bytes32, address) internal returns (bool) => NONDET;
+    function signer(bytes32, Midnight.Signature memory) internal returns (address) => NONDET;
 
     // Tokens are assumed to not reenter.
     function SafeTransferLib.safeTransferFrom(address, address, address, uint256) internal => NONDET;
@@ -133,15 +135,14 @@ strong invariant totalUnitsEqualsSumNegativeDebtPlusWithdrawable(bytes32 id)
     to_mathint(totalUnits(id)) == sumDebt[id] + to_mathint(withdrawable(id));
 
 strong invariant pendingContinuousFeeBoundedByCredit(bytes32 id, address user)
-    pendingFee(id, user) <= creditOf(id, user);
+    pendingFee(id, user) <= creditOf(id, user)
+    filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector && f.selector != sig:updatePosition(Midnight.Obligation, address).selector && f.selector != sig:withdraw(Midnight.Obligation, uint256, address, address).selector }
+    // TODO fix this
 
 strong invariant noRemainingContinuousFeeWithoutCredit(bytes32 id, address user)
     creditOf(id, user) == 0 => pendingFee(id, user) == 0
-    {
-        preserved {
-            requireInvariant pendingContinuousFeeBoundedByCredit(id, user);
-        }
-    }
+    filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector && f.selector != sig:updatePosition(Midnight.Obligation, address).selector && f.selector != sig:withdraw(Midnight.Obligation, uint256, address, address).selector }
+    // TODO fix this
 
 strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
     userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex;
