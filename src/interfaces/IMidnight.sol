@@ -22,7 +22,6 @@ struct Collateral {
     address oracle;
 }
 
-/// @dev An offer's ratifier is checked only if the offer is not signed by its maker.
 struct Offer {
     Obligation obligation;
     bool buy;

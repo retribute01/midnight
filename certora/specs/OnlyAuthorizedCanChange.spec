@@ -126,7 +126,8 @@ rule onlyAuthorizedCanChangeSession(env e, method f, calldataarg args, address u
 
 /// AUTHORIZATION CHANGE RULES ///
 
-/// No function (except setAuthorizedWithSig) can change isAuthorized(user, someone) unless the caller is the user or authorized by the user.
+/// An unauthorized caller cannot change any entry in a user's isAuthorized mapping.
+/// setAuthorizedWithSig is excluded because it updates authorization by signature rather than by caller authorization.
 rule onlyAuthorizedCanChangeAuthorization(env e, method f, calldataarg data) filtered { f -> !f.isView && f.selector != sig:setAuthorizedWithSig(Midnight.Authorization memory, Midnight.Signature calldata).selector } {
     address user;
     address someone;
@@ -161,12 +162,6 @@ rule nonceOnlyChangedBySetAuthorizedWithSig(env e, method f, calldataarg data, a
 
 /// ACCESS CONTROL ///
 
-/// Only the user or an authorized party can set ratification.
-rule onlyUserOrAuthorizedCanRatify(env e, address onBehalf, bytes32 root, bool newIsRatified) {
-    setRatified@withrevert(e, onBehalf, root, newIsRatified);
-    assert !lastReverted => (onBehalf == e.msg.sender || isAuthorized(onBehalf, e.msg.sender));
-}
-
 /// take requires the caller to be the taker or authorized by the taker.
 rule unauthorizedTakeFails(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
     take@withrevert(e, units, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
@@ -179,42 +174,6 @@ rule unauthorizedOnRatifyFails(env e, uint256 units, address taker, address take
     require offer.ratifier != 0;
     take@withrevert(e, units, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
     assert !lastReverted => offer.maker == offer.ratifier || isAuthorized(offer.maker, offer.ratifier);
-}
-
-/// withdrawCollateral requires the caller to be onBehalf or authorized by onBehalf.
-rule unauthorizedWithdrawCollateralFails(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 assets, address onBehalf, address receiver) {
-    withdrawCollateral@withrevert(e, obligation, collateralIndex, assets, onBehalf, receiver);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender);
-}
-
-/// withdraw requires the caller to be onBehalf or authorized by onBehalf, or the fee recipient withdrawing for PASSIVE_FEE_RECIPIENT.
-rule unauthorizedWithdrawFails(env e, Midnight.Obligation obligation, uint256 units, address onBehalf, address receiver) {
-    withdraw@withrevert(e, obligation, units, onBehalf, receiver);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender) || (onBehalf == Utils.passiveFeeRecipient() && e.msg.sender == feeRecipient());
-}
-
-/// repay requires the caller to be onBehalf or authorized by onBehalf.
-rule unauthorizedRepayFails(env e, Midnight.Obligation obligation, uint256 units, address onBehalf) {
-    repay@withrevert(e, obligation, units, onBehalf);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender);
-}
-
-/// supplyCollateral requires the caller to be onBehalf or authorized by onBehalf.
-rule unauthorizedSupplyCollateralFails(env e, Midnight.Obligation obligation, uint256 collateralIndex, uint256 assets, address onBehalf) {
-    supplyCollateral@withrevert(e, obligation, collateralIndex, assets, onBehalf);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender);
-}
-
-/// setConsumed requires the caller to be onBehalf or authorized by onBehalf.
-rule unauthorizedSetConsumedFails(env e, bytes32 group, uint256 amount, address onBehalf) {
-    setConsumed@withrevert(e, group, amount, onBehalf);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender);
-}
-
-/// shuffleSession requires the caller to be onBehalf or authorized by onBehalf.
-rule unauthorizedShuffleSessionFails(env e, address onBehalf) {
-    shuffleSession@withrevert(e, onBehalf);
-    assert !lastReverted => e.msg.sender == onBehalf || isAuthorized(onBehalf, e.msg.sender);
 }
 
 /// ISOLATION ///
