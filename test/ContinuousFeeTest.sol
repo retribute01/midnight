@@ -357,4 +357,30 @@ contract ContinuousFeeTest is BaseTest {
             midnight.pendingFee(id, lender), pendingAfterSlash - accruedFee, 1, "remaining after slash and accrual"
         );
     }
+
+    function testUpdatePositionViewCorrect(
+        uint256 credit,
+        uint256 feeRate,
+        uint256 ttm,
+        uint256 elapsed,
+        bool withBadDebt
+    ) public {
+        credit = bound(credit, 100, MAX_CREDIT);
+        feeRate = bound(feeRate, 1, MAX_CONTINUOUS_FEE);
+        ttm = bound(ttm, 10, 360 days);
+        elapsed = bound(elapsed, 1, ttm - 1);
+
+        setupLender(credit, feeRate, ttm);
+
+        if (withBadDebt) createBadDebt(obligation);
+
+        vm.warp(block.timestamp + elapsed);
+
+        (uint128 expectedCredit, uint128 expectedPending,) = midnight.updatePositionView(obligation, id, lender);
+
+        midnight.updatePosition(obligation, lender);
+
+        assertEq(midnight.creditOf(id, lender), expectedCredit, "view matches credit");
+        assertEq(midnight.pendingFee(id, lender), expectedPending, "view matches pendingFee");
+    }
 }

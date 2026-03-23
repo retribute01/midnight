@@ -59,12 +59,11 @@ hook Sstore position[KEY bytes32 id][KEY address owner].debt uint128 newDebt (ui
 }
 
 function summaryMulDiv(uint256 x, uint256 y, uint256 d) returns uint256 {
-    if (x == 0 || y == 0) return 0;
-    if (d > 0 && y == d) return x;
-    if (d > 0 && x == d) return y;
-    uint256 res;
-    require y <= d => res <= x;
-    return res;
+    uint256 r;
+    require x == 0 => r == 0;
+    require d > 0 && y <= d => r <= x;
+    require d > 0 && x <= d && y <= d => x - r <= d - y;
+    return r;
 }
 
 rule takeInputOutputConsistency(env e, uint256 unitsInput, address taker, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, address takerCallbackAddress, bytes takerCallbackData) {
@@ -135,14 +134,12 @@ strong invariant totalUnitsEqualsSumNegativeDebtPlusWithdrawable(bytes32 id)
     to_mathint(totalUnits(id)) == sumDebt[id] + to_mathint(withdrawable(id));
 
 strong invariant pendingContinuousFeeBoundedByCredit(bytes32 id, address user)
-    pendingFee(id, user) <= creditOf(id, user)
-    filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector && f.selector != sig:updatePosition(Midnight.Obligation, address).selector && f.selector != sig:withdraw(Midnight.Obligation, uint256, address, address).selector }
-    // TODO fix this
+    pendingFee(id, user) <= creditOf(id, user);
 
-strong invariant noRemainingContinuousFeeWithoutCredit(bytes32 id, address user)
-    creditOf(id, user) == 0 => pendingFee(id, user) == 0
-    filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector && f.selector != sig:updatePosition(Midnight.Obligation, address).selector && f.selector != sig:withdraw(Midnight.Obligation, uint256, address, address).selector }
-    // TODO fix this
+rule noRemainingContinuousFeeWithoutCredit(bytes32 id, address user) {
+    requireInvariant pendingContinuousFeeBoundedByCredit(id, user);
+    assert creditOf(id, user) == 0 => pendingFee(id, user) == 0;
+}
 
 strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
     userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex;
