@@ -50,7 +50,6 @@ rule updatePositionEffects(env e, Midnight.Obligation obligation, address user, 
     assert anyId != id || (anyUser != user && anyUser != passiveFeeRecipient) => creditOf(anyId, anyUser) == otherCreditBefore;
 }
 
-
 /// WITHDRAW ///
 
 /// withdraw decreases onBehalf's post-update credit by exactly units
