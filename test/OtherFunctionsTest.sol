@@ -169,7 +169,7 @@ contract OtherFunctionsTest is BaseTest {
 
         offer.maker = maker;
 
-        vm.expectRevert("UNAUTHORIZED");
+        vm.expectRevert("unauthorized");
         vm.prank(sender);
         midnight.setRatified(maker, root(offer), newRatified);
 
@@ -276,9 +276,7 @@ contract OtherFunctionsTest is BaseTest {
         (_sig.v, _sig.r, _sig.s) = vm.sign(authorizerPrivateKey, _authorizationDigest(authorization));
 
         vm.expectEmit(true, true, false, true);
-        emit EventsLib.SetIsAuthorized(address(this), authorizer, authorizee, _isAuthorized);
-        vm.expectEmit(true, false, false, true);
-        emit EventsLib.AuthorizationNonceUsed(authorizer, 0);
+        emit EventsLib.SetIsAuthorized(address(this), authorizer, authorizee, _isAuthorized, authorization.nonce);
         midnight.setAuthorizedWithSig(authorization, _sig);
     }
 

@@ -604,7 +604,7 @@ contract TakeTest is BaseTest {
         vm.expectRevert("invalid proof");
         vm.prank(borrower);
         midnight.take(
-            100, borrower, address(0), hex"", borrower, lenderOffer, sign([lenderOffer]), invalidRoot, new bytes32[](0)
+            100, borrower, address(0), hex"", borrower, lenderOffer, sig([lenderOffer]), invalidRoot, new bytes32[](0)
         );
     }
 
@@ -634,7 +634,7 @@ contract TakeTest is BaseTest {
             hex"",
             sender,
             lenderOffer,
-            sign([lenderOffer], vm.addr(otherPrivateKey)),
+            sig([lenderOffer], vm.addr(otherPrivateKey)),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -645,6 +645,7 @@ contract TakeTest is BaseTest {
     function testTakeByRatificationDifferentFromMaker(address maker, address sender, uint256 otherPrivateKey) public {
         otherPrivateKey = boundPrivateKey(otherPrivateKey);
         vm.assume(maker != sender);
+        vm.assume(maker != address(0));
         RatifyCallback ratifier = new RatifyCallback();
         vm.assume(maker != address(ratifier));
         lenderOffer.maker = maker;
@@ -662,7 +663,7 @@ contract TakeTest is BaseTest {
             hex"",
             sender,
             lenderOffer,
-            sign([lenderOffer], vm.addr(otherPrivateKey)),
+            sig([lenderOffer], vm.addr(otherPrivateKey)),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -675,7 +676,7 @@ contract TakeTest is BaseTest {
         vm.expectRevert("invalid proof");
         vm.prank(borrower);
         midnight.take(
-            100, borrower, address(0), hex"", borrower, lenderOffer, sign([lenderOffer]), root([lenderOffer]), _path
+            100, borrower, address(0), hex"", borrower, lenderOffer, sig([lenderOffer]), root([lenderOffer]), _path
         );
     }
 
@@ -691,7 +692,7 @@ contract TakeTest is BaseTest {
             hex"",
             borrower,
             lenderOffer,
-            sign([lenderOffer, otherOffer]),
+            sig([lenderOffer, otherOffer]),
             root([lenderOffer, otherOffer]),
             _path
         );
@@ -712,7 +713,7 @@ contract TakeTest is BaseTest {
             hex"",
             borrower,
             lenderOffer,
-            sign([lenderOffer, otherOffer]),
+            sig([lenderOffer, otherOffer]),
             root([lenderOffer, otherOffer]),
             proof([lenderOffer, otherOffer])
         );
@@ -739,7 +740,7 @@ contract TakeTest is BaseTest {
             hex"",
             sender,
             lenderOffer,
-            sign([lenderOffer]),
+            sig([lenderOffer]),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -747,6 +748,7 @@ contract TakeTest is BaseTest {
 
     function testTakeOfferRatified(address maker, address sender) public {
         vm.assume(maker != sender);
+        vm.assume(maker != address(0));
         lenderOffer.maker = maker;
         vm.prank(maker);
         midnight.setRatified(maker, root(lenderOffer), true);
@@ -774,7 +776,7 @@ contract TakeTest is BaseTest {
             hex"",
             sender,
             lenderOffer,
-            sign([lenderOffer], vm.addr(otherSecretKey)),
+            sig([lenderOffer], vm.addr(otherSecretKey)),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -782,6 +784,7 @@ contract TakeTest is BaseTest {
 
     function testTakeRatificationFailed(address maker, address sender, uint256 signerPrivateKey) public {
         vm.assume(maker != sender);
+        vm.assume(maker != address(0));
         signerPrivateKey = boundPrivateKey(signerPrivateKey);
         privateKey[vm.addr(signerPrivateKey)] = signerPrivateKey;
         RatifyCallback ratifier = new RatifyCallback();
@@ -800,7 +803,7 @@ contract TakeTest is BaseTest {
             hex"",
             sender,
             lenderOffer,
-            sign([lenderOffer], vm.addr(signerPrivateKey)),
+            sig([lenderOffer], vm.addr(signerPrivateKey)),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -819,7 +822,7 @@ contract TakeTest is BaseTest {
             hex"",
             taker,
             lenderOffer,
-            sign([lenderOffer]),
+            sig([lenderOffer]),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -835,7 +838,7 @@ contract TakeTest is BaseTest {
             hex"",
             taker,
             lenderOffer,
-            sign([lenderOffer]),
+            sig([lenderOffer]),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -854,7 +857,7 @@ contract TakeTest is BaseTest {
             hex"",
             taker,
             lenderOffer,
-            sign([lenderOffer]),
+            sig([lenderOffer]),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -902,7 +905,7 @@ contract TakeTest is BaseTest {
             abi.encode(0, collateral),
             borrower,
             lenderOffer,
-            sign([lenderOffer]),
+            sig([lenderOffer]),
             root([lenderOffer]),
             proof([lenderOffer])
         );
@@ -948,7 +951,7 @@ contract TakeTest is BaseTest {
             abi.encode(address(loanToken), assets),
             address(0),
             borrowerOffer,
-            sign([borrowerOffer]),
+            sig([borrowerOffer]),
             root([borrowerOffer]),
             proof([borrowerOffer])
         );
@@ -1024,12 +1027,11 @@ contract TakeTest is BaseTest {
 
         Signature memory badSig;
 
+        vm.expectRevert("maker cannot be address(0)");
         vm.prank(borrower);
         midnight.take(
             units, borrower, address(0), hex"", borrower, zeroOffer, badSig, root(zeroOffer), new bytes32[](0)
         );
-
-        assertEq(midnight.creditOf(id, address(0)), units, "address(0) got free credit");
     }
 }
 

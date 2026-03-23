@@ -47,6 +47,12 @@ rule takeRequiresMakerConsent(env e, uint256 units, address taker, address taker
     }
 }
 
+/// No successful take can use address(0) as maker.
+rule takeRequiresNonZeroMaker(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
+    take@withrevert(e, units, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, signature, root, proof);
+    assert !lastReverted => offer.maker != 0;
+}
+
 /// ISOLATION ///
 
 /// setAuthorizedWithSig only changes isAuthorized for the (authorizer, authorizee) in the authorization struct.

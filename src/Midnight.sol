@@ -217,8 +217,9 @@ contract Midnight is IMidnight {
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(offer.maker != taker, "buyer and seller cannot be the same");
-        require(offer.session == session[offer.maker], "invalid session");
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
+        require(offer.session == session[offer.maker], "invalid session");
+        require(offer.maker != address(0), "maker cannot be address(0)");
         if (offer.ratifier == address(0)) {
             require(signer(root, sig) == offer.maker || ratified[offer.maker][root], "invalid signer");
         } else {
@@ -543,7 +544,7 @@ contract Midnight is IMidnight {
     }
 
     function setRatified(address onBehalf, bytes32 root, bool newRatified) external {
-        require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "UNAUTHORIZED");
+        require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "unauthorized");
         ratified[onBehalf][root] = newRatified;
         emit EventsLib.SetRatified(onBehalf, root, newRatified);
     }
@@ -559,9 +560,12 @@ contract Midnight is IMidnight {
 
         isAuthorized[authorization.authorizer][authorization.authorizee] = authorization.isAuthorized;
         emit EventsLib.SetIsAuthorized(
-            msg.sender, authorization.authorizer, authorization.authorizee, authorization.isAuthorized
+            msg.sender,
+            authorization.authorizer,
+            authorization.authorizee,
+            authorization.isAuthorized,
+            authorization.nonce
         );
-        emit EventsLib.AuthorizationNonceUsed(authorization.authorizer, authorization.nonce);
     }
 
     /// @dev Passing type(uint256).max cancels all offers in the group (and never reverts).
@@ -586,7 +590,7 @@ contract Midnight is IMidnight {
     function setIsAuthorized(address onBehalf, address authorized, bool newIsAuthorized) external {
         require(onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender], "unauthorized");
         isAuthorized[onBehalf][authorized] = newIsAuthorized;
-        emit EventsLib.SetIsAuthorized(msg.sender, onBehalf, authorized, newIsAuthorized);
+        emit EventsLib.SetIsAuthorized(msg.sender, onBehalf, authorized, newIsAuthorized, authorizationNonce[onBehalf]);
     }
 
     function flashLoan(address token, uint256 assets, address callback, bytes calldata data) external {

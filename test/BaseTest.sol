@@ -98,8 +98,7 @@ abstract contract BaseTest is Test {
         // receiverIfTakerIsSeller param is for taker (when offer.buy == true)
         // offer.receiverIfMakerIsSeller is for maker (when offer.buy == false)
         vm.prank(taker);
-        return
-            midnight.take(units, taker, address(0), hex"", taker, offer, sign([offer]), root([offer]), proof([offer]));
+        return midnight.take(units, taker, address(0), hex"", taker, offer, sig([offer]), root([offer]), proof([offer]));
     }
 
     function setupOtherUsers(Obligation memory obligation, uint256 units) internal {
@@ -166,20 +165,12 @@ abstract contract BaseTest is Test {
         return IdLib.toId(obligation, block.chainid, address(midnight));
     }
 
-    function sign(Offer[1] memory offers) internal view returns (Signature memory) {
-        return sig(root(offers), privateKey[offers[0].maker]);
-    }
-
-    function sign(Offer[1] memory offers, address _signer) internal view returns (Signature memory) {
+    function sig(Offer[1] memory offers, address _signer) internal view returns (Signature memory) {
         return sig(root(offers), privateKey[_signer]);
     }
 
     function proof(Offer[1] memory) internal pure returns (bytes32[] memory) {
         return new bytes32[](0);
-    }
-
-    function sign(Offer[2] memory offers) internal view returns (Signature memory) {
-        return sig(root(offers), privateKey[offers[0].maker]);
     }
 
     // assumes the offer is the first one!
@@ -277,7 +268,7 @@ abstract contract BaseTest is Test {
             hex"",
             borrower,
             borrowerOffer,
-            sign([borrowerOffer]),
+            sig([borrowerOffer]),
             root([borrowerOffer]),
             proof([borrowerOffer])
         );
