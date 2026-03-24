@@ -12,24 +12,23 @@ contract Utils {
         return keccak256(abi.encode(obligation));
     }
 
-    function getBit(uint256 bitmap, uint256 bit) external pure returns (bool) {
+    function getBit(uint128 bitmap, uint256 bit) external pure returns (bool) {
         return bitmap & (1 << bit) != 0;
     }
 
-    function setBit(uint256 bitmap, uint256 bit) external pure returns (uint256) {
+    function setBit(uint128 bitmap, uint256 bit) external pure returns (uint128) {
         return UtilsLib.setBit(bitmap, bit);
     }
 
-    function clearBit(uint256 bitmap, uint256 bit) external pure returns (uint256) {
+    function clearBit(uint128 bitmap, uint256 bit) external pure returns (uint128) {
         return UtilsLib.clearBit(bitmap, bit);
     }
 
-    function msb(uint256 bitmap) external pure returns (uint256) {
+    function msb(uint128 bitmap) external pure returns (uint256) {
         return UtilsLib.msb(bitmap);
     }
 
     function passiveFeeRecipient() external pure returns (address) {
         return PASSIVE_FEE_RECIPIENT;
-
     }
 }
