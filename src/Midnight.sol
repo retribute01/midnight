@@ -376,7 +376,6 @@ contract Midnight is IMidnight {
         _position.collateral[collateralIndex] = UtilsLib.toUint128(oldCollateralOf + assets);
 
         if (oldCollateralOf == 0 && assets > 0) {
-            // forge-lint: disable-next-item(unsafe-typecast) as collateralIndex < MAX_COLLATERALS (128)
             uint128 newBitmap = _position.activatedCollaterals.setBit(collateralIndex);
             _position.activatedCollaterals = newBitmap;
             require(UtilsLib.countBits(newBitmap) <= MAX_COLLATERALS_PER_BORROWER, "too many collaterals per borrower");
@@ -404,7 +403,6 @@ contract Midnight is IMidnight {
         _position.collateral[collateralIndex] = UtilsLib.toUint128(newCollateralOf);
 
         if (newCollateralOf == 0 && assets > 0) {
-            // forge-lint: disable-next-item(unsafe-typecast) as collateralIndex < MAX_COLLATERALS (128)
             _position.activatedCollaterals = _position.activatedCollaterals.clearBit(collateralIndex);
         }
 
@@ -506,7 +504,6 @@ contract Midnight is IMidnight {
             uint128 newCollateralOf = _position.collateral[collateralIndex] - UtilsLib.toUint128(seizedAssets);
             _position.collateral[collateralIndex] = newCollateralOf;
             if (newCollateralOf == 0 && seizedAssets > 0) {
-                // forge-lint: disable-next-item(unsafe-typecast) as collateralIndex < MAX_COLLATERALS (128)
                 _position.activatedCollaterals = _position.activatedCollaterals.clearBit(collateralIndex);
             }
             _obligationState.withdrawable += repaidUnits;

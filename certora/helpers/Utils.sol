@@ -13,7 +13,7 @@ contract Utils {
     }
 
     function getBit(uint128 bitmap, uint256 bit) external pure returns (bool) {
-        return uint256(bitmap) & (1 << bit) != 0;
+        return bitmap & (1 << bit) != 0;
     }
 
     function setBit(uint128 bitmap, uint256 bit) external pure returns (uint128) {
@@ -30,6 +30,5 @@ contract Utils {
 
     function passiveFeeRecipient() external pure returns (address) {
         return PASSIVE_FEE_RECIPIENT;
-
     }
 }
