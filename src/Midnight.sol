@@ -311,7 +311,7 @@ contract Midnight is IMidnight {
 
         if (buyerCallback != address(0)) {
             ICallbacks(buyerCallback)
-                .onBuy(offer.obligation, buyer, buyerAssets, sellerAssets, units, buyerCallbackData);
+                .onBuy(id, offer.obligation, buyer, buyerAssets, sellerAssets, units, buyerCallbackData);
         }
 
         SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, feeRecipient, buyerAssets - sellerAssets);
@@ -319,7 +319,7 @@ contract Midnight is IMidnight {
 
         if (sellerCallback != address(0)) {
             ICallbacks(sellerCallback)
-                .onSell(offer.obligation, seller, buyerAssets, sellerAssets, units, sellerCallbackData);
+                .onSell(id, offer.obligation, seller, buyerAssets, sellerAssets, units, sellerCallbackData);
         }
 
         require(isHealthy(offer.obligation, id, seller), "seller is unhealthy");
@@ -520,7 +520,8 @@ contract Midnight is IMidnight {
         SafeTransferLib.safeTransfer(obligation.collaterals[collateralIndex].token, msg.sender, seizedAssets);
 
         if (data.length > 0) {
-            ICallbacks(msg.sender).onLiquidate(obligation, collateralIndex, seizedAssets, repaidUnits, borrower, data);
+            ICallbacks(msg.sender)
+                .onLiquidate(id, obligation, collateralIndex, seizedAssets, repaidUnits, borrower, data);
         }
 
         SafeTransferLib.safeTransferFrom(obligation.loanToken, msg.sender, address(this), repaidUnits);
