@@ -566,7 +566,7 @@ contract Midnight is IMidnight {
 
     /// @dev Returns the obligation id and creates the obligation if it doesn't exist yet.
     function touchObligation(Obligation memory obligation) public returns (bytes32) {
-        bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
+        bytes32 id = toId(obligation);
         if (!obligationState[id].created) {
             require(obligation.collaterals.length > 0, "no collaterals");
             require(obligation.collaterals.length <= MAX_COLLATERALS, "too many collaterals");
@@ -623,7 +623,7 @@ contract Midnight is IMidnight {
 
     /// @dev Slashes the position and accrues the continuous fee.
     function updatePosition(Obligation memory obligation, address user) external {
-        bytes32 id = IdLib.toId(obligation, block.chainid, address(this));
+        bytes32 id = toId(obligation);
         require(obligationState[id].created, "not created");
         _updatePosition(obligation, id, user);
     }
@@ -659,7 +659,7 @@ contract Midnight is IMidnight {
         return position[id][user].collateral[index];
     }
 
-    function toId(Obligation memory obligation) external view returns (bytes32) {
+    function toId(Obligation memory obligation) public view returns (bytes32) {
         return IdLib.toId(obligation, block.chainid, address(this));
     }
 
