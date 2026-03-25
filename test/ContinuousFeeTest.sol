@@ -255,7 +255,9 @@ contract ContinuousFeeTest is BaseTest {
         vm.expectEmit();
         emit EventsLib.UpdatePosition(id, otherLender, 0, 0, 0);
         vm.expectEmit();
-        emit EventsLib.UpdatePosition(id, lender, credit - creditAfterAccrual, remaining - remainingAfterAccrual, feeUnits);
+        emit EventsLib.UpdatePosition(
+            id, lender, credit - creditAfterAccrual, remaining - remainingAfterAccrual, feeUnits
+        );
         uint256 expectedRemaining = creditAfterAccrual > 0
             ? remainingAfterAccrual - remainingAfterAccrual.mulDivUp(exitAmount, creditAfterAccrual)
             : 0;
