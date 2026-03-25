@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+import "BitmapSummaries.spec";
+
 using Havoc as callback;
 
 methods {
@@ -42,7 +44,10 @@ definition ORACLE_PRICE_SCALE() returns uint256 = 10 ^ 36;
 
 persistent ghost summaryPrice(address) returns uint256;
 
-persistent ghost summaryMulDivDownM(mathint, mathint, mathint) returns mathint;
+persistent ghost summaryMulDivDownM(mathint, mathint, mathint) returns mathint {
+    /* proved in mulDivZero in MulDiv.spec */
+    axiom forall uint256 b. forall uint256 d. d > 0 => summaryMulDivDownM(0, b, d) == 0;
+}
 
 persistent ghost summaryMulDivUpM(mathint, mathint, mathint) returns mathint;
 
@@ -184,14 +189,14 @@ function genericCallbackBool() returns (bool) {
 
 // Show that the user stays healthy on liquidate, if the user gets liquidated (can occur if blocktime exceeds maturity)
 rule stayHealthyLiquidateSameBorrower(env e, uint256 collateralIndex, uint256 seizedAssetsIn, uint256 repaidUnitsIn, bytes data) {
-    useIsHealthyNoBitmap = true;
+    useIsHealthyNoBitmap = false;
 
     // This variable is set to false whenever isHealthy() is violated before a callback.  Initially we set it to true to indicate no violations detected.
     healthyBeforeCallback = true;
 
     require globalObligationCollateralLLTV[collateralIndex] * globalObligationCollateralMaxLif[collateralIndex] <= WAD() * WAD(), "Proved in lifTimesLltvIsLessThanOrEqualToOne in ExactMath.spec: maxLif is at most 1/lltv";
 
-    require globalObligationCollateralLength <= 1, "too many collaterals for the spec to handle";
+    require globalObligationCollateralLength <= 2, "too many collaterals for the spec to handle";
 
     Midnight.Obligation globalObligation = getGlobalObligation();
 
