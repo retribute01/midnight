@@ -230,7 +230,7 @@ rule stayHealthyLiquidateOtherBorrower(env e, Midnight.Obligation obligation, ui
     // This variable is set to false whenever isHealthy() is violated before a callback.  Initially we set it to true to indicate no violations detected.
     healthyBeforeCallback = true;
 
-    require globalObligationCollateralLength <= 1, "too many collaterals for the spec to handle";
+    require globalObligationCollateralLength <= 2, "too many collaterals for the spec to handle";
 
     Midnight.Obligation globalObligation = getGlobalObligation();
     require borrower != globalBorrower || !equalsGlobalObligation(obligation), "borrower or obligation differs";
