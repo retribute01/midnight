@@ -94,7 +94,7 @@ function summaryMulDivUp(uint256 a, uint256 b, uint256 d) returns uint256 {
 persistent ghost bool useIsHealthyNoBitmap;
 
 // global variable to track whether the user was healthy before the callbacks.
-persistent ghost bool healthyBeforeCallback;
+ghost bool healthyBeforeCallback;
 
 // global variable to track which obligation and borrower we're testing.
 persistent ghost address globalObligationLoanToken;
@@ -161,11 +161,12 @@ function genericCallback() {
     Midnight.Obligation globalObligation = getGlobalObligation();
 
     // check that isHealthy holds before the callback.  We remember any violation and check that none occurred at the end of each rule.
-    if (!callIsHealthy(globalObligation, globalId, globalBorrower)) {
-        healthyBeforeCallback = false;
-    }
+    bool savedHealthyBefore = healthyBeforeCallback && callIsHealthy(globalObligation, globalId, globalBorrower);
 
     callback.callHavoc(e, dummy);
+
+    // the callback havocs the global variable healthyBeforeCallback, so we restore the variable using the saved value in the local variable.
+    healthyBeforeCallback = savedHealthyBefore;
 
     require callIsHealthy(globalObligation, globalId, globalBorrower), "user is healthy after callback";
 }
