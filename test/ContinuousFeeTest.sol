@@ -5,7 +5,7 @@ pragma solidity ^0.8.0;
 import {WAD, MAX_CONTINUOUS_FEE, PASSIVE_FEE_RECIPIENT} from "../src/libraries/ConstantsLib.sol";
 import {EventsLib} from "../src/libraries/EventsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
-import {MAX_TICK} from "../src/libraries/TickLib.sol";
+import {TickLib, MAX_TICK} from "../src/libraries/TickLib.sol";
 import {Obligation, Offer, Collateral} from "../src/interfaces/IMidnight.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
 
@@ -80,6 +80,8 @@ contract ContinuousFeeTest is BaseTest {
         uint256 snap = vm.snapshotState();
         vm.expectEmit();
         emit EventsLib.UpdatePosition(id, lender, expectedFee, expectedFee, expectedFee);
+        vm.expectEmit();
+        emit EventsLib.Withdraw(lender, id, 0, lender, lender, 0);
         vm.prank(lender);
         midnight.withdraw(obligation, 0, lender, lender);
         assertEq(midnight.creditOf(id, lender), credit - expectedFee, "credit after withdraw");
@@ -115,6 +117,8 @@ contract ContinuousFeeTest is BaseTest {
         uint256 snap = vm.snapshotState();
         vm.expectEmit();
         emit EventsLib.UpdatePosition(id, lender, remaining, remaining, remaining);
+        vm.expectEmit();
+        emit EventsLib.Withdraw(lender, id, 0, lender, lender, 0);
         vm.prank(lender);
         midnight.withdraw(obligation, 0, lender, lender);
         assertEq(midnight.creditOf(id, lender), credit - remaining, "all remaining consumed (withdraw)");
@@ -252,16 +256,42 @@ contract ContinuousFeeTest is BaseTest {
         // Lender exits via take (lender is seller, otherLender is buyer)
         deal(address(loanToken), otherLender, exitAmount);
 
+        uint256 price = TickLib.tickToPrice(MAX_TICK);
+        uint256 takeAssets = exitAmount.mulDivDown(price, WAD);
+        uint256 buyerPendingFeeIncrease = exitAmount.mulDivDown(feeRate * (ttm - elapsed), WAD);
+        uint256 sellerPendingFeeDecrease = creditAfterAccrual > 0
+            ? remainingAfterAccrual.mulDivUp(exitAmount, creditAfterAccrual)
+            : 0;
+
         vm.expectEmit();
         emit EventsLib.UpdatePosition(id, otherLender, 0, 0, 0);
         vm.expectEmit();
         emit EventsLib.UpdatePosition(
             id, lender, credit - creditAfterAccrual, remaining - remainingAfterAccrual, feeUnits
         );
-        uint256 expectedRemaining = creditAfterAccrual > 0
-            ? remainingAfterAccrual - remainingAfterAccrual.mulDivUp(exitAmount, creditAfterAccrual)
-            : 0;
+        vm.expectEmit();
+        emit EventsLib.Take(
+            lender,
+            id,
+            otherLender,
+            lender,
+            true,
+            takeAssets,
+            takeAssets,
+            exitAmount,
+            lender,
+            keccak256("lender-exit"),
+            exitAmount,
+            buyerPendingFeeIncrease,
+            sellerPendingFeeDecrease,
+            exitAmount,
+            exitAmount
+        );
         take(exitAmount, lender, _makeBuyOffer(exitAmount, keccak256("lender-exit"))); // lender is taker = seller
+
+        uint256 expectedRemaining = creditAfterAccrual > 0
+            ? remainingAfterAccrual - sellerPendingFeeDecrease
+            : 0;
         assertEq(midnight.creditOf(id, lender), creditAfterAccrual - exitAmount, "credit after exit");
         assertApproxEqAbs(midnight.pendingFee(id, lender), expectedRemaining, 1, "remaining after exit");
 
@@ -269,8 +299,7 @@ contract ContinuousFeeTest is BaseTest {
             assertEq(midnight.pendingFee(id, lender), 0, "full exit zeroes remaining");
         }
 
-        uint256 buyerExpectedPending = exitAmount.mulDivDown(feeRate * (ttm - elapsed), WAD);
-        assertEq(midnight.pendingFee(id, otherLender), buyerExpectedPending, "buyer pendingFee after exit");
+        assertEq(midnight.pendingFee(id, otherLender), buyerPendingFeeIncrease, "buyer pendingFee after exit");
         assertEq(midnight.creditOf(id, otherLender), exitAmount, "buyer credit after exit");
     }
 
