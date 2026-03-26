@@ -516,7 +516,14 @@ contract Midnight is IMidnight {
         }
 
         emit EventsLib.Liquidate(
-            msg.sender, id, collateralIndex, seizedAssets, repaidUnits, borrower, badDebt, _obligationState.lossIndex
+            msg.sender,
+            id,
+            obligation.collaterals[collateralIndex].token,
+            seizedAssets,
+            repaidUnits,
+            borrower,
+            badDebt,
+            _obligationState.lossIndex
         );
 
         SafeTransferLib.safeTransfer(obligation.collaterals[collateralIndex].token, msg.sender, seizedAssets);
