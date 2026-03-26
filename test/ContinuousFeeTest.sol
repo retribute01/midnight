@@ -327,9 +327,8 @@ contract ContinuousFeeTest is BaseTest {
         vm.prank(borrower);
         midnight.repay(obligation, credit, borrower);
 
-        uint256 pendingFeeDecrease = creditAfterAccrual > 0
-            ? remainingAfterAccrual.mulDivUp(withdrawAmount, creditAfterAccrual)
-            : 0;
+        uint256 pendingFeeDecrease =
+            creditAfterAccrual > 0 ? remainingAfterAccrual.mulDivUp(withdrawAmount, creditAfterAccrual) : 0;
 
         vm.expectEmit();
         emit EventsLib.UpdatePosition(
