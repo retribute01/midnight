@@ -164,3 +164,7 @@ definition userHasNoRemainingContinuousFee(bytes32 id, address user) returns boo
 definition userHasNoLastAccrual(bytes32 id, address user) returns bool = Midnight.lastAccrual(id, user) == 0;
 
 definition userHasNoCollateral(bytes32 id, address user, uint256 collateralIndex) returns bool = collateralIndex < 128 => currentContract.position[id][user].collateral[collateralIndex] == 0;
+
+// Show that a created obligation only has allowed LLTV tiers.
+strong invariant createdObligationsHaveAllowedLltv(Midnight.Obligation obligation, uint256 i)
+    obligationIsCreated(obligation) => i < obligation.collaterals.length => obligation.collaterals[i].lltv == 385000000000000000 || obligation.collaterals[i].lltv == 625000000000000000 || obligation.collaterals[i].lltv == 770000000000000000 || obligation.collaterals[i].lltv == 860000000000000000 || obligation.collaterals[i].lltv == 915000000000000000 || obligation.collaterals[i].lltv == 945000000000000000 || obligation.collaterals[i].lltv == 965000000000000000 || obligation.collaterals[i].lltv == 980000000000000000 || obligation.collaterals[i].lltv == 1000000000000000000;
