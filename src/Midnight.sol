@@ -600,7 +600,7 @@ contract Midnight is IMidnight {
     /// SLASHING AND CONTINUOUS FEE ACCRUAL ///
 
     /// @dev Expects the id to correspond to the obligation's id.
-    /// @dev Returns the credit lost, pending fee lost, and accrued fee after having updated the position.
+    /// @dev Returns the credit decrease, pending fee decrease, and accrued fee after having updated the position.
     function updatePositionView(Obligation memory obligation, bytes32 id, address user)
         public
         view
@@ -635,17 +635,18 @@ contract Midnight is IMidnight {
     /// @dev Expects the id to correspond to the obligation's id.
     function _updatePosition(Obligation memory obligation, bytes32 id, address user) internal {
         Position storage _position = position[id][user];
-        (uint128 creditLost, uint128 pendingFeeLost, uint128 accruedFee) = updatePositionView(obligation, id, user);
+        (uint128 creditDecrease, uint128 pendingFeeDecrease, uint128 accruedFee) =
+            updatePositionView(obligation, id, user);
 
-        _position.credit -= creditLost;
+        _position.credit -= creditDecrease;
         _position.lossIndex = obligationState[id].lossIndex;
-        _position.pendingFee -= pendingFeeLost;
+        _position.pendingFee -= pendingFeeDecrease;
         _position.lastAccrual = uint128(block.timestamp);
         // The passive fee recipient's credit is increased without slashing them first, meaning that they will get
         // slashed a bit too much later.
         position[id][PASSIVE_FEE_RECIPIENT].credit += accruedFee;
 
-        emit EventsLib.UpdatePosition(id, user, creditLost, pendingFeeLost, accruedFee);
+        emit EventsLib.UpdatePosition(id, user, creditDecrease, pendingFeeDecrease, accruedFee);
     }
 
     /// OTHER VIEW FUNCTIONS ///
