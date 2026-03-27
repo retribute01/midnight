@@ -607,7 +607,7 @@ contract TakeTest is BaseTest {
         lenderOffer.maxUnits = 0;
         lenderOffer.maxSellerAssets = 1;
 
-        vm.expectRevert("consumed");
+        vm.expectRevert("consumed seller assets");
         take(units, borrower, lenderOffer);
     }
 
@@ -616,11 +616,12 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lender, units);
         collateralize(obligation, borrower, units);
 
+        lenderOffer.maxUnits = 0;
+        lenderOffer.maxSellerAssets = type(uint256).max;
+
         (, uint256 sellerAssets,) = take(units, borrower, lenderOffer);
 
-        // Verify the limit works when set to the exact value.
-        assertEq(lenderOffer.maxSellerAssets, 0, "default is zero");
-        assertTrue(lenderOffer.maxSellerAssets == 0 || sellerAssets <= lenderOffer.maxSellerAssets);
+        assertTrue(sellerAssets > 0);
     }
 
     function testMaxBuyerAssetsRevert() public {
@@ -631,7 +632,7 @@ contract TakeTest is BaseTest {
         borrowerOffer.maxUnits = 0;
         borrowerOffer.maxBuyerAssets = 1;
 
-        vm.expectRevert("consumed");
+        vm.expectRevert("consumed buyer assets");
         take(units, lender, borrowerOffer);
     }
 
@@ -640,10 +641,12 @@ contract TakeTest is BaseTest {
         deal(address(loanToken), lender, units);
         collateralize(obligation, borrower, units);
 
+        borrowerOffer.maxUnits = 0;
+        borrowerOffer.maxBuyerAssets = type(uint256).max;
+
         (uint256 buyerAssets,,) = take(units, lender, borrowerOffer);
 
-        assertEq(borrowerOffer.maxBuyerAssets, 0, "default is zero");
-        assertTrue(borrowerOffer.maxBuyerAssets == 0 || buyerAssets <= borrowerOffer.maxBuyerAssets);
+        assertTrue(buyerAssets > 0);
     }
 
     function testMaxSellerAssetsExact() public {
@@ -692,6 +695,44 @@ contract TakeTest is BaseTest {
         borrowerOffer.maxBuyerAssets = 0;
 
         take(units, lender, borrowerOffer);
+    }
+
+    function testMultipleMaxRevert() public {
+        uint256 units = 100e18;
+        deal(address(loanToken), lender, units);
+        collateralize(obligation, borrower, units);
+
+        lenderOffer.maxSellerAssets = 1e18;
+        lenderOffer.maxBuyerAssets = 1e18;
+        lenderOffer.maxUnits = 0;
+
+        vm.expectRevert("multiple max");
+        take(units, borrower, lenderOffer);
+    }
+
+    function testMultipleMaxRevertUnitsAndSeller() public {
+        uint256 units = 100e18;
+        deal(address(loanToken), lender, units);
+        collateralize(obligation, borrower, units);
+
+        lenderOffer.maxSellerAssets = 1e18;
+        lenderOffer.maxUnits = 1e18;
+
+        vm.expectRevert("multiple max");
+        take(units, borrower, lenderOffer);
+    }
+
+    function testMultipleMaxRevertAllThree() public {
+        uint256 units = 100e18;
+        deal(address(loanToken), lender, units);
+        collateralize(obligation, borrower, units);
+
+        lenderOffer.maxSellerAssets = 1e18;
+        lenderOffer.maxBuyerAssets = 1e18;
+        lenderOffer.maxUnits = 1e18;
+
+        vm.expectRevert("multiple max");
+        take(units, borrower, lenderOffer);
     }
 
     // test tree / signatures.
