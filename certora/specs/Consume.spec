@@ -116,7 +116,7 @@ rule takeConsumedAtMaxUnchangedBuyerAssets(env e, uint256 units, address taker, 
 }
 
 /// A fully-consumed offer in units mode only allows no-op takes.
-rule fullyConsumedOfferRevertsOnNonTrivialTakeUnits(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
+rule fullyConsumedOfferRevertsOnNonTrivialTake(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) {
     require offer.maxSellerAssets == 0 && offer.maxBuyerAssets == 0;
 
     uint256 consumedBefore = consumed(offer.maker, offer.group);
