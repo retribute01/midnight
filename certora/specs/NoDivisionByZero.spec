@@ -21,8 +21,6 @@ methods {
 
     function _.price() external => ghostPrice(calledContract) expect(uint256);
 
-    function collateralOf(bytes32 id, address user, uint256 index) external returns (uint128) envfree;
-
     function IdLib.toId(Midnight.Obligation memory obligation, uint256 chainId, address midnight) internal returns (bytes32) => summaryToId(obligation, chainId, midnight);
 
     function UtilsLib.isLeaf(bytes32, bytes32, bytes32[] memory) internal returns (bool) => NONDET;
@@ -75,11 +73,6 @@ hook Sload uint128 value obligationState[KEY bytes32 id].lossIndex {
 // Follows from userLossIndexLeqObligationLossIndex in Midnight.spec and the hook above.
 hook Sload uint128 value position[KEY bytes32 id][KEY address user].lossIndex {
     require value < max_uint128;
-}
-
-// Follows from totalUnitsEqualsSumNegativeDebtPlusWithdrawable in Midnight.spec.
-hook Sload uint128 value obligationState[KEY bytes32 id].totalUnits {
-    require value > 0;
 }
 
 /// SUMMARIES ///
