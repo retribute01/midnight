@@ -339,7 +339,7 @@ contract TakeTest is BaseTest {
         otherBorrowerOffer.maxUnits = exitUnits;
         otherBorrowerOffer.reduceOnly = true;
 
-        vm.expectRevert("crossed");
+        vm.expectRevert("maker credit or debt increased");
         take(exitUnits, borrower, otherBorrowerOffer);
     }
 
@@ -374,7 +374,7 @@ contract TakeTest is BaseTest {
         otherLenderOffer.maxUnits = exitUnits;
         otherLenderOffer.reduceOnly = true;
 
-        vm.expectRevert("crossed");
+        vm.expectRevert("maker credit or debt increased");
         take(exitUnits, lender, otherLenderOffer);
     }
 
