@@ -76,7 +76,8 @@ hook Sload uint128 value position[KEY bytes32 id][KEY address user].lossIndex {
 }
 
 // totalUnits == sumDebt + withdrawable (totalUnitsEqualsSumNegativeDebtPlusWithdrawable in Midnight.spec).
-// In liquidate, badDebt > 0 implies debt > 0 implies totalUnits > 0.
+// Any path that divides by totalUnits requires active debt or withdrawable units, so totalUnits > 0.
+// In liquidate specifically, badDebt > 0 implies debt > 0 implies totalUnits > 0.
 hook Sload uint128 value obligationState[KEY bytes32 id].totalUnits {
     require value > 0;
 }
