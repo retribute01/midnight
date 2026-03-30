@@ -70,7 +70,7 @@ rule creditNotStoredBeforeUpdate(env e, method f, calldataarg args, bytes32 id, 
 /// TODO check take with another approach.
 rule creditNotLoadedBeforeUpdate(env e, method f, calldataarg args, bytes32 id, address user)
 filtered {
-    f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector
+    f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, bytes, bytes32, bytes32[]).selector
         && f.selector != sig:creditOf(bytes32, address).selector
         && f.selector != sig:updatePositionView(Midnight.Obligation, bytes32, address).selector
         && f.selector != sig:position(bytes32, address).selector
