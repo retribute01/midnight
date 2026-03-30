@@ -25,3 +25,15 @@ rule maxLifIsAtLeastWad(uint256 lltv, uint256 cursor) {
     require cursor < WAD(), "see the definition of LIQUIDATION_CURSOR_LOW and LIQUIDATION_CURSOR_HIGH";
     assert maxLif(lltv, cursor) >= WAD();
 }
+
+/// @dev Strict bound for lltv < WAD: maxLif * lltv <= WAD * (WAD - 1).
+/// Used in NoDivisionByZero.spec (maxLifSummary) to ensure the recovery close factor divisor
+/// WAD - ceil(lif * lltv / WAD) is positive.
+/// Proof: when lltv < WAD, the integer division floor(cursor * (WAD - lltv) / WAD) keeps the
+/// maxLif denominator >= WAD - (WAD - 1) = 1. The tightest case is lltv = WAD - 1 with cursor = 0:
+/// maxLif = WAD, so maxLif * lltv = WAD * (WAD - 1).
+rule lifTimesLltvStrictBound(uint256 lltv, uint256 cursor) {
+    require lltv < WAD(), "strict: lltv < WAD";
+    require cursor < WAD(), "see the definition of LIQUIDATION_CURSOR_LOW and LIQUIDATION_CURSOR_HIGH";
+    assert lltv * maxLif(lltv, cursor) <= WAD() * (WAD() - 1);
+}
