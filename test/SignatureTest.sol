@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import {Signature} from "../src/interfaces/IMidnight.sol";
 import {Midnight} from "../src/Midnight.sol";
-import {EIP712_DOMAIN_TYPEHASH, ROOT_TYPEHASH} from "../src/libraries/ConstantsLib.sol";
+import {ROOT_TYPEHASH} from "../src/libraries/ConstantsLib.sol";
 import {Test} from "../lib/forge-std/src/Test.sol";
 
 contract SignatureTest is Test, Midnight {
