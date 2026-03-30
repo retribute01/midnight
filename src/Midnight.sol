@@ -225,7 +225,6 @@ contract Midnight is IMidnight {
         require(offer.maker != taker, "buyer and seller cannot be the same");
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
-        require(offer.maker != address(0), "maker cannot be address(0)");
         require(
             (offer.ratifier == address(ECRECOVER_RATIFIER) || isAuthorized[offer.maker][offer.ratifier])
                 && IRatifier(offer.ratifier).onRatify(offer, root, proof, ratifierData) == CALLBACK_SUCCESS,

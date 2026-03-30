@@ -1181,7 +1181,7 @@ contract TakeTest is BaseTest {
 
         Signature memory badSig;
 
-        vm.expectRevert("maker cannot be address(0)");
+        vm.expectRevert("unauthorized");
         vm.prank(borrower);
         midnight.take(
             units,

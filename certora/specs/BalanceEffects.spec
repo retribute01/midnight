@@ -42,6 +42,9 @@ strong invariant feeRecipientCantAuthorize(address authorized)
             require e.msg.sender != Utils.passiveFeeRecipient(), "passive fee recipient can't sign or call";
             requireInvariant feeRecipientCantAuthorize(e.msg.sender);
         }
+        preserved setAuthorizedWithSig(Midnight.Authorization authorization, Midnight.Signature signature) with (env e) {
+            require authorization.authorizer != Utils.passiveFeeRecipient(), "passive fee recipient can't sign";
+        }
     }
 
 /// The passive fee recipient has no pending fee, because they only receive credit via fee accrual
@@ -51,6 +54,8 @@ strong invariant feeRecipientHasNoPendingFee(bytes32 id)
     {
         preserved take(uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, bytes ratifierData, bytes32 root, bytes32[] proof) with (env e) {
             require e.msg.sender != Utils.passiveFeeRecipient(), "passive fee recipient can't sign or call";
+            require offer.maker != Utils.passiveFeeRecipient(), "passive fee recipient can't be maker";
+            require taker != Utils.passiveFeeRecipient(), "passive fee recipient can't be taker";
             requireInvariant feeRecipientCantAuthorize(e.msg.sender);
         }
     }
@@ -62,6 +67,8 @@ strong invariant feeRecipientHasNoDebt(bytes32 id)
     {
         preserved take(uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, bytes ratifierData, bytes32 root, bytes32[] proof) with (env e) {
             require e.msg.sender != Utils.passiveFeeRecipient(), "passive fee recipient can't sign or call";
+            require offer.maker != Utils.passiveFeeRecipient(), "passive fee recipient can't be maker";
+            require taker != Utils.passiveFeeRecipient(), "passive fee recipient can't be taker";
             requireInvariant feeRecipientCantAuthorize(e.msg.sender);
         }
     }
@@ -133,6 +140,8 @@ rule takeEffects(env e, uint256 units, address taker, address takerCallback, byt
     address passiveFeeRecipient = Utils.passiveFeeRecipient();
 
     require e.msg.sender != passiveFeeRecipient, "passive fee recipient can't sign or call";
+    require offer.maker != passiveFeeRecipient, "passive fee recipient can't be maker";
+    require taker != passiveFeeRecipient, "passive fee recipient can't be taker";
     requireInvariant feeRecipientCantAuthorize(e.msg.sender);
 
     uint128 makerCreditBefore;
