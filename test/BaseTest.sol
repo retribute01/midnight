@@ -27,6 +27,7 @@ import {
 } from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMidnight.sol";
 import {Midnight} from "../src/Midnight.sol";
+import {TransferFromCallback} from "./helpers/TransferFromCallback.sol";
 
 uint256 constant MAX_TEST_AMOUNT = type(uint128).max;
 
@@ -46,6 +47,7 @@ abstract contract BaseTest is Test {
     address internal otherBorrower;
     address internal otherLender;
     address internal liquidator = makeAddr("liquidator");
+    TransferFromCallback internal transferFromCallback;
 
     function setUp() public virtual {
         midnight = new Midnight();
@@ -69,6 +71,8 @@ abstract contract BaseTest is Test {
         oracle1 = new Oracle();
         oracle2 = new Oracle();
 
+        transferFromCallback = new TransferFromCallback();
+
         vm.prank(lender);
         loanToken.approve(address(midnight), type(uint256).max);
         vm.prank(otherLender);
@@ -80,7 +84,17 @@ abstract contract BaseTest is Test {
         vm.prank(liquidator);
         loanToken.approve(address(midnight), type(uint256).max);
 
+        vm.prank(lender);
+        loanToken.approve(address(transferFromCallback), type(uint256).max);
+        vm.prank(otherLender);
+        loanToken.approve(address(transferFromCallback), type(uint256).max);
+        vm.prank(borrower);
+        loanToken.approve(address(transferFromCallback), type(uint256).max);
+        vm.prank(otherBorrower);
+        loanToken.approve(address(transferFromCallback), type(uint256).max);
+
         loanToken.approve(address(midnight), type(uint256).max);
+        loanToken.approve(address(transferFromCallback), type(uint256).max);
         collateralToken1.approve(address(midnight), type(uint256).max);
         collateralToken2.approve(address(midnight), type(uint256).max);
     }
@@ -100,12 +114,15 @@ abstract contract BaseTest is Test {
         midnight.supplyCollateral(obligation, 0, collateral, _borrower);
     }
 
-    // hardcodes the right root, signature, proof, and callback (no callback)
+    // hardcodes the right root, signature, proof, and callback
     function take(uint256 units, address taker, Offer memory offer) internal returns (uint256, uint256, uint256) {
         // receiverIfTakerIsSeller param is for taker (when offer.buy == true)
         // offer.receiverIfMakerIsSeller is for maker (when offer.buy == false)
+        address cb = address(transferFromCallback);
+        if (offer.buy && offer.callback == address(0)) offer.callback = cb;
+        address takerCb = offer.buy ? address(0) : cb;
         vm.prank(taker);
-        return midnight.take(units, taker, address(0), hex"", taker, offer, sig([offer]), root([offer]), proof([offer]));
+        return midnight.take(units, taker, takerCb, hex"", taker, offer, sig([offer]), root([offer]), proof([offer]));
     }
 
     function setupOtherUsers(Obligation memory obligation, uint256 units) internal {
@@ -117,6 +134,7 @@ abstract contract BaseTest is Test {
         lenderOffer.obligation = obligation;
         lenderOffer.buy = true;
         lenderOffer.maker = otherLender;
+        lenderOffer.callback = address(transferFromCallback);
         lenderOffer.maxUnits = units;
         lenderOffer.group = keccak256(abi.encode("non zero group"));
         lenderOffer.expiry = block.timestamp + 200;
@@ -132,6 +150,8 @@ abstract contract BaseTest is Test {
         address unluckyLender = makeAddr("unluckyLender");
         vm.prank(unluckyLender);
         loanToken.approve(address(midnight), type(uint256).max);
+        vm.prank(unluckyLender);
+        loanToken.approve(address(transferFromCallback), type(uint256).max);
 
         Offer memory badBorrowerOffer;
         badBorrowerOffer.obligation = obligation;
@@ -269,7 +289,7 @@ abstract contract BaseTest is Test {
         midnight.take(
             units,
             lender,
-            address(0),
+            address(transferFromCallback),
             hex"",
             borrower,
             borrowerOffer,

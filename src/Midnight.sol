@@ -32,6 +32,7 @@ import {
     Position
 } from "./interfaces/IMidnight.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
+import {IERC20} from "./interfaces/IERC20.sol";
 import {IEnterGate, ILiquidatorGate} from "./interfaces/IGate.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
@@ -329,13 +330,18 @@ contract Midnight is IMidnight {
             sellerCreditDecrease
         );
 
-        if (buyerCallback != address(0)) {
-            ICallbacks(buyerCallback)
-                .onBuy(id, offer.obligation, buyer, buyerAssets, sellerAssets, units, buyerCallbackData);
-        }
+        uint256 balanceBefore = IERC20(offer.obligation.loanToken).balanceOf(address(this));
 
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, feeRecipient, buyerAssets - sellerAssets);
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, receiver, sellerAssets);
+        ICallbacks(buyerCallback)
+            .onBuy(id, offer.obligation, buyer, buyerAssets, sellerAssets, units, buyerCallbackData);
+
+        require(
+            IERC20(offer.obligation.loanToken).balanceOf(address(this)) >= balanceBefore + buyerAssets,
+            "insufficient funds from callback"
+        );
+
+        SafeTransferLib.safeTransfer(offer.obligation.loanToken, feeRecipient, buyerAssets - sellerAssets);
+        SafeTransferLib.safeTransfer(offer.obligation.loanToken, receiver, sellerAssets);
 
         if (sellerCallback != address(0)) {
             ICallbacks(sellerCallback)

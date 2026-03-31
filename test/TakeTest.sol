@@ -12,6 +12,7 @@ import {IdLib} from "../src/libraries/IdLib.sol";
 
 import {BaseTest} from "./BaseTest.sol";
 import {ERC20} from "./helpers/ERC20.sol";
+import {IdleCallback} from "./helpers/IdleCallback.sol";
 
 contract TakeTest is BaseTest {
     using UtilsLib for uint256;
@@ -55,6 +56,7 @@ contract TakeTest is BaseTest {
 
         lenderOffer.buy = true;
         lenderOffer.maker = lender;
+        lenderOffer.callback = address(transferFromCallback);
         lenderOffer.maxUnits = type(uint256).max;
         lenderOffer.obligation = obligation;
         lenderOffer.expiry = block.timestamp + 200;
@@ -78,6 +80,7 @@ contract TakeTest is BaseTest {
 
         otherBorrowerOffer.buy = true;
         otherBorrowerOffer.maker = otherBorrower;
+        otherBorrowerOffer.callback = address(transferFromCallback);
         otherBorrowerOffer.maxUnits = type(uint256).max;
         otherBorrowerOffer.obligation = obligation;
         otherBorrowerOffer.expiry = block.timestamp + 200;
@@ -913,6 +916,32 @@ contract TakeTest is BaseTest {
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
     }
 
+    function testIdleCallback(uint256 units) public {
+        units = bound(units, 1, maxAssets);
+        uint256 price = TickLib.tickToPrice(MAX_TICK);
+        uint256 assets = units.mulDivDown(price, WAD);
+
+        IdleCallback idle = new IdleCallback(address(midnight));
+
+        deal(address(loanToken), lender, assets);
+        vm.prank(lender);
+        loanToken.approve(address(idle), assets);
+        vm.prank(lender);
+        idle.deposit(address(loanToken), assets);
+
+        assertEq(idle.balances(lender, address(loanToken)), assets, "idle balance after deposit");
+
+        lenderOffer.callback = address(idle);
+        lenderOffer.maxUnits = units;
+        collateralize(obligation, borrower, units);
+
+        take(units, borrower, lenderOffer);
+
+        assertEq(midnight.creditOf(id, lender), units, "lender credit");
+        assertEq(midnight.debtOf(id, borrower), units, "borrower debt");
+        assertEq(idle.balances(lender, address(loanToken)), 0, "idle balance after take");
+    }
+
     // Summary of zero price tests:
     //
     // Trading at 0 succeeds in those cases:
@@ -1001,7 +1030,7 @@ contract LendCallback is ICallbacks {
     function onBuy(
         bytes32 obligationId,
         Obligation memory obligation,
-        address buyer,
+        address,
         uint256 buyerAssets,
         uint256,
         uint256,
@@ -1010,7 +1039,7 @@ contract LendCallback is ICallbacks {
         require(obligationId == IdLib.toId(obligation, block.chainid, msg.sender), "wrong obligationId");
         recordedObligationId = obligationId;
         recordedData = data;
-        require(ERC20(obligation.loanToken).transfer(buyer, buyerAssets), "transfer failed");
+        require(ERC20(obligation.loanToken).transfer(msg.sender, buyerAssets), "transfer failed");
     }
 
     function onSell(bytes32, Obligation memory, address, uint256, uint256, uint256, bytes memory) external {}
