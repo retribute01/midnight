@@ -4,7 +4,6 @@ methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
     function isAuthorized(address authorizer, address authorized) external returns (bool) envfree;
-    function ratified(address user, bytes32 root) external returns (bool) envfree;
 
     function _.price() external => NONDET;
     function _.onRatify(Midnight.Offer, bytes32, bytes) external => DISPATCHER(true);
@@ -25,27 +24,23 @@ methods {
     function Midnight.tradingFee(bytes32, uint256) internal returns (uint256) => NONDET;
 }
 
-/// Every successful take requires maker consent: either the root was pre-ratified, the built-in signature path is
-/// used, or the maker authorized the ratifier.
+/// Every successful take requires the maker to have authorized the ratifier.
 rule takeRequiresMakerConsent(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiverIfTakerIsSeller, Midnight.Offer offer, bytes ratifierData, bytes32 root, bytes32[] proof) {
     bool makerAuthorizedRatifier = isAuthorized(offer.maker, offer.ratifier);
 
     take(e, units, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, ratifierData, root, proof);
 
-    assert (offer.ratifier == 0 && ratified(offer.maker, root)) || offer.ratifier == 1 || makerAuthorizedRatifier;
+    assert makerAuthorizedRatifier;
 }
 
-/// address(0) can't authorize another account, because it can't sign
-/// and setAuthorizedWithSig requires signatory != address(0) && signatory == authorizer.
+/// address(0) can't authorize another account, because it can't call
+/// and setIsAuthorized requires msg.sender == onBehalf || isAuthorized[onBehalf][msg.sender].
 strong invariant addressZeroCantAuthorize(address authorized)
     !isAuthorized(0, authorized)
     {
         preserved with (env e) {
             require e.msg.sender != 0, "address(0) can't call";
             requireInvariant addressZeroCantAuthorize(e.msg.sender);
-        }
-        preserved setAuthorizedWithSig(Midnight.Authorization authorization, Midnight.Signature signature) with (env e) {
-            require authorization.authorizer != 0, "address(0) can't sign";
         }
     }
 
@@ -55,24 +50,4 @@ rule takeRequiresNonZeroMaker(env e, uint256 units, address taker, address taker
 
     take@withrevert(e, units, taker, takerCallback, takerCallbackData, receiverIfTakerIsSeller, offer, ratifierData, root, proof);
     assert !lastReverted => offer.maker != 0;
-}
-
-/// ISOLATION ///
-
-/// setAuthorizedWithSig only changes isAuthorized for the (authorizer, authorizee) in the authorization struct.
-rule setAuthorizedWithSigIsolation(env e, Midnight.Authorization authorization, Midnight.Signature signature, address otherUser, address otherAuthorized) {
-    require otherUser != authorization.authorizer || otherAuthorized != authorization.authorizee;
-
-    bool before = isAuthorized(otherUser, otherAuthorized);
-    setAuthorizedWithSig(e, authorization, signature);
-    assert isAuthorized(otherUser, otherAuthorized) == before;
-}
-
-/// setRatified only changes the specified (onBehalf, root) pair.
-rule setRatifiedIsolation(env e, address onBehalf, bytes32 root, bool val, address otherUser, bytes32 otherRoot) {
-    require otherUser != onBehalf || otherRoot != root;
-
-    bool before = ratified(otherUser, otherRoot);
-    setRatified(e, onBehalf, root, val);
-    assert ratified(otherUser, otherRoot) == before;
 }

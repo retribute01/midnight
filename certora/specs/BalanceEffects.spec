@@ -33,17 +33,14 @@ methods {
     function _.transfer(address, uint256) external => NONDET;
 }
 
-/// The passive fee recipient can't authorize another account, because it can't sign
+/// The passive fee recipient can't authorize another account, because it can't call
 /// and setIsAuthorized requires msg.sender == onBehalf || isAuthorized[onBehalf][msg.sender].
 strong invariant feeRecipientCantAuthorize(address authorized)
     !isAuthorized(Utils.passiveFeeRecipient(), authorized)
     {
         preserved with (env e) {
-            require e.msg.sender != Utils.passiveFeeRecipient(), "passive fee recipient can't sign or call";
+            require e.msg.sender != Utils.passiveFeeRecipient(), "passive fee recipient can't call";
             requireInvariant feeRecipientCantAuthorize(e.msg.sender);
-        }
-        preserved setAuthorizedWithSig(Midnight.Authorization authorization, Midnight.Signature signature) with (env e) {
-            require authorization.authorizer != Utils.passiveFeeRecipient(), "passive fee recipient can't sign";
         }
     }
 

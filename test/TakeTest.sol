@@ -2,7 +2,8 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMidnight.sol";
+import {Obligation, Offer, Collateral} from "../src/interfaces/IMidnight.sol";
+import {Signature} from "../src/EcrecoverRatifier.sol";
 import {Midnight} from "../src/Midnight.sol";
 import {WAD, CALLBACK_SUCCESS, EIP712_DOMAIN_TYPEHASH, ROOT_TYPEHASH} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
@@ -55,7 +56,7 @@ contract TakeTest is BaseTest {
 
         lenderOffer.buy = true;
         lenderOffer.maker = lender;
-        lenderOffer.ratifier = address(1);
+        lenderOffer.ratifier = address(ecrecoverRatifier);
         lenderOffer.maxUnits = type(uint256).max;
         lenderOffer.obligation = obligation;
         lenderOffer.expiry = block.timestamp + 200;
@@ -63,7 +64,7 @@ contract TakeTest is BaseTest {
 
         otherLenderOffer.buy = false;
         otherLenderOffer.maker = otherLender;
-        otherLenderOffer.ratifier = address(1);
+        otherLenderOffer.ratifier = address(ecrecoverRatifier);
         otherLenderOffer.receiverIfMakerIsSeller = otherLender;
         otherLenderOffer.maxUnits = type(uint256).max;
         otherLenderOffer.obligation = obligation;
@@ -72,7 +73,7 @@ contract TakeTest is BaseTest {
 
         borrowerOffer.buy = false;
         borrowerOffer.maker = borrower;
-        borrowerOffer.ratifier = address(1);
+        borrowerOffer.ratifier = address(ecrecoverRatifier);
         borrowerOffer.receiverIfMakerIsSeller = borrower;
         borrowerOffer.maxUnits = type(uint256).max;
         borrowerOffer.obligation = obligation;
@@ -81,7 +82,7 @@ contract TakeTest is BaseTest {
 
         otherBorrowerOffer.buy = true;
         otherBorrowerOffer.maker = otherBorrower;
-        otherBorrowerOffer.ratifier = address(1);
+        otherBorrowerOffer.ratifier = address(ecrecoverRatifier);
         otherBorrowerOffer.maxUnits = type(uint256).max;
         otherBorrowerOffer.obligation = obligation;
         otherBorrowerOffer.expiry = block.timestamp + 200;
@@ -883,6 +884,7 @@ contract TakeTest is BaseTest {
         privateKey[vm.addr(makerSecretKey)] = makerSecretKey;
         lenderOffer.maker = vm.addr(makerSecretKey);
         vm.assume(sender != vm.addr(makerSecretKey));
+        authorize(vm.addr(makerSecretKey), address(ecrecoverRatifier));
         vm.prank(sender);
         midnight.take(
             0,
@@ -919,6 +921,7 @@ contract TakeTest is BaseTest {
         privateKey[vm.addr(otherSecretKey)] = otherSecretKey;
 
         lenderOffer.maker = vm.addr(makerSecretKey);
+        authorize(vm.addr(makerSecretKey), address(ecrecoverRatifier));
 
         vm.expectRevert("invalid signature");
         vm.prank(sender);
@@ -947,6 +950,7 @@ contract TakeTest is BaseTest {
         lenderOffer.maker = vm.addr(makerSecretKey);
         vm.assume(sender != lenderOffer.maker);
 
+        authorize(vm.addr(makerSecretKey), address(ecrecoverRatifier));
         vm.prank(lenderOffer.maker);
         midnight.setIsAuthorized(lenderOffer.maker, vm.addr(otherSecretKey), true);
         vm.prank(sender);
@@ -1194,11 +1198,11 @@ contract TakeTest is BaseTest {
     function testTradeWithAddressZero(uint256 units) public {
         units = bound(units, 1, maxAssets);
 
-        // address(0) as maker with an invalid signature (ecrecover returns address(0))
+        // address(0) as maker cannot authorize the ratifier
         Offer memory zeroOffer;
         zeroOffer.buy = true;
         zeroOffer.maker = address(0);
-        zeroOffer.ratifier = address(1);
+        zeroOffer.ratifier = address(ecrecoverRatifier);
         zeroOffer.maxUnits = units;
         zeroOffer.obligation = obligation;
         zeroOffer.expiry = block.timestamp + 200;
@@ -1209,7 +1213,7 @@ contract TakeTest is BaseTest {
 
         Signature memory badSig;
 
-        vm.expectRevert("invalid signature");
+        vm.expectRevert("unauthorized");
         vm.prank(borrower);
         midnight.take(
             units,
