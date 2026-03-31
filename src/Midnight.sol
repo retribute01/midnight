@@ -274,8 +274,8 @@ contract Midnight is IMidnight {
         Position storage buyerPos = position[id][buyer];
         Position storage sellerPos = position[id][seller];
 
-        if (buyerPos.credit > 0 || units > buyerPos.debt) _updatePosition(offer.obligation, id, buyer);
-        if (sellerPos.credit > 0) _updatePosition(offer.obligation, id, seller);
+        if (hasCredit(id, buyer) || units > buyerPos.debt) _updatePosition(offer.obligation, id, buyer);
+        if (hasCredit(id, seller)) _updatePosition(offer.obligation, id, seller);
 
         uint256 buyerCreditIncrease = UtilsLib.zeroFloorSub(units, buyerPos.debt);
         uint256 sellerCreditDecrease = UtilsLib.min(units, sellerPos.credit);
@@ -674,6 +674,10 @@ contract Midnight is IMidnight {
         position[id][PASSIVE_FEE_RECIPIENT].credit += accruedFee;
 
         emit EventsLib.UpdatePosition(id, user, creditDecrease, pendingFeeDecrease, accruedFee);
+    }
+
+    function hasCredit(bytes32 id, address user) internal view returns (bool) {
+        return position[id][user].credit > 0;
     }
 
     /// OTHER VIEW FUNCTIONS ///
