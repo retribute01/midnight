@@ -87,6 +87,6 @@ rule zeroUnitsTakeResultsInZeroAssets(env e, address taker, address takerCallbac
     uint256 sellerAssets;
     buyerAssets, sellerAssets, _ = take(e, 0, taker, takerCallback, takerCallbackData, receiver, offer, signature, root, proof);
 
-    assert buyerAssets  == 0;
+    assert buyerAssets == 0;
     assert sellerAssets == 0;
 }
