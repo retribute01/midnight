@@ -40,16 +40,16 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 ///
 /// OBLIGATIONS
 /// @dev The following constraints are enforced on obligation creation (in `touchObligation`):
-/// @dev - `collaterals.length > 0`: at least one collateral is required.
-/// @dev - `collaterals.length <= MAX_COLLATERALS` (128): at most 128 collaterals per obligation.
-/// @dev - Collateral tokens must be strictly sorted by address (ascending, no duplicates).
-/// @dev - Each collateral's `lltv` must be one of the allowed tiers (see `isLltvAllowed` in ConstantsLib).
-/// @dev - Each collateral's `maxLif` must equal `maxLif(lltv, LIQUIDATION_CURSOR_LOW)` or
-/// @dev   `maxLif(lltv, LIQUIDATION_CURSOR_HIGH)`.
+/// - `collaterals.length > 0`: at least one collateral is required.
+/// - `collaterals.length <= MAX_COLLATERALS` (128): at most 128 collaterals per obligation.
+/// - Collateral tokens must be strictly sorted by address (ascending, no duplicates).
+/// - Each collateral's `lltv` must be one of the allowed tiers (see `isLltvAllowed` in ConstantsLib).
+/// - Each collateral's `maxLif` must equal `maxLif(lltv, LIQUIDATION_CURSOR_LOW)` or
+///   `maxLif(lltv, LIQUIDATION_CURSOR_HIGH)`.
 /// @dev Additionally, a borrower can have collateral in at most `MAX_COLLATERALS_PER_BORROWER` (10) collaterals
-/// @dev simultaneously within a single obligation.
+/// simultaneously within a single obligation.
 /// @dev The `loanToken`, `maturity`, `rcfThreshold`, `enterGate`, and `liquidatorGate` fields are unconstrained at
-/// @dev creation and can be any value (including zero).
+/// creation and can be any value (including zero).
 ///
 /// TRADING FEES
 /// @dev The trading fee is computed using piecewise linear interpolation between breakpoints.
