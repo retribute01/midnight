@@ -47,14 +47,6 @@ struct Signature {
     bytes32 s;
 }
 
-struct Authorization {
-    address authorizer;
-    address authorizee;
-    bool isAuthorized;
-    uint256 nonce;
-    uint256 deadline;
-}
-
 struct ObligationState {
     uint128 totalUnits;
     uint128 lossIndex;

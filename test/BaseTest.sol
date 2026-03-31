@@ -27,6 +27,7 @@ import {
 } from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMidnight.sol";
 import {Midnight} from "../src/Midnight.sol";
+import {EcrecoverRatifier} from "../src/EcrecoverRatifier.sol";
 uint256 constant MAX_TEST_AMOUNT = type(uint128).max;
 
 abstract contract BaseTest is Test {
@@ -45,11 +46,13 @@ abstract contract BaseTest is Test {
     address internal otherBorrower;
     address internal otherLender;
     address internal liquidator = makeAddr("liquidator");
+    EcrecoverRatifier internal ecrecoverRatifier;
 
     bytes internal emptySig;
 
     function setUp() public virtual {
         midnight = new Midnight();
+        ecrecoverRatifier = new EcrecoverRatifier();
 
         midnight.setFeeSetter(address(this));
 
@@ -62,6 +65,11 @@ abstract contract BaseTest is Test {
         privateKey[otherBorrower] = _privateKey;
         (otherLender, _privateKey) = makeAddrAndKey("otherLender");
         privateKey[otherLender] = _privateKey;
+
+        authorize(borrower, address(ecrecoverRatifier));
+        authorize(lender, address(ecrecoverRatifier));
+        authorize(otherBorrower, address(ecrecoverRatifier));
+        authorize(otherLender, address(ecrecoverRatifier));
 
         loanToken = new ERC20("loan", "loan");
         collateralToken1 = new ERC20("collat1", "collat1");
@@ -120,7 +128,7 @@ abstract contract BaseTest is Test {
         lenderOffer.maker = otherLender;
         lenderOffer.maxUnits = units;
         lenderOffer.group = keccak256(abi.encode("non zero group"));
-        lenderOffer.ratifier = address(1);
+        lenderOffer.ratifier = address(ecrecoverRatifier);
         lenderOffer.expiry = block.timestamp + 200;
         lenderOffer.tick = MAX_TICK;
 
@@ -141,11 +149,12 @@ abstract contract BaseTest is Test {
         badBorrowerOffer.maker = badBorrower;
         badBorrowerOffer.receiverIfMakerIsSeller = badBorrower;
         badBorrowerOffer.maxUnits = 100;
-        badBorrowerOffer.ratifier = address(1);
+        badBorrowerOffer.ratifier = address(ecrecoverRatifier);
         badBorrowerOffer.start = block.timestamp;
         badBorrowerOffer.expiry = block.timestamp + 200;
         badBorrowerOffer.tick = MAX_TICK;
 
+        authorize(badBorrower, address(ecrecoverRatifier));
         authorize(badBorrower, address(this));
 
         deal(obligation.collaterals[0].token, address(this), 135);
@@ -272,7 +281,7 @@ abstract contract BaseTest is Test {
         borrowerOffer.maker = borrower;
         borrowerOffer.receiverIfMakerIsSeller = borrower;
         borrowerOffer.maxUnits = units;
-        borrowerOffer.ratifier = address(1);
+        borrowerOffer.ratifier = address(ecrecoverRatifier);
         borrowerOffer.start = block.timestamp;
         borrowerOffer.expiry = block.timestamp;
         borrowerOffer.tick = MAX_TICK;

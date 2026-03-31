@@ -9,8 +9,6 @@ uint32 constant MAX_CONTINUOUS_FEE = uint32(uint256(0.01e18) / uint256(365 days)
 uint256 constant TIME_TO_MAX_LIF = 15 minutes;
 bytes32 constant EIP712_DOMAIN_TYPEHASH = keccak256("EIP712Domain(uint256 chainId,address verifyingContract)");
 bytes32 constant ROOT_TYPEHASH = keccak256("Root(bytes32 root)");
-bytes32 constant AUTHORIZATION_TYPEHASH =
-    keccak256("Authorization(address authorizer,address authorizee,bool isAuthorized,uint256 nonce,uint256 deadline)");
 bytes32 constant CALLBACK_SUCCESS = keccak256("CALLBACK_SUCCESS");
 uint256 constant MAX_COLLATERALS = 128;
 uint256 constant MAX_COLLATERALS_PER_BORROWER = 10;
