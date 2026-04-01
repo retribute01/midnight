@@ -104,6 +104,8 @@ contract Midnight is IMidnight {
     /// feeSetter.
     mapping(address loanToken => uint32) public defaultContinuousFee;
 
+    mapping(address token => uint256) public withdrawableTradingFee;
+
     address public feeRecipient;
 
     /// @dev Contract owner for administrative functions.
@@ -190,6 +192,15 @@ contract Midnight is IMidnight {
         // forge-lint: disable-next-line(unsafe-typecast) as newContinuousFee <= MAX_CONTINUOUS_FEE < type(uint32).max
         defaultContinuousFee[loanToken] = uint32(newContinuousFee);
         emit EventsLib.SetDefaultContinuousFee(loanToken, newContinuousFee);
+    }
+
+    function withdrawTradingFee(address token, uint256 amount, address receiver) external {
+        require(msg.sender == feeRecipient, "only fee recipient");
+        withdrawableTradingFee[token] -= amount;
+
+        emit EventsLib.WithdrawTradingFee(msg.sender, token, amount, receiver);
+
+        SafeTransferLib.safeTransfer(token, receiver, amount);
     }
 
     /// ENTRY-POINTS ///
@@ -334,7 +345,8 @@ contract Midnight is IMidnight {
                 .onBuy(id, offer.obligation, buyer, buyerAssets, sellerAssets, units, buyerCallbackData);
         }
 
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, feeRecipient, buyerAssets - sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, address(this), buyerAssets - sellerAssets);
+        withdrawableTradingFee[offer.obligation.loanToken] += buyerAssets - sellerAssets;
         SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyer, receiver, sellerAssets);
 
         if (sellerCallback != address(0)) {
