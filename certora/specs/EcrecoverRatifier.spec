@@ -31,10 +31,11 @@ rule setIsAuthorizedWithSigEffects(env e, address authorizer, address authorized
     require other != authorizer;
     uint256 nonceBefore = nonce(authorizer);
     uint256 otherNonceBefore = nonce(other);
+    bool callerWasAuthorized = midnight.isAuthorized(authorizer, e.msg.sender);
 
     setIsAuthorizedWithSig(e, authorizer, authorized, isAuth, signature);
 
-    assert e.msg.sender == authorizer || midnight.isAuthorized(authorizer, e.msg.sender);
+    assert e.msg.sender == authorizer || callerWasAuthorized;
     assert lastSigner == authorizer;
     assert nonce(authorizer) == nonceBefore + 1;
     assert nonce(other) == otherNonceBefore;

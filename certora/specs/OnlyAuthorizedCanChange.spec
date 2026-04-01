@@ -39,7 +39,7 @@ methods {
     // Assume no reentrancy: callbacks and tokens do not re-enter Midnight.
     function _.onBuy(bytes32, Midnight.Obligation, address, uint256, uint256, uint256, bytes) external => NONDET;
     function _.onSell(bytes32, Midnight.Obligation, address, uint256, uint256, uint256, bytes) external => NONDET;
-    function _.onRatify(Midnight.Offer, bytes32, bytes) external => NONDET;
+    function _.onRatify(Midnight.Offer offer, bytes32, bytes) external => CVL_onRatify(offer) expect(bytes32);
     function _.onFlashLoan(address, uint256, bytes) external => NONDET;
     function SafeTransferLib.safeTransferFrom(address, address, address, uint256) internal => NONDET;
     function SafeTransferLib.safeTransfer(address, address, uint256) internal => NONDET;
@@ -47,16 +47,24 @@ methods {
 
 /// HELPERS ///
 
+ghost mapping(address => bool) makerRatified {
+    init_state axiom forall address a. makerRatified[a] == false;
+}
+
+function CVL_onRatify(Midnight.Offer offer) returns bytes32 {
+    bytes32 result;
+    makerRatified[offer.maker] = true;
+    return result;
+}
+
 definition noAccrual(env e, bytes32 id, address borrower) returns bool = currentContract.position[id][borrower].pendingFee == 0 || e.block.timestamp == currentContract.position[id][borrower].lastAccrual;
 
 /// CREDIT AND DEBT CHANGE RULES ///
 
-/// An unauthorized caller cannot change a user's credit and debt except via take, liquidate, and updatePosition.
-/// take is excluded because its special authorization and balance-change behavior is covered by
-/// unauthorizedTakeFails, takeRequiresMakerConsent, and takeEffects.
+/// An unauthorized caller cannot change a user's credit and debt except via liquidate and updatePosition.
 /// PASSIVE_FEE_RECIPIENT's credit can increase via fee accrual without authorization.
 /// Assumes no reentrancy: callbacks (onBuy, onSell) and token transfers are not modeled as re-entering Midnight, so re-entrant credit and debt changes are not covered.
-rule onlyAuthorizedCanChangeCreditAndDebtExceptTakeLiquidateAndUpdatePosition(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, bytes, bytes32, bytes32[]).selector && f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector && f.selector != sig:updatePosition(Midnight.Obligation, address).selector } {
+rule onlyAuthorizedCanChangeCreditAndDebtExceptLiquidateAndUpdatePosition(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector && f.selector != sig:updatePosition(Midnight.Obligation, address).selector } {
     bool userIsAuthorized = user == e.msg.sender || isAuthorized(user, e.msg.sender);
     bool isPassiveFeeRecipient = user == Utils.passiveFeeRecipient();
 
@@ -66,7 +74,7 @@ rule onlyAuthorizedCanChangeCreditAndDebtExceptTakeLiquidateAndUpdatePosition(en
     uint256 creditAfter = creditOf(id, user);
     uint256 debtAfter = debtOf(id, user);
 
-    assert (creditAfter == creditBefore && debtAfter == debtBefore) || userIsAuthorized || isPassiveFeeRecipient;
+    assert (creditAfter == creditBefore && debtAfter == debtBefore) || userIsAuthorized || makerRatified[user] || isPassiveFeeRecipient;
 }
 
 /// COLLATERAL CHANGE RULES ///
