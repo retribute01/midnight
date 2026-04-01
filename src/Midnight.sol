@@ -18,7 +18,7 @@ import {
     LIQUIDATION_CURSOR_HIGH,
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH,
-    PASSIVE_FEE_RECIPIENT,
+    CONTINUOUS_FEE_RECIPIENT,
     isLltvAllowed
 } from "./libraries/ConstantsLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
@@ -373,7 +373,7 @@ contract Midnight is IMidnight {
     function withdraw(Obligation memory obligation, uint256 units, address onBehalf, address receiver) external {
         require(
             onBehalf == msg.sender || isAuthorized[onBehalf][msg.sender]
-                || (onBehalf == PASSIVE_FEE_RECIPIENT && msg.sender == feeClaimer),
+                || (onBehalf == CONTINUOUS_FEE_RECIPIENT && msg.sender == feeClaimer),
             "unauthorized"
         );
         bytes32 id = touchObligation(obligation);
@@ -691,9 +691,9 @@ contract Midnight is IMidnight {
         _position.lossIndex = obligationState[id].lossIndex;
         _position.pendingFee = newPendingFee;
         _position.lastAccrual = uint128(block.timestamp);
-        // The passive fee claimer's credit is increased without slashing them first, meaning that they will get
+        // The continuous fee recipient's credit is increased without slashing them first, meaning that they will get
         // slashed a bit too much later.
-        position[id][PASSIVE_FEE_RECIPIENT].credit += accruedFee;
+        position[id][CONTINUOUS_FEE_RECIPIENT].credit += accruedFee;
 
         emit EventsLib.UpdatePosition(id, user, creditDecrease, pendingFeeDecrease, accruedFee);
     }

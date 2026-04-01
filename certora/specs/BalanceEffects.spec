@@ -11,7 +11,7 @@ methods {
     function collateralOf(bytes32 id, address user, uint256 index) external returns (uint128) envfree;
     function pendingFee(bytes32 id, address user) external returns (uint128) envfree;
     function isAuthorized(address authorizer, address authorized) external returns (bool) envfree;
-    function Utils.passiveFeeClaimer() external returns (address) envfree;
+    function Utils.continuousFeeRecipient() external returns (address) envfree;
     function _.price() external => NONDET;
 
     // Summarize internals irrelevant to credit and debt tracking.
@@ -35,39 +35,39 @@ methods {
 
 function signerSummary() returns address {
     address returnedSigner;
-    require returnedSigner != Utils.passiveFeeClaimer(), "passive fee claimer can't sign";
+    require returnedSigner != Utils.continuousFeeRecipient(), "continuous fee recipient can't sign";
     return returnedSigner;
 }
 
-/// The passive fee claimer can't authorize another account, because it can't sign
+/// The continuous fee recipient can't authorize another account, because it can't sign
 /// and setIsAuthorized requires msg.sender == onBehalf || isAuthorized[onBehalf][msg.sender].
 strong invariant feeClaimerCantAuthorize(address authorized)
-    !isAuthorized(Utils.passiveFeeClaimer(), authorized)
+    !isAuthorized(Utils.continuousFeeRecipient(), authorized)
     {
         preserved with (env e) {
-            require e.msg.sender != Utils.passiveFeeClaimer(), "passive fee claimer can't sign or call";
+            require e.msg.sender != Utils.continuousFeeRecipient(), "continuous fee recipient can't sign or call";
             requireInvariant feeClaimerCantAuthorize(e.msg.sender);
         }
     }
 
-/// The passive fee claimer has no pending fee, because they only receive credit via fee accrual
+/// The continuous fee recipient has no pending fee, because they only receive credit via fee accrual
 /// and never participate in take.
 strong invariant feeClaimerHasNoPendingFee(bytes32 id)
-    pendingFee(id, Utils.passiveFeeClaimer()) == 0
+    pendingFee(id, Utils.continuousFeeRecipient()) == 0
     {
         preserved take(uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) with (env e) {
-            require e.msg.sender != Utils.passiveFeeClaimer(), "passive fee claimer can't sign or call";
+            require e.msg.sender != Utils.continuousFeeRecipient(), "continuous fee recipient can't sign or call";
             requireInvariant feeClaimerCantAuthorize(e.msg.sender);
         }
     }
 
-/// The passive fee claimer has no debt, because they only receive credit via fee accrual
+/// The continuous fee recipient has no debt, because they only receive credit via fee accrual
 /// and never participate in take.
 strong invariant feeClaimerHasNoDebt(bytes32 id)
-    debtOf(id, Utils.passiveFeeClaimer()) == 0
+    debtOf(id, Utils.continuousFeeRecipient()) == 0
     {
         preserved take(uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof) with (env e) {
-            require e.msg.sender != Utils.passiveFeeClaimer(), "passive fee claimer can't sign or call";
+            require e.msg.sender != Utils.continuousFeeRecipient(), "continuous fee recipient can't sign or call";
             requireInvariant feeClaimerCantAuthorize(e.msg.sender);
         }
     }
@@ -75,10 +75,10 @@ strong invariant feeClaimerHasNoDebt(bytes32 id)
 /// UPDATE POSITION ///
 
 /// updatePosition sets user's credit to the post-update value
-/// and only changes credit of user and passive fee claimer at the obligation id.
+/// and only changes credit of user and continuous fee recipient at the obligation id.
 rule updatePositionEffects(env e, Midnight.Obligation obligation, address user, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
-    address passiveFeeClaimer = Utils.passiveFeeClaimer();
+    address continuousFeeRecipient = Utils.continuousFeeRecipient();
 
     requireInvariant feeClaimerHasNoPendingFee(id);
 
@@ -88,26 +88,26 @@ rule updatePositionEffects(env e, Midnight.Obligation obligation, address user, 
 
     uint256 anyCredit = creditOf(anyId, anyUser);
     uint256 anyDebt = debtOf(anyId, anyUser);
-    uint256 feeClaimerCredit = creditOf(id, passiveFeeClaimer);
+    uint256 feeClaimerCredit = creditOf(id, continuousFeeRecipient);
 
     updatePosition(e, obligation, user);
 
     assert debtOf(anyId, anyUser) == anyDebt;
-    assert (anyId != id) || (anyUser != passiveFeeClaimer && anyUser != user) => creditOf(anyId, anyUser) == anyCredit;
+    assert (anyId != id) || (anyUser != continuousFeeRecipient && anyUser != user) => creditOf(anyId, anyUser) == anyCredit;
     assert creditOf(id, user) == updatedUserCredit;
 
     // When the fee claimer is the user he is slashed so his pre-call balance is too high.
-    assert user != passiveFeeClaimer => creditOf(id, passiveFeeClaimer) == feeClaimerCredit + userFee;
-    assert user == passiveFeeClaimer => userFee == 0;
+    assert user != continuousFeeRecipient => creditOf(id, continuousFeeRecipient) == feeClaimerCredit + userFee;
+    assert user == continuousFeeRecipient => userFee == 0;
 }
 
 /// WITHDRAW ///
 
 /// withdraw decreases onBehalf's post-update credit by exactly units
-/// and only changes credit of onBehalf and passive fee claimer at the obligation id.
+/// and only changes credit of onBehalf and continuous fee recipient at the obligation id.
 rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 units, address onBehalf, address receiver, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, obligation);
-    address passiveFeeClaimer = Utils.passiveFeeClaimer();
+    address continuousFeeRecipient = Utils.continuousFeeRecipient();
 
     requireInvariant feeClaimerHasNoPendingFee(id);
 
@@ -117,28 +117,28 @@ rule withdrawEffects(env e, Midnight.Obligation obligation, uint256 units, addre
 
     uint256 anyCredit = creditOf(anyId, anyUser);
     uint256 anyDebt = debtOf(anyId, anyUser);
-    uint256 feeClaimerCredit = creditOf(id, passiveFeeClaimer);
+    uint256 feeClaimerCredit = creditOf(id, continuousFeeRecipient);
 
     withdraw(e, obligation, units, onBehalf, receiver);
 
     assert creditOf(id, onBehalf) == updatedUserCredit - units;
     assert debtOf(anyId, anyUser) == anyDebt;
-    assert (anyId != id) || (anyUser != passiveFeeClaimer && anyUser != onBehalf) => creditOf(anyId, anyUser) == anyCredit;
+    assert (anyId != id) || (anyUser != continuousFeeRecipient && anyUser != onBehalf) => creditOf(anyId, anyUser) == anyCredit;
 
     // When feeClaimer is onBehalf he is slashed & loses his withdrawn amount.
-    assert onBehalf != passiveFeeClaimer => creditOf(id, passiveFeeClaimer) == feeClaimerCredit + userFee;
+    assert onBehalf != continuousFeeRecipient => creditOf(id, continuousFeeRecipient) == feeClaimerCredit + userFee;
 }
 
 /// TAKE ///
 
 /// take changes maker's and taker's net credit-debt by +/- units relative to their post-update values
-/// and only changes credit of maker, taker, and passive fee claimer and debt of maker and taker at the obligation id.
-/// Assumes the passive fee claimer can't sign or call since its address derives from the hash of a human readable string.
+/// and only changes credit of maker, taker, and continuous fee recipient and debt of maker and taker at the obligation id.
+/// Assumes the continuous fee recipient can't sign or call since its address derives from the hash of a human readable string.
 rule takeEffects(env e, uint256 units, address taker, address takerCallback, bytes takerCallbackData, address receiver, Midnight.Offer offer, Midnight.Signature signature, bytes32 root, bytes32[] proof, bytes32 anyId, address anyUser) {
     bytes32 id = toId(e, offer.obligation);
-    address passiveFeeClaimer = Utils.passiveFeeClaimer();
+    address continuousFeeRecipient = Utils.continuousFeeRecipient();
 
-    require e.msg.sender != passiveFeeClaimer, "passive fee claimer can't sign or call";
+    require e.msg.sender != continuousFeeRecipient, "continuous fee recipient can't sign or call";
     requireInvariant feeClaimerCantAuthorize(e.msg.sender);
 
     uint128 makerCreditBefore;
@@ -160,7 +160,7 @@ rule takeEffects(env e, uint256 units, address taker, address takerCallback, byt
     mathint takerDelta = offer.buy ? -units : units;
     assert takerNetAfter == takerNetBefore + takerDelta;
     assert anyId != id || (anyUser != offer.maker && anyUser != taker) => debtOf(anyId, anyUser) == otherDebtBefore;
-    assert anyId != id || (anyUser != offer.maker && anyUser != taker && anyUser != passiveFeeClaimer) => creditOf(anyId, anyUser) == otherCreditBefore;
+    assert anyId != id || (anyUser != offer.maker && anyUser != taker && anyUser != continuousFeeRecipient) => creditOf(anyId, anyUser) == otherCreditBefore;
 }
 
 /// REPAY ///

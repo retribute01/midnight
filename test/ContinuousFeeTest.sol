@@ -2,7 +2,7 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {WAD, MAX_CONTINUOUS_FEE, PASSIVE_FEE_RECIPIENT} from "../src/libraries/ConstantsLib.sol";
+import {WAD, MAX_CONTINUOUS_FEE, CONTINUOUS_FEE_RECIPIENT} from "../src/libraries/ConstantsLib.sol";
 import {EventsLib} from "../src/libraries/EventsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {TickLib, MAX_TICK} from "../src/libraries/TickLib.sol";
@@ -97,7 +97,7 @@ contract ContinuousFeeTest is BaseTest {
 
         // Fee credit minted to recipient
         if (expectedFee > 0) {
-            assertEq(midnight.creditOf(id, PASSIVE_FEE_RECIPIENT), expectedFee, "fee claimer credit");
+            assertEq(midnight.creditOf(id, CONTINUOUS_FEE_RECIPIENT), expectedFee, "fee claimer credit");
         }
     }
 
