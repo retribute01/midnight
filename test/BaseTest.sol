@@ -27,7 +27,7 @@ import {
 } from "../src/libraries/ConstantsLib.sol";
 import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMidnight.sol";
 import {Midnight} from "../src/Midnight.sol";
-import {TransferFromCallback} from "./helpers/TransferFromCallback.sol";
+import {TransferFromCallback} from "../src/callbacks/TransferFromCallback.sol";
 
 uint256 constant MAX_TEST_AMOUNT = type(uint128).max;
 

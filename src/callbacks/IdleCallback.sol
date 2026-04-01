@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 // Copyright (c) 2025 Morpho Association
-pragma solidity ^0.8.0;
+pragma solidity 0.8.31;
 
-import {Obligation} from "../../src/interfaces/IMidnight.sol";
-import {ICallbacks} from "../../src/interfaces/ICallbacks.sol";
-import {ERC20} from "./ERC20.sol";
+import {Obligation} from "../interfaces/IMidnight.sol";
+import {ICallbacks} from "../interfaces/ICallbacks.sol";
+import {IERC20} from "../interfaces/IERC20.sol";
+import {CALLBACK_SUCCESS} from "../libraries/ConstantsLib.sol";
+import {SafeTransferLib} from "../libraries/SafeTransferLib.sol";
 
 contract IdleCallback is ICallbacks {
     address public immutable MIDNIGHT;
@@ -16,12 +18,12 @@ contract IdleCallback is ICallbacks {
 
     function deposit(address token, uint256 amount) external {
         balances[msg.sender][token] += amount;
-        require(ERC20(token).transferFrom(msg.sender, address(this), amount));
+        SafeTransferLib.safeTransferFrom(token, msg.sender, address(this), amount);
     }
 
     function withdraw(address token, uint256 amount) external {
         balances[msg.sender][token] -= amount;
-        require(ERC20(token).transfer(msg.sender, amount));
+        SafeTransferLib.safeTransfer(token, msg.sender, amount);
     }
 
     function onBuy(
@@ -32,10 +34,11 @@ contract IdleCallback is ICallbacks {
         uint256,
         uint256,
         bytes memory
-    ) external {
+    ) external returns (bytes32) {
         require(msg.sender == MIDNIGHT);
         balances[buyer][obligation.loanToken] -= buyerAssets;
-        require(ERC20(obligation.loanToken).transfer(MIDNIGHT, buyerAssets));
+        IERC20(obligation.loanToken).approve(MIDNIGHT, buyerAssets);
+        return CALLBACK_SUCCESS;
     }
 
     function onSell(bytes32, Obligation memory, address, uint256, uint256, uint256, bytes memory) external {}

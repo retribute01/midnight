@@ -19,6 +19,7 @@ import {
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH,
     PASSIVE_FEE_RECIPIENT,
+    CALLBACK_SUCCESS,
     isLltvAllowed
 } from "./libraries/ConstantsLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
@@ -32,7 +33,6 @@ import {
     Position
 } from "./interfaces/IMidnight.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
-import {IERC20} from "./interfaces/IERC20.sol";
 import {IEnterGate, ILiquidatorGate} from "./interfaces/IGate.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
@@ -330,18 +330,15 @@ contract Midnight is IMidnight {
             sellerCreditDecrease
         );
 
-        uint256 balanceBefore = IERC20(offer.obligation.loanToken).balanceOf(address(this));
-
-        ICallbacks(buyerCallback)
-            .onBuy(id, offer.obligation, buyer, buyerAssets, sellerAssets, units, buyerCallbackData);
-
         require(
-            IERC20(offer.obligation.loanToken).balanceOf(address(this)) >= balanceBefore + buyerAssets,
-            "insufficient funds from callback"
+            ICallbacks(buyerCallback).onBuy(
+                id, offer.obligation, buyer, buyerAssets, sellerAssets, units, buyerCallbackData
+            ) == CALLBACK_SUCCESS,
+            "invalid callback"
         );
 
-        SafeTransferLib.safeTransfer(offer.obligation.loanToken, feeRecipient, buyerAssets - sellerAssets);
-        SafeTransferLib.safeTransfer(offer.obligation.loanToken, receiver, sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyerCallback, feeRecipient, buyerAssets - sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyerCallback, receiver, sellerAssets);
 
         if (sellerCallback != address(0)) {
             ICallbacks(sellerCallback)

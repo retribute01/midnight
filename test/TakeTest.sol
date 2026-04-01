@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 
 import {Obligation, Offer, Signature, Collateral} from "../src/interfaces/IMidnight.sol";
 import {Midnight} from "../src/Midnight.sol";
-import {WAD} from "../src/libraries/ConstantsLib.sol";
+import {WAD, CALLBACK_SUCCESS} from "../src/libraries/ConstantsLib.sol";
 import {UtilsLib} from "../src/libraries/UtilsLib.sol";
 import {TickLib, MAX_TICK} from "../src/libraries/TickLib.sol";
 import {ICallbacks} from "../src/interfaces/ICallbacks.sol";
@@ -12,7 +12,7 @@ import {IdLib} from "../src/libraries/IdLib.sol";
 
 import {BaseTest} from "./BaseTest.sol";
 import {ERC20} from "./helpers/ERC20.sol";
-import {IdleCallback} from "./helpers/IdleCallback.sol";
+import {IdleCallback} from "../src/callbacks/IdleCallback.sol";
 
 contract TakeTest is BaseTest {
     using UtilsLib for uint256;
@@ -1017,7 +1017,13 @@ contract BorrowCallback is ICallbacks {
         Midnight(msg.sender).supplyCollateral(obligation, collateralIndex, amount, seller);
     }
 
-    function onBuy(bytes32, Obligation memory, address, uint256, uint256, uint256, bytes memory) external {}
+    function onBuy(bytes32, Obligation memory, address, uint256, uint256, uint256, bytes memory)
+        external
+        pure
+        returns (bytes32)
+    {
+        return CALLBACK_SUCCESS;
+    }
 
     function onLiquidate(bytes32, Obligation memory, uint256, uint256, uint256, address, bytes memory) external {}
 }
@@ -1035,11 +1041,12 @@ contract LendCallback is ICallbacks {
         uint256,
         uint256,
         bytes memory data
-    ) external {
+    ) external returns (bytes32) {
         require(obligationId == IdLib.toId(obligation, block.chainid, msg.sender), "wrong obligationId");
         recordedObligationId = obligationId;
         recordedData = data;
-        require(ERC20(obligation.loanToken).transfer(msg.sender, buyerAssets), "transfer failed");
+        ERC20(obligation.loanToken).approve(msg.sender, buyerAssets);
+        return CALLBACK_SUCCESS;
     }
 
     function onSell(bytes32, Obligation memory, address, uint256, uint256, uint256, bytes memory) external {}
