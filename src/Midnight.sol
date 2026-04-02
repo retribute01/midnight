@@ -66,7 +66,6 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// SLASHING
 /// @dev When some bad debt is realized, it is socialized among lenders in the obligation.
 /// @dev At each lender's next interaction, their credit is slashed proportionally.
-/// @dev The continuous fee amount is slashed proportionally when bad debt is realized.
 ///
 /// ROUNDINGS
 /// @dev Because of roundings, trading and continuous fees might charge less than expected, which can become problematic
@@ -516,12 +515,9 @@ contract Midnight is IMidnight {
             // forge-lint: disable-next-item(unsafe-typecast) as badDebt <= _position.debt
             _position.debt -= uint128(badDebt);
             uint256 oldTotalUnits = _obligationState.totalUnits;
-            // Slash continuousFeeAmount proportionally.
-            uint256 _continuousFeeAmount = _obligationState.continuousFeeAmount;
-            if (_continuousFeeAmount > 0) {
-                _obligationState.continuousFeeAmount =
-                    UtilsLib.toUint128(_continuousFeeAmount.mulDivDown(oldTotalUnits - badDebt, oldTotalUnits));
-            }
+            _obligationState.continuousFeeAmount = UtilsLib.toUint128(
+                _obligationState.continuousFeeAmount.mulDivDown(oldTotalUnits - badDebt, oldTotalUnits)
+            );
             _obligationState.lossIndex = UtilsLib.toUint128(
                 type(uint128).max
                     - (type(uint128).max - _obligationState.lossIndex)
