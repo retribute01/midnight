@@ -515,15 +515,16 @@ contract Midnight is IMidnight {
             // forge-lint: disable-next-item(unsafe-typecast) as badDebt <= _position.debt
             _position.debt -= uint128(badDebt);
             uint256 oldTotalUnits = _obligationState.totalUnits;
-            _obligationState.continuousFeeAmount = UtilsLib.toUint128(
-                _obligationState.continuousFeeAmount.mulDivDown(oldTotalUnits - badDebt, oldTotalUnits)
-            );
+            uint256 oldLossIndex = _obligationState.lossIndex;
             _obligationState.lossIndex = UtilsLib.toUint128(
                 type(uint128).max
-                    - (type(uint128).max - _obligationState.lossIndex)
-                    .mulDivDown(oldTotalUnits - badDebt, oldTotalUnits)
+                    - (type(uint128).max - oldLossIndex).mulDivDown(oldTotalUnits - badDebt, oldTotalUnits)
             );
             _obligationState.totalUnits -= UtilsLib.toUint128(badDebt);
+            _obligationState.continuousFeeAmount = UtilsLib.toUint128(
+                _obligationState.continuousFeeAmount
+                    .mulDivDown(type(uint128).max - _obligationState.lossIndex, type(uint128).max - oldLossIndex)
+            );
         }
 
         if (repaidUnits > 0 || seizedAssets > 0) {
