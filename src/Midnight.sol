@@ -356,7 +356,9 @@ contract Midnight is IMidnight {
             "invalid callback"
         );
 
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyerCallback, address(this), buyerAssets - sellerAssets);
+        SafeTransferLib.safeTransferFrom(
+            offer.obligation.loanToken, buyerCallback, address(this), buyerAssets - sellerAssets
+        );
         claimableTradingFee[offer.obligation.loanToken] += buyerAssets - sellerAssets;
         SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, buyerCallback, receiver, sellerAssets);
 
