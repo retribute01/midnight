@@ -969,14 +969,9 @@ contract BorrowCallback is ICallbacks {
     bytes public recordedData;
     bytes32 public recordedid;
 
-    function onSell(
-        bytes32 id,
-        Obligation memory obligation,
-        address seller,
-        uint256,
-        uint256,
-        bytes memory data
-    ) external {
+    function onSell(bytes32 id, Obligation memory obligation, address seller, uint256, uint256, bytes memory data)
+        external
+    {
         require(id == IdLib.toId(obligation, block.chainid, msg.sender), "wrong id");
         recordedid = id;
         recordedData = data;
