@@ -7,7 +7,7 @@ import {ICallbacks} from "../src/interfaces/ICallbacks.sol";
 import {Midnight} from "../src/Midnight.sol";
 import {IdLib} from "../src/libraries/IdLib.sol";
 
-import {ERC20} from "./helpers/ERC20.sol";
+import {ERC20} from "./erc20s/ERC20.sol";
 import {Oracle} from "./helpers/Oracle.sol";
 import {RevertingOracle} from "./helpers/RevertingOracle.sol";
 import {BaseTest, MAX_TEST_AMOUNT} from "./BaseTest.sol";
@@ -175,7 +175,6 @@ contract OtherFunctionsTest is BaseTest {
         address collateralToken = obligation.collaterals[0].token;
         address receiver = makeAddr("receiver");
         deal(collateralToken, address(this), supply);
-        ERC20(collateralToken).approve(address(midnight), supply);
         midnight.supplyCollateral(obligation, 0, supply, address(this));
 
         midnight.withdrawCollateral(obligation, 0, withdraw, address(this), receiver);
