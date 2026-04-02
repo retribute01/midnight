@@ -1247,7 +1247,6 @@ contract BorrowCallback is ICallbacks {
         address seller,
         uint256,
         uint256,
-        uint256,
         bytes memory data
     ) external {
         require(obligationId == IdLib.toId(obligation, block.chainid, msg.sender), "wrong obligationId");
@@ -1259,7 +1258,7 @@ contract BorrowCallback is ICallbacks {
         Midnight(msg.sender).supplyCollateral(obligation, collateralIndex, amount, seller);
     }
 
-    function onBuy(bytes32, Obligation memory, address, uint256, uint256, uint256, bytes memory) external {}
+    function onBuy(bytes32, Obligation memory, address, uint256, uint256, bytes memory) external {}
 
     function onLiquidate(bytes32, Obligation memory, uint256, uint256, uint256, address, bytes memory) external {}
 }
@@ -1275,7 +1274,6 @@ contract LendCallback is ICallbacks {
         address buyer,
         uint256 buyerAssets,
         uint256,
-        uint256,
         bytes memory data
     ) external {
         require(obligationId == IdLib.toId(obligation, block.chainid, msg.sender), "wrong obligationId");
@@ -1284,7 +1282,7 @@ contract LendCallback is ICallbacks {
         SafeTransferLib.safeTransfer(obligation.loanToken, buyer, buyerAssets);
     }
 
-    function onSell(bytes32, Obligation memory, address, uint256, uint256, uint256, bytes memory) external {}
+    function onSell(bytes32, Obligation memory, address, uint256, uint256, bytes memory) external {}
 
     function onLiquidate(bytes32, Obligation memory, uint256, uint256, uint256, address, bytes memory) external {}
 }
