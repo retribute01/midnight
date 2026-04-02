@@ -238,7 +238,7 @@ contract AuthorizationTest is BaseTest {
 
         // Operator can take on behalf of taker
         vm.prank(operator);
-        midnight.take(units, taker, address(0), hex"", address(0), offer, sig([offer]), root([offer]), proof([offer]));
+        midnight.take(units, taker, address(0), hex"", taker, offer, sig([offer]), root([offer]), proof([offer]));
 
         assertEq(midnight.debtOf(id, taker), units);
     }
