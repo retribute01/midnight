@@ -56,7 +56,6 @@ contract TakeTest is BaseTest {
 
         lenderOffer.buy = true;
         lenderOffer.maker = lender;
-        lenderOffer.callback = address(transferFromCallback);
         lenderOffer.maxUnits = type(uint256).max;
         lenderOffer.obligation = obligation;
         lenderOffer.expiry = block.timestamp + 200;
@@ -80,7 +79,6 @@ contract TakeTest is BaseTest {
 
         otherBorrowerOffer.buy = true;
         otherBorrowerOffer.maker = otherBorrower;
-        otherBorrowerOffer.callback = address(transferFromCallback);
         otherBorrowerOffer.maxUnits = type(uint256).max;
         otherBorrowerOffer.obligation = obligation;
         otherBorrowerOffer.expiry = block.timestamp + 200;
@@ -914,7 +912,8 @@ contract TakeTest is BaseTest {
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
     }
 
-    function testIdleCallback(uint256 units) public {
+    // IdleCallback as maker-buyer callback (offer.callback = idle).
+    function testIdleCallbackMakerBuyer(uint256 units) public {
         units = bound(units, 1, maxAssets);
         uint256 price = TickLib.tickToPrice(MAX_TICK);
         uint256 assets = units.mulDivDown(price, WAD);
@@ -927,13 +926,46 @@ contract TakeTest is BaseTest {
         vm.prank(lender);
         idle.deposit(address(loanToken), assets);
 
-        assertEq(idle.balances(lender, address(loanToken)), assets, "idle balance after deposit");
-
         lenderOffer.callback = address(idle);
         lenderOffer.maxUnits = units;
         collateralize(obligation, borrower, units);
 
         take(units, borrower, lenderOffer);
+
+        assertEq(midnight.creditOf(id, lender), units, "lender credit");
+        assertEq(midnight.debtOf(id, borrower), units, "borrower debt");
+        assertEq(idle.balances(lender, address(loanToken)), 0, "idle balance after take");
+    }
+
+    // IdleCallback as taker-buyer callback (takerCallback = idle).
+    function testIdleCallbackTakerBuyer(uint256 units) public {
+        units = bound(units, 1, maxAssets);
+        uint256 price = TickLib.tickToPrice(MAX_TICK);
+        uint256 assets = units.mulDivUp(price, WAD);
+
+        IdleCallback idle = new IdleCallback(address(midnight));
+
+        deal(address(loanToken), lender, assets);
+        vm.prank(lender);
+        loanToken.approve(address(idle), assets);
+        vm.prank(lender);
+        idle.deposit(address(loanToken), assets);
+
+        borrowerOffer.maxUnits = units;
+        collateralize(obligation, borrower, units);
+
+        vm.prank(lender);
+        midnight.take(
+            units,
+            lender,
+            address(idle),
+            hex"",
+            lender,
+            borrowerOffer,
+            sig([borrowerOffer]),
+            root([borrowerOffer]),
+            proof([borrowerOffer])
+        );
 
         assertEq(midnight.creditOf(id, lender), units, "lender credit");
         assertEq(midnight.debtOf(id, borrower), units, "borrower debt");

@@ -224,7 +224,6 @@ contract AuthorizationTest is BaseTest {
         Offer memory offer;
         offer.buy = true;
         offer.maker = lender;
-        offer.callback = address(transferFromCallback);
         offer.maxUnits = units;
         offer.obligation = obligation;
         offer.expiry = block.timestamp + 200;
