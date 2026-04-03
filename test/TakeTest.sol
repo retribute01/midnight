@@ -12,7 +12,6 @@ import {IdLib} from "../src/libraries/IdLib.sol";
 
 import {BaseTest} from "./BaseTest.sol";
 import {ERC20} from "./erc20s/ERC20.sol";
-import {IdleCallback} from "../src/callbacks/IdleCallback.sol";
 
 contract TakeTest is BaseTest {
     using UtilsLib for uint256;
@@ -910,66 +909,6 @@ contract TakeTest is BaseTest {
             proof([borrowerOffer])
         );
         assertEq(LendCallback(callback).recordedData(), abi.encode(address(loanToken), assets));
-    }
-
-    // IdleCallback as maker-buyer callback (offer.callback = idle).
-    function testIdleCallbackMakerBuyer(uint256 units) public {
-        units = bound(units, 1, maxAssets);
-        uint256 price = TickLib.tickToPrice(MAX_TICK);
-        uint256 assets = units.mulDivDown(price, WAD);
-
-        IdleCallback idle = new IdleCallback(address(midnight));
-
-        deal(address(loanToken), lender, assets);
-        vm.prank(lender);
-        loanToken.approve(address(idle), assets);
-        vm.prank(lender);
-        idle.deposit(address(loanToken), assets);
-
-        lenderOffer.callback = address(idle);
-        lenderOffer.maxUnits = units;
-        collateralize(obligation, borrower, units);
-
-        take(units, borrower, lenderOffer);
-
-        assertEq(midnight.creditOf(id, lender), units, "lender credit");
-        assertEq(midnight.debtOf(id, borrower), units, "borrower debt");
-        assertEq(idle.balances(lender, address(loanToken)), 0, "idle balance after take");
-    }
-
-    // IdleCallback as taker-buyer callback (takerCallback = idle).
-    function testIdleCallbackTakerBuyer(uint256 units) public {
-        units = bound(units, 1, maxAssets);
-        uint256 price = TickLib.tickToPrice(MAX_TICK);
-        uint256 assets = units.mulDivUp(price, WAD);
-
-        IdleCallback idle = new IdleCallback(address(midnight));
-
-        deal(address(loanToken), lender, assets);
-        vm.prank(lender);
-        loanToken.approve(address(idle), assets);
-        vm.prank(lender);
-        idle.deposit(address(loanToken), assets);
-
-        borrowerOffer.maxUnits = units;
-        collateralize(obligation, borrower, units);
-
-        vm.prank(lender);
-        midnight.take(
-            units,
-            lender,
-            address(idle),
-            hex"",
-            lender,
-            borrowerOffer,
-            sig([borrowerOffer]),
-            root([borrowerOffer]),
-            proof([borrowerOffer])
-        );
-
-        assertEq(midnight.creditOf(id, lender), units, "lender credit");
-        assertEq(midnight.debtOf(id, borrower), units, "borrower debt");
-        assertEq(idle.balances(lender, address(loanToken)), 0, "idle balance after take");
     }
 
     // Summary of zero price tests:
