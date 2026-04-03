@@ -349,23 +349,18 @@ contract Midnight is IMidnight {
             sellerCreditDecrease
         );
 
-        address fundingSource;
         if (buyerCallback != address(0)) {
             require(
                 ICallbacks(buyerCallback).onBuy(id, offer.obligation, buyer, buyerAssets, units, buyerCallbackData)
                     == CALLBACK_SUCCESS,
                 "invalid callback"
             );
-            fundingSource = buyerCallback;
-        } else {
-            fundingSource = offer.buy ? buyer : msg.sender;
         }
 
-        SafeTransferLib.safeTransferFrom(
-            offer.obligation.loanToken, fundingSource, address(this), buyerAssets - sellerAssets
-        );
+        address sender = buyerCallback != address(0) ? buyerCallback : (offer.buy ? buyer : msg.sender);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, sender, address(this), buyerAssets - sellerAssets);
         claimableTradingFee[offer.obligation.loanToken] += buyerAssets - sellerAssets;
-        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, fundingSource, receiver, sellerAssets);
+        SafeTransferLib.safeTransferFrom(offer.obligation.loanToken, sender, receiver, sellerAssets);
 
         if (sellerCallback != address(0)) {
             require(
