@@ -56,7 +56,7 @@ contract TradingFeeTest is BaseTest {
                     oracle: address(oracle2)
                 })
             );
-        obligation.collateralParams = sortCollaterals(obligation.collateralParams);
+        obligation.collateralParams = sortCollateralParams(obligation.collateralParams);
 
         id = toId(obligation);
 

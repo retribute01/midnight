@@ -53,7 +53,7 @@ contract GateTest is BaseTest {
                     maxLif: maxLif(0.77e18, LIQUIDATION_CURSOR_LOW)
                 })
             );
-        obligation.collateralParams = sortCollaterals(obligation.collateralParams);
+        obligation.collateralParams = sortCollateralParams(obligation.collateralParams);
 
         gatedObligation.loanToken = address(loanToken);
         gatedObligation.maturity = block.timestamp + 100;
@@ -66,7 +66,7 @@ contract GateTest is BaseTest {
                     maxLif: maxLif(0.77e18, LIQUIDATION_CURSOR_LOW)
                 })
             );
-        gatedObligation.collateralParams = sortCollaterals(gatedObligation.collateralParams);
+        gatedObligation.collateralParams = sortCollateralParams(gatedObligation.collateralParams);
         gatedObligation.enterGate = address(gate);
         gatedObligation.liquidatorGate = address(gate);
 

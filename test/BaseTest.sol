@@ -241,7 +241,7 @@ abstract contract BaseTest is Test {
         return sig(_root, privateKey[offers[0].maker]);
     }
 
-    function sortCollaterals(CollateralParams[] memory arr) internal pure returns (CollateralParams[] memory) {
+    function sortCollateralParams(CollateralParams[] memory arr) internal pure returns (CollateralParams[] memory) {
         for (uint256 i = 1; i < arr.length; i++) {
             uint256 j = i;
             while (j > 0 && bytes20(arr[j].token) < bytes20(arr[j - 1].token)) {
@@ -272,7 +272,7 @@ abstract contract BaseTest is Test {
             collateralParams[i].lltv = lltv;
             collateralParams[i].maxLif = maxLif(lltv, LIQUIDATION_CURSOR_LOW);
         }
-        collateralParams = sortCollaterals(collateralParams);
+        collateralParams = sortCollateralParams(collateralParams);
         obligation.collateralParams = collateralParams;
         return obligation;
     }

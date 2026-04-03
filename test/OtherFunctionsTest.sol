@@ -53,7 +53,7 @@ contract OtherFunctionsTest is BaseTest {
                     oracle: address(oracle2)
                 })
             );
-        obligation.collateralParams = sortCollaterals(obligation.collateralParams);
+        obligation.collateralParams = sortCollateralParams(obligation.collateralParams);
         obligation.rcfThreshold = 0;
 
         authorize(borrower, address(this));
@@ -346,7 +346,7 @@ contract OtherFunctionsTest is BaseTest {
                 token: address(token), lltv: 0.77e18, maxLif: maxLif(0.77e18, 0.25e18), oracle: address(_oracle)
             });
         }
-        collateralParams = sortCollaterals(collateralParams);
+        collateralParams = sortCollateralParams(collateralParams);
         _obligation.loanToken = address(loanToken);
         _obligation.maturity = block.timestamp + 100;
         _obligation.collateralParams = collateralParams;

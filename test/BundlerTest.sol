@@ -49,7 +49,7 @@ contract BundlerTest is BaseTest {
                     oracle: address(oracle2)
                 })
             );
-        obligation.collateralParams = sortCollaterals(obligation.collateralParams);
+        obligation.collateralParams = sortCollateralParams(obligation.collateralParams);
         obligation.rcfThreshold = 0;
 
         id = midnight.touchObligation(obligation);
