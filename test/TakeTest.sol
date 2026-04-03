@@ -967,13 +967,13 @@ contract TakeTest is BaseTest {
 
 contract BorrowCallback is ICallbacks {
     bytes public recordedData;
-    bytes32 public recordedid;
+    bytes32 public recordedId;
 
     function onSell(bytes32 id, Obligation memory obligation, address seller, uint256, uint256, bytes memory data)
         external
     {
         require(id == IdLib.toId(obligation, block.chainid, msg.sender), "wrong id");
-        recordedid = id;
+        recordedId = id;
         recordedData = data;
         (uint256 collateralIndex, uint256 amount) = abi.decode(data, (uint256, uint256));
         address collateralToken = obligation.collateralParams[collateralIndex].token;
@@ -991,7 +991,7 @@ contract BorrowCallback is ICallbacks {
 contract LendCallback is ICallbacks {
     bytes public recordedData;
 
-    bytes32 public recordedid;
+    bytes32 public recordedId;
 
     function onBuy(
         bytes32 id,
@@ -1002,7 +1002,7 @@ contract LendCallback is ICallbacks {
         bytes memory data
     ) external {
         require(id == IdLib.toId(obligation, block.chainid, msg.sender), "wrong id");
-        recordedid = id;
+        recordedId = id;
         recordedData = data;
         SafeTransferLib.safeTransfer(obligation.loanToken, buyer, buyerAssets);
     }
