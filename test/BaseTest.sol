@@ -77,7 +77,6 @@ abstract contract BaseTest is Test {
         authorize(otherBorrower, address(ecrecoverRatifier));
         authorize(otherLender, address(ecrecoverRatifier));
 
-
         uint256 tokenType = vm.envOr("TOKEN_TYPE", uint256(0));
         if (tokenType == 1) {
             loanToken = ERC20(address(new ERC20NoRevert()));
