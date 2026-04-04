@@ -10,7 +10,8 @@ import {BaseTest} from "./BaseTest.sol";
 contract EcrecoverRatifierTest is BaseTest {
     function signRoot(bytes32 _root, address _signer) internal view returns (bytes memory) {
         bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, _root));
-        bytes32 domainSeparator = keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(ecrecoverRatifier)));
+        bytes32 domainSeparator =
+            keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(ecrecoverRatifier)));
         bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey[_signer], digest);
         return abi.encode(Signature({v: v, r: r, s: s}));
