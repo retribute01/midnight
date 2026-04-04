@@ -10,7 +10,6 @@ event SetIsAuthorized(
 );
 
 contract EcrecoverAuthorizer {
-
     address public immutable MIDNIGHT;
     mapping(address => uint256) public nonce;
 
