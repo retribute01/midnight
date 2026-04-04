@@ -49,7 +49,8 @@ struct Signature {
 struct ObligationState {
     uint128 totalUnits;
     uint128 lossIndex;
-    uint256 withdrawable;
+    uint128 withdrawable;
+    uint128 continuousFeeAmount;
     bool created;
     uint16[7] fees;
     uint32 continuousFee;
