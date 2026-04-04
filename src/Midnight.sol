@@ -362,7 +362,7 @@ contract Midnight is IMidnight {
             sellerCreditDecrease
         );
 
-        UtilsLib.tSet(LIQUIDATION_LOCK_SLOT, id, seller, true);
+        bool wasLocked = UtilsLib.tSet(LIQUIDATION_LOCK_SLOT, id, seller, true);
         if (buyerCallback != address(0)) {
             require(
                 ICallbacks(buyerCallback).onBuy(id, offer.obligation, buyer, buyerAssets, units, buyerCallbackData)
@@ -383,7 +383,7 @@ contract Midnight is IMidnight {
                 "invalid callback"
             );
         }
-        UtilsLib.tSet(LIQUIDATION_LOCK_SLOT, id, seller, false);
+        if (!wasLocked) UtilsLib.tSet(LIQUIDATION_LOCK_SLOT, id, seller, false);
 
         require(isHealthy(offer.obligation, id, seller), "seller is unhealthy");
 
@@ -796,6 +796,10 @@ contract Midnight is IMidnight {
 
     function lastAccrual(bytes32 id, address user) external view returns (uint128) {
         return position[id][user].lastAccrual;
+    }
+
+    function liquidationLocked(bytes32 id, address user) external view returns (bool) {
+        return UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, user);
     }
 
     /// @dev This function should be called with the id corresponding to the obligation.
