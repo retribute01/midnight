@@ -2,113 +2,89 @@
 // Copyright (c) 2025 Morpho Association
 pragma solidity ^0.8.0;
 
-import {
-    Authorization,
-    Signature,
-    EIP712_DOMAIN_TYPEHASH,
-    AUTHORIZATION_TYPEHASH
-} from "../src/interfaces/IEcrecover.sol";
+import {Offer} from "../src/interfaces/IMidnight.sol";
+import {Signature, EIP712_DOMAIN_TYPEHASH, ROOT_TYPEHASH} from "../src/interfaces/IEcrecover.sol";
+import {CALLBACK_SUCCESS} from "../src/libraries/ConstantsLib.sol";
 import {BaseTest} from "./BaseTest.sol";
 
 contract EcrecoverRatifierTest is BaseTest {
-    function makeAuthorization(address authorizer, address authorized, bool isAuth)
-        internal
-        view
-        returns (Authorization memory)
-    {
-        return Authorization({
-            authorizer: authorizer,
-            authorized: authorized,
-            isAuthorized: isAuth,
-            nonce: setIsAuthorizedWithSig.nonce(authorizer),
-            deadline: block.timestamp + 1 days
-        });
-    }
-
-    function signAuthorization(Authorization memory authorization, address _signer)
-        internal
-        view
-        returns (Signature memory)
-    {
-        bytes32 structHash = keccak256(abi.encode(AUTHORIZATION_TYPEHASH, authorization));
-        bytes32 domainSeparator =
-            keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(setIsAuthorizedWithSig)));
+    function signRoot(bytes32 _root, address _signer) internal view returns (bytes memory) {
+        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, _root));
+        bytes32 domainSeparator = keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(ecrecoverRatifier)));
         bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, structHash));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey[_signer], digest);
-        return Signature({v: v, r: r, s: s});
+        return abi.encode(Signature({v: v, r: r, s: s}));
     }
 
-    function testSetIsAuthorizedWithSig() public {
-        Authorization memory auth = makeAuthorization(borrower, lender, true);
-        Signature memory sig = signAuthorization(auth, borrower);
-
-        setIsAuthorizedWithSig.setIsAuthorizedWithSig(auth, sig);
-
-        assertEq(midnight.isAuthorized(borrower, lender), true);
-        assertEq(setIsAuthorizedWithSig.nonce(borrower), 1);
-
-        auth = makeAuthorization(borrower, lender, false);
-        sig = signAuthorization(auth, borrower);
-
-        setIsAuthorizedWithSig.setIsAuthorizedWithSig(auth, sig);
-
-        assertEq(midnight.isAuthorized(borrower, lender), false);
-        assertEq(setIsAuthorizedWithSig.nonce(borrower), 2);
+    function makeOffer(address maker) internal view returns (Offer memory offer) {
+        offer.maker = maker;
+        offer.ratifier = address(ecrecoverRatifier);
+        offer.expiry = block.timestamp + 200;
     }
 
-    function testSetIsAuthorizedWithSigPermissionless() public {
-        Authorization memory auth = makeAuthorization(borrower, lender, true);
-        Signature memory sig = signAuthorization(auth, borrower);
+    function testOnRatifyMakerSigns() public view {
+        Offer memory offer = makeOffer(lender);
+        bytes32 _root = keccak256(abi.encode(offer));
+        bytes memory data = signRoot(_root, lender);
 
-        // Anyone can submit — no caller auth needed
-        vm.prank(otherLender);
-        setIsAuthorizedWithSig.setIsAuthorizedWithSig(auth, sig);
-
-        assertEq(midnight.isAuthorized(borrower, lender), true);
-        assertEq(setIsAuthorizedWithSig.nonce(borrower), 1);
+        bytes32 result = ecrecoverRatifier.onRatify(offer, _root, data);
+        assertEq(result, CALLBACK_SUCCESS);
     }
 
-    function testSetIsAuthorizedWithSigInvalidSignature() public {
-        Authorization memory auth = makeAuthorization(borrower, lender, true);
-        Signature memory sig = signAuthorization(auth, lender); // wrong signer
+    function testOnRatifyAuthorizedSigns() public {
+        Offer memory offer = makeOffer(lender);
+        bytes32 _root = keccak256(abi.encode(offer));
+
+        authorize(lender, borrower);
+        bytes memory data = signRoot(_root, borrower);
+
+        bytes32 result = ecrecoverRatifier.onRatify(offer, _root, data);
+        assertEq(result, CALLBACK_SUCCESS);
+    }
+
+    function testOnRatifyUnauthorizedSigner() public {
+        Offer memory offer = makeOffer(lender);
+        bytes32 _root = keccak256(abi.encode(offer));
+        bytes memory data = signRoot(_root, borrower);
 
         vm.expectRevert("invalid signature");
-        setIsAuthorizedWithSig.setIsAuthorizedWithSig(auth, sig);
-
-        assertEq(midnight.isAuthorized(borrower, lender), false);
-        assertEq(setIsAuthorizedWithSig.nonce(borrower), 0);
+        ecrecoverRatifier.onRatify(offer, _root, data);
     }
 
-    function testSetIsAuthorizedWithSigExpired() public {
-        Authorization memory auth = makeAuthorization(borrower, lender, true);
-        auth.deadline = block.timestamp - 1;
-        Signature memory sig = signAuthorization(auth, borrower);
+    function testOnRatifyInvalidSignature() public {
+        Offer memory offer = makeOffer(lender);
+        bytes32 _root = keccak256(abi.encode(offer));
+        bytes memory data = abi.encode(Signature({v: 27, r: bytes32(uint256(1)), s: bytes32(uint256(2))}));
 
-        vm.expectRevert("expired");
-        setIsAuthorizedWithSig.setIsAuthorizedWithSig(auth, sig);
+        vm.expectRevert();
+        ecrecoverRatifier.onRatify(offer, _root, data);
     }
 
-    function testSetIsAuthorizedWithSigInvalidNonce() public {
-        Authorization memory auth = makeAuthorization(borrower, lender, true);
-        auth.nonce = 999; // wrong nonce
-        Signature memory sig = signAuthorization(auth, borrower);
+    function testOnRatifyWrongRoot() public {
+        Offer memory offer = makeOffer(lender);
+        bytes32 _root = keccak256(abi.encode(offer));
+        bytes memory data = signRoot(_root, lender);
 
-        vm.expectRevert("invalid nonce");
-        setIsAuthorizedWithSig.setIsAuthorizedWithSig(auth, sig);
+        bytes32 wrongRoot = keccak256("wrong");
+        vm.expectRevert("invalid signature");
+        ecrecoverRatifier.onRatify(offer, wrongRoot, data);
     }
 
-    function testSetIsAuthorizedWithSigNonce(uint8 n) public {
-        n = uint8(bound(n, 1, 32));
+    function testOnRatifyRevokeAuthorizationInvalidates() public {
+        Offer memory offer = makeOffer(lender);
+        bytes32 _root = keccak256(abi.encode(offer));
 
-        for (uint8 i = 0; i < n; i++) {
-            bool isAuth = i % 2 == 0;
-            Authorization memory auth = makeAuthorization(borrower, lender, isAuth);
-            Signature memory sig = signAuthorization(auth, borrower);
+        authorize(lender, borrower);
+        bytes memory data = signRoot(_root, borrower);
 
-            setIsAuthorizedWithSig.setIsAuthorizedWithSig(auth, sig);
+        // Works while authorized.
+        ecrecoverRatifier.onRatify(offer, _root, data);
 
-            assertEq(setIsAuthorizedWithSig.nonce(borrower), i + 1);
-            assertEq(midnight.isAuthorized(borrower, lender), isAuth);
-        }
+        // Revoke.
+        vm.prank(lender);
+        midnight.setIsAuthorized(lender, borrower, false);
+
+        vm.expectRevert("invalid signature");
+        ecrecoverRatifier.onRatify(offer, _root, data);
     }
 }

@@ -24,11 +24,11 @@ contract SetIsAuthorizedWithSig {
         bytes32 hashStruct = keccak256(abi.encode(AUTHORIZATION_TYPEHASH, authorization));
         bytes32 domainSeparator = keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(this)));
         bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator, hashStruct));
-        address signatory = ecrecover(digest, signature.v, signature.r, signature.s);
+        address signer = ecrecover(digest, signature.v, signature.r, signature.s);
         require(
-            signatory != address(0)
-                && (signatory == authorization.authorizer
-                    || IMidnight(MIDNIGHT).isAuthorized(authorization.authorizer, signatory)),
+            signer != address(0)
+                && (signer == authorization.authorizer
+                    || IMidnight(MIDNIGHT).isAuthorized(authorization.authorizer, signer)),
             "invalid signature"
         );
 

@@ -57,7 +57,7 @@ rule claimDecreasesClaimableTradingFee(env e, address token, uint256 amount, add
     assert claimableTradingFee(token) == before - amount;
 }
 
-rule claimableTradingFeeUnchanged(method f, env e, calldataarg args, address token) filtered { f -> !f.isView && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, Midnight.Signature, bytes32, bytes32[]).selector && f.selector != sig:claimTradingFee(address, uint256, address).selector } {
+rule claimableTradingFeeUnchanged(method f, env e, calldataarg args, address token) filtered { f -> !f.isView && f.selector != sig:take(uint256, address, address, bytes, address, Midnight.Offer, bytes, bytes32, bytes32[]).selector && f.selector != sig:claimTradingFee(address, uint256, address).selector } {
     uint256 before = claimableTradingFee(token);
     f(e, args);
     assert claimableTradingFee(token) == before;
