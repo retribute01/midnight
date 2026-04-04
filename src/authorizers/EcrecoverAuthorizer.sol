@@ -5,10 +5,11 @@ pragma solidity 0.8.31;
 import {IMidnight} from "../interfaces/IMidnight.sol";
 import {Authorization, Signature, AUTHORIZATION_TYPEHASH, EIP712_DOMAIN_TYPEHASH} from "../interfaces/IEcrecover.sol";
 
+event SetIsAuthorized(
+    address indexed caller, address indexed authorizer, address indexed authorized, bool isAuthorized, uint256 nonce
+);
+
 contract EcrecoverAuthorizer {
-    event SetIsAuthorized(
-        address indexed caller, address indexed authorizer, address indexed authorized, bool isAuthorized, uint256 nonce
-    );
 
     address public immutable MIDNIGHT;
     mapping(address => uint256) public nonce;
