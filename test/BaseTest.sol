@@ -77,10 +77,6 @@ abstract contract BaseTest is Test {
         authorize(otherBorrower, address(ecrecoverRatifier));
         authorize(otherLender, address(ecrecoverRatifier));
 
-        authorize(borrower, address(setIsAuthorizedWithSig));
-        authorize(lender, address(setIsAuthorizedWithSig));
-        authorize(otherBorrower, address(setIsAuthorizedWithSig));
-        authorize(otherLender, address(setIsAuthorizedWithSig));
 
         uint256 tokenType = vm.envOr("TOKEN_TYPE", uint256(0));
         if (tokenType == 1) {

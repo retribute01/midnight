@@ -39,6 +39,7 @@ contract SetIsAuthorizedWithSigTest is BaseTest {
     }
 
     function testSetIsAuthorizedWithSig() public {
+        authorize(borrower, address(setIsAuthorizedWithSig));
         Authorization memory auth = makeAuthorization(borrower, lender, true);
         Signature memory sig = signAuthorization(auth, borrower);
 
@@ -57,6 +58,7 @@ contract SetIsAuthorizedWithSigTest is BaseTest {
     }
 
     function testSetIsAuthorizedWithSigPermissionless() public {
+        authorize(borrower, address(setIsAuthorizedWithSig));
         Authorization memory auth = makeAuthorization(borrower, lender, true);
         Signature memory sig = signAuthorization(auth, borrower);
 
@@ -98,6 +100,7 @@ contract SetIsAuthorizedWithSigTest is BaseTest {
     }
 
     function testSetIsAuthorizedWithSigNonce(uint8 n) public {
+        authorize(borrower, address(setIsAuthorizedWithSig));
         n = uint8(bound(n, 1, 32));
 
         for (uint8 i = 0; i < n; i++) {
