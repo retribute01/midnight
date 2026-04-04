@@ -63,7 +63,7 @@ persistent ghost bytes32 globalId;
 /// HOOKS ///
 
 // lossIndex < max: the protocol stop behaving correctly if this happens (documented).
-hook Sload uint128 value obligationState[KEY bytes32 id].lossIndex {
+hook Sload uint128 value _obligationState[KEY bytes32 id].lossIndex {
     require value < max_uint128;
 }
 

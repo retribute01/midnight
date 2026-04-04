@@ -102,9 +102,9 @@ rule liquidateInputOutputConsistency(env e, Midnight.Obligation obligation, uint
 }
 
 rule obligationLossIndexMonotonicallyIncreases(bytes32 id, method f, env e, calldataarg args) {
-    uint128 lossIndexBefore = currentContract.obligationState[id].lossIndex;
+    uint128 lossIndexBefore = currentContract._obligationState[id].lossIndex;
     f(e, args);
-    uint128 lossIndexAfter = currentContract.obligationState[id].lossIndex;
+    uint128 lossIndexAfter = currentContract._obligationState[id].lossIndex;
     assert lossIndexAfter >= lossIndexBefore;
 }
 
@@ -130,7 +130,7 @@ rule noRemainingContinuousFeeWithoutCredit(bytes32 id, address user) {
 }
 
 strong invariant userLossIndexLeqObligationLossIndex(bytes32 id, address user)
-    userLossIndex(id, user) <= currentContract.obligationState[id].lossIndex;
+    userLossIndex(id, user) <= currentContract._obligationState[id].lossIndex;
 
 /// A user cannot have both credit and debt.
 strong invariant noCreditAndDebt(bytes32 id, address user)
