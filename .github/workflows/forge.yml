@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+
 jobs:
   format:
     runs-on: ubuntu-latest
@@ -18,6 +21,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-1e342ef7d296a674ea248e95ed12c152f7e00ee6
 
       - name: Check formatting
         run: forge fmt --check
@@ -31,14 +36,8 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install solc 0.8.34
-        run: |
-          mkdir -p ~/.svm/0.8.34
-          curl -L --retry 3 --retry-all-errors \
-            https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.34+commit.80d5c536 \
-            -o ~/.svm/0.8.34/solc-0.8.34
-          chmod +x ~/.svm/0.8.34/solc-0.8.34
+        with:
+          version: nightly-1e342ef7d296a674ea248e95ed12c152f7e00ee6
 
       - name: Run forge lint
         run: forge lint --deny notes
@@ -65,13 +64,8 @@ jobs:
           submodules: recursive
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-      - name: Install solc 0.8.34
-        run: |
-          mkdir -p ~/.svm/0.8.34
-          curl -L --retry 3 --retry-all-errors \
-            https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.34+commit.80d5c536 \
-            -o ~/.svm/0.8.34/solc-0.8.34
-          chmod +x ~/.svm/0.8.34/solc-0.8.34
+        with:
+          version: nightly-1e342ef7d296a674ea248e95ed12c152f7e00ee6
       - name: Run Forge tests (${{ matrix.name }})
         run: forge test --deny warnings
         env:

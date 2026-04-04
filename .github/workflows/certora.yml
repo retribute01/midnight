@@ -7,6 +7,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+env:
+  FOUNDRY_DISABLE_NIGHTLY_WARNING: "1"
+
 jobs:
   matrix:
     runs-on: ubuntu-latest
@@ -56,16 +59,13 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: nightly-1e342ef7d296a674ea248e95ed12c152f7e00ee6
 
-      - name: Install solc 0.8.34
+      - name: Prepare solc 0.8.34 for Certora
         run: |
-          mkdir -p ~/.svm/0.8.34
-          curl -L --retry 3 --retry-all-errors \
-            https://binaries.soliditylang.org/linux-amd64/solc-linux-amd64-v0.8.34+commit.80d5c536 \
-            -o ~/.svm/0.8.34/solc-0.8.34
-          chmod +x ~/.svm/0.8.34/solc-0.8.34
-          cp ~/.svm/0.8.34/solc-0.8.34 /usr/local/bin
           forge build
+          cp ~/.svm/0.8.34/solc-0.8.34 /usr/local/bin
 
       - name: Verify ${{ matrix.conf }}
         run: certoraRun certora/confs/${{ matrix.conf }}.conf
