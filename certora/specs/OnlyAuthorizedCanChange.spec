@@ -6,7 +6,6 @@ methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
     function feeClaimer() external returns (address) envfree;
-    function Utils.continuousFeeRecipient() external returns (address) envfree;
     function toId(Midnight.Obligation obligation) external returns (bytes32) envfree;
     function creditOf(bytes32 id, address user) external returns (uint256) envfree;
     function debtOf(bytes32 id, address user) external returns (uint256) envfree;
@@ -62,11 +61,9 @@ definition noAccrual(env e, bytes32 id, address borrower) returns bool = current
 /// CREDIT AND DEBT CHANGE RULES ///
 
 /// An unauthorized caller cannot change a user's credit and debt except via liquidate and updatePosition.
-/// CONTINUOUS_FEE_RECIPIENT's credit can increase via fee accrual without authorization.
 /// Assumes no reentrancy: callbacks (onBuy, onSell) and token transfers are not modeled as re-entering Midnight, so re-entrant credit and debt changes are not covered.
 rule onlyAuthorizedCanChangeCreditAndDebtExceptLiquidateAndUpdatePosition(env e, method f, calldataarg args, bytes32 id, address user) filtered { f -> f.selector != sig:liquidate(Midnight.Obligation, uint256, uint256, uint256, address, bytes).selector && f.selector != sig:updatePosition(Midnight.Obligation, address).selector } {
     bool userIsAuthorized = user == e.msg.sender || isAuthorized(user, e.msg.sender);
-    bool isContinuousFeeRecipient = user == Utils.continuousFeeRecipient();
 
     uint256 creditBefore = creditOf(id, user);
     uint256 debtBefore = debtOf(id, user);
@@ -74,7 +71,7 @@ rule onlyAuthorizedCanChangeCreditAndDebtExceptLiquidateAndUpdatePosition(env e,
     uint256 creditAfter = creditOf(id, user);
     uint256 debtAfter = debtOf(id, user);
 
-    assert (creditAfter == creditBefore && debtAfter == debtBefore) || userIsAuthorized || makerRatified[user] || isContinuousFeeRecipient;
+    assert (creditAfter == creditBefore && debtAfter == debtBefore) || userIsAuthorized || makerRatified[user];
 }
 
 /// COLLATERAL CHANGE RULES ///
@@ -151,4 +148,18 @@ rule setIsAuthorizedIsolation(env e, address onBehalf, address authorized, bool 
     bool before = isAuthorized(otherUser, otherAuthorized);
     setIsAuthorized(e, onBehalf, authorized, val);
     assert isAuthorized(otherUser, otherAuthorized) == before;
+}
+
+/// FEE CLAIMER RULES ///
+
+/// Only the fee claimer can successfully call claimContinuousFee.
+rule onlyFeeClaimerCanClaimContinuousFee(env e, Midnight.Obligation obligation, uint256 amount, address receiver) {
+    claimContinuousFee(e, obligation, amount, receiver);
+    assert e.msg.sender == feeClaimer();
+}
+
+/// Only the fee claimer can successfully call claimTradingFee.
+rule onlyFeeClaimerCanClaimTradingFee(env e, address token, uint256 amount, address receiver) {
+    claimTradingFee(e, token, amount, receiver);
+    assert e.msg.sender == feeClaimer();
 }
