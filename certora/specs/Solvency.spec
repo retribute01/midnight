@@ -128,11 +128,11 @@ ghost mapping(bytes32 => mapping(address => mathint)) withdrawableMirror {
     init_state axiom (forall address token. withdrawableSum(token) == 0);
 }
 
-hook Sload uint128 value _obligationState[KEY bytes32 id].withdrawable {
+hook Sload uint128 value obligationState[KEY bytes32 id].withdrawable {
     require value == withdrawableMirror[id][loantoken[id]], "ghost mirror";
 }
 
-hook Sstore _obligationState[KEY bytes32 id].withdrawable uint128 newWithdrawable (uint128 oldWithdrawable) {
+hook Sstore obligationState[KEY bytes32 id].withdrawable uint128 newWithdrawable (uint128 oldWithdrawable) {
     withdrawableMirror[id][loantoken[id]] = newWithdrawable;
 }
 
