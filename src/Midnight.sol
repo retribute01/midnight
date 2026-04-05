@@ -384,8 +384,9 @@ contract Midnight is IMidnight {
                 "invalid callback"
             );
         }
+        UtilsLib.tExchange(LIQUIDATION_LOCK_SLOT, id, seller, false);
         require(!isLiquidatable(offer.obligation, id, seller), "seller is liquidatable");
-        if (!wasLocked) UtilsLib.tExchange(LIQUIDATION_LOCK_SLOT, id, seller, false);
+        if (wasLocked) UtilsLib.tExchange(LIQUIDATION_LOCK_SLOT, id, seller, true);
 
         return (buyerAssets, sellerAssets, units);
     }
@@ -802,9 +803,11 @@ contract Midnight is IMidnight {
         return UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, user);
     }
 
-    /// @dev A borrower is liquidatable after maturity or whenever they are not healthy.
+    /// @dev A borrower is liquidatable if liquidation is transiently locked, after maturity,
+    /// or whenever they are not healthy.
     function isLiquidatable(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
-        return block.timestamp > obligation.maturity || !isHealthy(obligation, id, borrower);
+        return UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, borrower) || block.timestamp > obligation.maturity
+            || !isHealthy(obligation, id, borrower);
     }
 
     /// @dev This function should be called with the id corresponding to the obligation.
