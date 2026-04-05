@@ -215,7 +215,7 @@ contract Midnight is IMidnight {
         ObligationState storage _obligationState = obligationState[id];
         require(_obligationState.created, "not created");
 
-        _obligationState.continuousFeeAmount -= UtilsLib.toUint128(amount);
+        _obligationState.continuousFeeCredit -= UtilsLib.toUint128(amount);
         _obligationState.totalUnits -= UtilsLib.toUint128(amount);
         _obligationState.withdrawable -= UtilsLib.toUint128(amount);
 
@@ -532,9 +532,9 @@ contract Midnight is IMidnight {
                     - (type(uint128).max - oldLossIndex).mulDivDown(oldTotalUnits - badDebt, oldTotalUnits)
             );
             _obligationState.totalUnits -= UtilsLib.toUint128(badDebt);
-            _obligationState.continuousFeeAmount = oldLossIndex < type(uint128).max
+            _obligationState.continuousFeeCredit = oldLossIndex < type(uint128).max
                 ? UtilsLib.toUint128(
-                    _obligationState.continuousFeeAmount
+                    _obligationState.continuousFeeCredit
                         .mulDivDown(type(uint128).max - _obligationState.lossIndex, type(uint128).max - oldLossIndex)
                 )
                 : 0;
@@ -715,7 +715,7 @@ contract Midnight is IMidnight {
         _position.lossIndex = obligationState[id].lossIndex;
         _position.pendingFee = newPendingFee;
         _position.lastAccrual = uint128(block.timestamp);
-        obligationState[id].continuousFeeAmount += UtilsLib.toUint128(accruedFee);
+        obligationState[id].continuousFeeCredit += UtilsLib.toUint128(accruedFee);
 
         emit EventsLib.UpdatePosition(id, user, creditDecrease, pendingFeeDecrease, accruedFee);
     }
@@ -782,8 +782,8 @@ contract Midnight is IMidnight {
         return obligationState[id].continuousFee;
     }
 
-    function continuousFeeAmount(bytes32 id) external view returns (uint256) {
-        return obligationState[id].continuousFeeAmount;
+    function continuousFeeCredit(bytes32 id) external view returns (uint256) {
+        return obligationState[id].continuousFeeCredit;
     }
 
     function pendingFee(bytes32 id, address user) external view returns (uint128) {
