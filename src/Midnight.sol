@@ -776,15 +776,8 @@ contract Midnight is IMidnight {
         return obligationState[id].withdrawable;
     }
 
-    function fees(bytes32 id) external view returns (uint16[7] memory result) {
-        ObligationState storage _obligationState = obligationState[id];
-        result[0] = _obligationState.fee0;
-        result[1] = _obligationState.fee1;
-        result[2] = _obligationState.fee2;
-        result[3] = _obligationState.fee3;
-        result[4] = _obligationState.fee4;
-        result[5] = _obligationState.fee5;
-        result[6] = _obligationState.fee6;
+    function fees(bytes32 id) external view returns (uint16[7] memory) {
+        return _obligationFees(obligationState[id]);
     }
 
     function continuousFee(bytes32 id) external view returns (uint32) {
@@ -848,46 +841,34 @@ contract Midnight is IMidnight {
         ObligationState storage _obligationState = obligationState[id];
         require(_obligationState.created, "not created");
 
-        if (timeToMaturity >= 360 days) return _obligationState.fee6 * FEE_STEP;
+        uint16[7] memory _fees = _obligationFees(_obligationState);
 
-        uint256 start;
-        uint256 end;
-        uint256 feeLower;
-        uint256 feeUpper;
+        if (timeToMaturity >= 360 days) return _fees[6] * FEE_STEP;
 
-        if (timeToMaturity < 1 days) {
-            start = 0 days;
-            end = 1 days;
-            feeLower = _obligationState.fee0 * FEE_STEP;
-            feeUpper = _obligationState.fee1 * FEE_STEP;
-        } else if (timeToMaturity < 7 days) {
-            start = 1 days;
-            end = 7 days;
-            feeLower = _obligationState.fee1 * FEE_STEP;
-            feeUpper = _obligationState.fee2 * FEE_STEP;
-        } else if (timeToMaturity < 30 days) {
-            start = 7 days;
-            end = 30 days;
-            feeLower = _obligationState.fee2 * FEE_STEP;
-            feeUpper = _obligationState.fee3 * FEE_STEP;
-        } else if (timeToMaturity < 90 days) {
-            start = 30 days;
-            end = 90 days;
-            feeLower = _obligationState.fee3 * FEE_STEP;
-            feeUpper = _obligationState.fee4 * FEE_STEP;
-        } else if (timeToMaturity < 180 days) {
-            start = 90 days;
-            end = 180 days;
-            feeLower = _obligationState.fee4 * FEE_STEP;
-            feeUpper = _obligationState.fee5 * FEE_STEP;
-        } else {
-            start = 180 days;
-            end = 360 days;
-            feeLower = _obligationState.fee5 * FEE_STEP;
-            feeUpper = _obligationState.fee6 * FEE_STEP;
-        }
+        // forgefmt: disable-start
+        (uint256 index, uint256 start, uint256 end) =
+            timeToMaturity < 1 days   ? (0, 0 days, 1 days) :
+            timeToMaturity < 7 days   ? (1, 1 days, 7 days) :
+            timeToMaturity < 30 days  ? (2, 7 days, 30 days) :
+            timeToMaturity < 90 days  ? (3, 30 days, 90 days) :
+            timeToMaturity < 180 days ? (4, 90 days, 180 days) :
+                                        (5, 180 days, 360 days);
+        // forgefmt: disable-end
+
+        uint256 feeLower = _fees[index] * FEE_STEP;
+        uint256 feeUpper = _fees[index + 1] * FEE_STEP;
 
         return (feeLower * (end - timeToMaturity) + feeUpper * (timeToMaturity - start)) / (end - start);
+    }
+
+    function _obligationFees(ObligationState storage _obligationState) internal view returns (uint16[7] memory fees_) {
+        fees_[0] = _obligationState.fee0;
+        fees_[1] = _obligationState.fee1;
+        fees_[2] = _obligationState.fee2;
+        fees_[3] = _obligationState.fee3;
+        fees_[4] = _obligationState.fee4;
+        fees_[5] = _obligationState.fee5;
+        fees_[6] = _obligationState.fee6;
     }
 
     function _setObligationFee(ObligationState storage _obligationState, uint256 index, uint16 fee) internal {
