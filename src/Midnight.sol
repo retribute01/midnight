@@ -171,6 +171,7 @@ contract Midnight is IMidnight {
         ObligationState storage _obligationState = obligationState[id];
         require(_obligationState.created, "obligation not created");
         // forge-lint: disable-next-item(unsafe-typecast) as newTradingFee <= maxTradingFee <= uint16.max * FEE_STEP
+<<<<<<< HEAD
         uint16 toStore = uint16(newTradingFee / FEE_STEP);
         if (index == 0) _obligationState.fee0 = toStore;
         else if (index == 1) _obligationState.fee1 = toStore;
@@ -179,6 +180,9 @@ contract Midnight is IMidnight {
         else if (index == 4) _obligationState.fee4 = toStore;
         else if (index == 5) _obligationState.fee5 = toStore;
         else if (index == 6) _obligationState.fee6 = toStore;
+=======
+        setObligationFee(_obligationState, index, uint16(newTradingFee / FEE_STEP));
+>>>>>>> origin/refactor/obligation-fees-seven
         emit EventsLib.SetObligationTradingFee(id, index, newTradingFee);
     }
 
@@ -224,7 +228,7 @@ contract Midnight is IMidnight {
         ObligationState storage _obligationState = obligationState[id];
         require(_obligationState.created, "not created");
 
-        _obligationState.continuousFeeAmount -= UtilsLib.toUint128(amount);
+        _obligationState.continuousFeeCredit -= UtilsLib.toUint128(amount);
         _obligationState.totalUnits -= UtilsLib.toUint128(amount);
         _obligationState.withdrawable -= UtilsLib.toUint128(amount);
 
@@ -540,9 +544,9 @@ contract Midnight is IMidnight {
                     - (type(uint128).max - oldLossIndex).mulDivDown(oldTotalUnits - badDebt, oldTotalUnits)
             );
             _obligationState.totalUnits -= UtilsLib.toUint128(badDebt);
-            _obligationState.continuousFeeAmount = oldLossIndex < type(uint128).max
+            _obligationState.continuousFeeCredit = oldLossIndex < type(uint128).max
                 ? UtilsLib.toUint128(
-                    _obligationState.continuousFeeAmount
+                    _obligationState.continuousFeeCredit
                         .mulDivDown(type(uint128).max - _obligationState.lossIndex, type(uint128).max - oldLossIndex)
                 )
                 : 0;
@@ -731,7 +735,7 @@ contract Midnight is IMidnight {
         _position.lossIndex = obligationState[id].lossIndex;
         _position.pendingFee = newPendingFee;
         _position.lastAccrual = uint128(block.timestamp);
-        obligationState[id].continuousFeeAmount += UtilsLib.toUint128(accruedFee);
+        obligationState[id].continuousFeeCredit += UtilsLib.toUint128(accruedFee);
 
         emit EventsLib.UpdatePosition(id, user, creditDecrease, pendingFeeDecrease, accruedFee);
     }
@@ -806,8 +810,8 @@ contract Midnight is IMidnight {
         return obligationState[id].continuousFee;
     }
 
-    function continuousFeeAmount(bytes32 id) external view returns (uint256) {
-        return obligationState[id].continuousFeeAmount;
+    function continuousFeeCredit(bytes32 id) external view returns (uint256) {
+        return obligationState[id].continuousFeeCredit;
     }
 
     function pendingFee(bytes32 id, address user) external view returns (uint128) {
@@ -876,5 +880,36 @@ contract Midnight is IMidnight {
         // forgefmt: disable-end
 
         return (feeLower * (end - timeToMaturity) + feeUpper * (timeToMaturity - start)) / (end - start);
+    }
+
+    function obligationFees(ObligationState storage _obligationState) internal view returns (uint16[7] memory fees_) {
+        fees_[0] = _obligationState.fee0;
+        fees_[1] = _obligationState.fee1;
+        fees_[2] = _obligationState.fee2;
+        fees_[3] = _obligationState.fee3;
+        fees_[4] = _obligationState.fee4;
+        fees_[5] = _obligationState.fee5;
+        fees_[6] = _obligationState.fee6;
+    }
+
+    function setObligationFee(ObligationState storage _obligationState, uint256 index, uint16 fee) internal {
+        if (index == 0) _obligationState.fee0 = fee;
+        else if (index == 1) _obligationState.fee1 = fee;
+        else if (index == 2) _obligationState.fee2 = fee;
+        else if (index == 3) _obligationState.fee3 = fee;
+        else if (index == 4) _obligationState.fee4 = fee;
+        else if (index == 5) _obligationState.fee5 = fee;
+        else if (index == 6) _obligationState.fee6 = fee;
+        else revert("invalid index");
+    }
+
+    function setObligationFees(ObligationState storage _obligationState, uint16[7] memory fees_) internal {
+        _obligationState.fee0 = fees_[0];
+        _obligationState.fee1 = fees_[1];
+        _obligationState.fee2 = fees_[2];
+        _obligationState.fee3 = fees_[3];
+        _obligationState.fee4 = fees_[4];
+        _obligationState.fee5 = fees_[5];
+        _obligationState.fee6 = fees_[6];
     }
 }
