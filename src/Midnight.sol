@@ -385,8 +385,7 @@ contract Midnight is IMidnight {
             );
         }
 
-        (bool _isLiquidatable,,,) = isLiquidatable(offer.obligation, id, seller, type(uint256).max);
-        require(!_isLiquidatable, "seller is liquidatable");
+        require(!isLiquidatable(offer.obligation, id, seller), "seller is liquidatable");
 
         if (!wasLocked) UtilsLib.tExchange(LIQUIDATION_LOCK_SLOT, id, seller, false);
 
@@ -509,10 +508,25 @@ contract Midnight is IMidnight {
         Position storage _position = position[id][borrower];
         require(!UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, borrower), "liquidation locked");
 
+        uint256 maxDebt;
+        uint256 liquidatedCollatPrice;
         uint256 originalDebt = _position.debt;
-        (bool _isLiquidatable, uint256 maxDebt, uint256 liquidatedCollatPrice, uint256 badDebt) =
-            isLiquidatable(obligation, id, borrower, collateralIndex);
-        require(_isLiquidatable, "position is not liquidatable");
+        uint256 badDebt = originalDebt;
+        uint128 bitmap = _position.activatedCollaterals;
+        while (bitmap != 0) {
+            uint256 i = UtilsLib.msb(bitmap);
+            CollateralParams memory _collateralParam = obligation.collateralParams[i];
+            uint256 price = IOracle(_collateralParam.oracle).price();
+            if (i == collateralIndex) liquidatedCollatPrice = price;
+            uint256 _collateral = _position.collateral[i];
+            maxDebt += _collateral.mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(_collateralParam.lltv, WAD);
+            badDebt = badDebt.zeroFloorSub(
+                _collateral.mulDivUp(price, ORACLE_PRICE_SCALE).mulDivUp(WAD, _collateralParam.maxLif)
+            );
+            bitmap = bitmap.clearBit(i);
+        }
+
+        require(block.timestamp > obligation.maturity || originalDebt > maxDebt, "position is not liquidatable");
 
         if (badDebt > 0) {
             // forge-lint: disable-next-item(unsafe-typecast) as badDebt <= _position.debt
@@ -790,30 +804,9 @@ contract Midnight is IMidnight {
         return UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, user);
     }
 
-    /// @dev Returns whether the borrower can be liquidated, together with the computed max debt,
-    /// selected collateral price, and bad debt.
-    function isLiquidatable(Obligation memory obligation, bytes32 id, address borrower, uint256 collateralIndex)
-        public
-        view
-        returns (bool liquidatable, uint256 maxDebt, uint256 collatPrice, uint256 badDebt)
-    {
-        Position storage _position = position[id][borrower];
-        uint256 debt = _position.debt;
-        badDebt = debt;
-        uint128 bitmap = _position.activatedCollaterals;
-        while (bitmap != 0) {
-            uint256 i = UtilsLib.msb(bitmap);
-            CollateralParams memory collateralParam = obligation.collateralParams[i];
-            uint256 price = IOracle(collateralParam.oracle).price();
-            if (i == collateralIndex) collatPrice = price;
-            uint256 _collateral = _position.collateral[i];
-            maxDebt += _collateral.mulDivDown(price, ORACLE_PRICE_SCALE).mulDivDown(collateralParam.lltv, WAD);
-            badDebt = badDebt.zeroFloorSub(
-                _collateral.mulDivUp(price, ORACLE_PRICE_SCALE).mulDivUp(WAD, collateralParam.maxLif)
-            );
-            bitmap = bitmap.clearBit(i);
-        }
-        liquidatable = block.timestamp > obligation.maturity || debt > maxDebt;
+    /// @dev A borrower is liquidatable after maturity or whenever they are not healthy.
+    function isLiquidatable(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
+        return block.timestamp > obligation.maturity || !isHealthy(obligation, id, borrower);
     }
 
     /// @dev This function should be called with the id corresponding to the obligation.
