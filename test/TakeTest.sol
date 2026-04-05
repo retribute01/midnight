@@ -904,7 +904,7 @@ contract TakeTest is BaseTest {
 
     // Show the effect of the wasLocked variable in `take`.
     // The variable is not necessary but makes the behavior easy to describe.
-    // With wasLocked, the seller can never be liquidated during the callbacks of a take, as shown here.
+    // With wasLocked, a nested take does not restore liquidatability.
     function testSellNestedTakeLiquidateRevertsWhileLiquidationLocked() public {
         uint256 units = 100e18;
         uint256 repaidUnits = 1e18;
@@ -920,17 +920,16 @@ contract TakeTest is BaseTest {
 
         authorize(borrower, address(callback));
 
-        callback
-            .prepare(
-                lenderOffer,
-                sig([lenderOffer]),
-                root([lenderOffer]),
-                proof([lenderOffer]),
-                units,
-                0,
-                collateral,
-                repaidUnits
-            );
+        callback.prepare(
+            lenderOffer,
+            sig([lenderOffer]),
+            root([lenderOffer]),
+            proof([lenderOffer]),
+            units,
+            0,
+            collateral,
+            repaidUnits
+        );
 
         vm.warp(obligation.maturity + 1);
         vm.prank(borrower);
@@ -1194,9 +1193,8 @@ contract NestedTakeReentrantLiquidateCallback is ICallbacks {
             Offer memory nestedOffer = storedOffer;
             Signature memory nestedSig = storedSig;
             bytes32[] memory nestedProof = storedProof;
-            Midnight(msg.sender).take(
-                innerUnits, seller, address(this), "", seller, nestedOffer, nestedSig, storedRoot, nestedProof
-            );
+            Midnight(msg.sender)
+                .take(innerUnits, seller, address(this), "", seller, nestedOffer, nestedSig, storedRoot, nestedProof);
             ERC20(obligation.loanToken).approve(msg.sender, storedRepaidUnits);
             try Midnight(msg.sender).liquidate(obligation, idx, 0, storedRepaidUnits, seller, "") returns (
                 uint256, uint256
