@@ -87,6 +87,15 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// @dev Zero checks are not systematically performed.
 /// @dev No-ops are allowed.
 /// @dev NatSpec comments are included only when they bring clarity.
+///
+/// TOKEN REQUIREMENTS
+/// @dev List of assumptions on tokens that guarantee that Midnight behaves as expected:
+/// - It should be ERC-20 compliant, except that it can omit return values on `transfer` and `transferFrom`.
+/// - Midnight's balance of the token should only decrease on `transfer` and `transferFrom`.
+/// - It should not re-enter Midnight on `transfer` nor `transferFrom`.
+/// - Midnight must send/receive exactly the requested amount on transfers.
+/// - It should not revert on `transfer` and `transferFrom` if balances and approvals are right.
+/// - It should not revert on no-op transfers.
 contract Midnight is IMidnight {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
