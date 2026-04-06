@@ -1012,6 +1012,7 @@ contract TakeTest is BaseTest {
     function testOrderNotAuthorized(address taker, address sender) public {
         vm.assume(sender != address(this));
         vm.assume(taker != sender);
+        vm.assume(!midnight.isAuthorized(taker, sender));
 
         vm.expectRevert("unauthorized");
         vm.prank(sender);
