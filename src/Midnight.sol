@@ -94,19 +94,18 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 ///
 /// LIVENESS REQUIREMENTS
 /// @dev List of assumptions that guarantee Midnight's liveness properties:
-/// - Activated collateral oracles should not revert on `price`. Otherwise `liquidate`, `isHealthy`,
-///   `withdrawCollateral` unless the borrower has no debt, and `take` whenever the seller still has debt are not live.
-/// - `enterGate` should not revert on `canIncreaseCredit` and `canIncreaseDebt`. Otherwise takes increasing credit or
-///   debt are not live.
-/// - `liquidatorGate` should not revert on `canLiquidate`. Otherwise liquidations are not live.
-/// - Tokens pulled by Midnight should not revert on `transferFrom` if balances and approvals are right. Otherwise
-///   `take`, `repay`, `supplyCollateral`, `liquidate` and `flashLoan` repayment are not live when they need to pull
-///   that token.
-/// - Tokens sent by Midnight should not revert on `transfer` if balances are right. Otherwise `withdraw`,
+/// - If an activated collateral oracle reverts on `price`, `liquidate`, `isHealthy`, `withdrawCollateral` unless the
+///   borrower has no debt, and `take` whenever the seller still has debt are not live.
+/// - If `enterGate` reverts on `canIncreaseCredit` or `canIncreaseDebt`, takes increasing credit or debt are not live.
+/// - If `liquidatorGate` reverts on `canLiquidate`, liquidations are not live.
+/// - If a token pulled by Midnight reverts on `transferFrom` despite balances and approvals being right, `take`,
+///   `repay`, `supplyCollateral`, `liquidate` and `flashLoan` repayment are not live when they need to pull that
+///   token.
+/// - If a token sent by Midnight reverts on `transfer` despite balances being right, `withdraw`,
 ///   `withdrawCollateral`, fee claims, the collateral leg of `liquidate` and `flashLoan` are not live when they need
 ///   to send that token.
-/// - Callbacks should not revert, and buy/sell callbacks should return `CALLBACK_SUCCESS`. Otherwise callback-enabled
-///   `take`, `repay`, `liquidate` and `flashLoan` are not live.
+/// - If a callback reverts, or if a buy/sell callback returns something other than `CALLBACK_SUCCESS`,
+///   callback-enabled `take`, `repay`, `liquidate` and `flashLoan` are not live.
 contract Midnight is IMidnight {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
