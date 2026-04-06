@@ -18,6 +18,7 @@ import {
     LIQUIDATION_CURSOR_HIGH,
     EIP712_DOMAIN_TYPEHASH,
     ROOT_TYPEHASH,
+    LIQUIDATION_LOCK_SLOT,
     CALLBACK_SUCCESS,
     isLltvAllowed
 } from "./libraries/ConstantsLib.sol";
@@ -256,6 +257,7 @@ contract Midnight is IMidnight {
     /// @dev The taker might not get the price they expected if the trading fee was just changed.
     /// @dev All sellerAssets are reachable with the units input, and all buyerAssets are reachable only if
     /// buyerPrice <= WAD.
+    /// @dev The seller cannot be liquidated during the callbacks of a take.
     function take(
         uint256 units,
         address taker,
@@ -384,6 +386,7 @@ contract Midnight is IMidnight {
             sellerCreditDecrease
         );
 
+        bool wasLocked = UtilsLib.tExchange(LIQUIDATION_LOCK_SLOT, id, seller, true);
         if (buyerCallback != address(0)) {
             require(
                 ICallbacks(buyerCallback).onBuy(id, offer.obligation, buyer, buyerAssets, units, buyerCallbackData)
@@ -404,8 +407,8 @@ contract Midnight is IMidnight {
                 "invalid callback"
             );
         }
-
-        require(isHealthy(offer.obligation, id, seller), "seller is unhealthy");
+        if (!wasLocked) UtilsLib.tExchange(LIQUIDATION_LOCK_SLOT, id, seller, false);
+        require(!isLiquidatable(offer.obligation, id, seller), "seller is liquidatable");
 
         return (buyerAssets, sellerAssets, units);
     }
@@ -524,6 +527,7 @@ contract Midnight is IMidnight {
             "liquidator gated from liquidating"
         );
         Position storage _position = position[id][borrower];
+        require(!UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, borrower), "liquidation locked");
 
         uint256 maxDebt;
         uint256 liquidatedCollatPrice;
@@ -831,6 +835,17 @@ contract Midnight is IMidnight {
 
     function lastAccrual(bytes32 id, address user) external view returns (uint128) {
         return position[id][user].lastAccrual;
+    }
+
+    function liquidationLocked(bytes32 id, address user) external view returns (bool) {
+        return UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, user);
+    }
+
+    /// @dev A borrower is liquidatable if liquidation is not transiently locked, and they are past maturity
+    /// or not healthy.
+    function isLiquidatable(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
+        return !UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, borrower)
+            && (block.timestamp > obligation.maturity || !isHealthy(obligation, id, borrower));
     }
 
     /// @dev This function should be called with the id corresponding to the obligation.
