@@ -73,8 +73,8 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// AUTHORIZATIONS
 /// @dev All functions that change the position, session, consumed and authorization are accessible to the user itself
 /// and to any account that has been authorized.
-/// @dev updatePosition and liquidate (for liquidatable users) also impact the position and are permissionless.
 /// @dev In particular, authorized accounts can authorize other accounts on behalf of the user.
+/// @dev updatePosition and liquidate (for liquidatable users) also impact the position and are permissionless.
 ///
 /// ROUNDINGS
 /// @dev Because of roundings, trading and continuous fees might charge less than expected, which can become problematic
