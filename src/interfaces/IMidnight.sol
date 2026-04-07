@@ -34,16 +34,11 @@ struct Offer {
     address callback;
     bytes callbackData;
     address receiverIfMakerIsSeller;
+    address ratifier;
     bool reduceOnly;
     uint256 maxUnits;
     uint256 maxSellerAssets;
     uint256 maxBuyerAssets;
-}
-
-struct Signature {
-    uint8 v;
-    bytes32 r;
-    bytes32 s;
 }
 
 struct ObligationState {
@@ -72,4 +67,7 @@ struct Position {
     uint128[128] collateral;
 }
 
-interface IMidnight {}
+interface IMidnight {
+    function isAuthorized(address authorizer, address authorized) external view returns (bool);
+    function setIsAuthorized(address onBehalf, address authorized, bool newIsAuthorized) external;
+}
