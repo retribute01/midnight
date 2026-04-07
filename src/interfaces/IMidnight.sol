@@ -64,37 +64,10 @@ struct Position {
 }
 
 interface IMidnight {
-    // forge-fmt: disable-start
+    // forgefmt: disable-start
     /// STORAGE GETTERS ///
-    function position(bytes32 id, address user)
-        external
-        view
-        returns (
-            uint128 credit,
-            uint128 pendingFee,
-            uint128 lossIndex,
-            uint128 lastAccrual,
-            uint128 debt,
-            uint128 activatedCollaterals
-        );
-    function obligationState(bytes32 id)
-        external
-        view
-        returns (
-            uint128 totalUnits,
-            uint128 lossIndex,
-            uint128 withdrawable,
-            uint128 continuousFeeCredit,
-            uint16 fee0,
-            uint16 fee1,
-            uint16 fee2,
-            uint16 fee3,
-            uint16 fee4,
-            uint16 fee5,
-            uint16 fee6,
-            uint32 continuousFee,
-            bool created
-        );
+    function position(bytes32 id, address user) external view returns (uint128 credit, uint128 pendingFee, uint128 lossIndex, uint128 lastAccrual, uint128 debt, uint128 activatedCollaterals);
+    function obligationState(bytes32 id) external view returns (uint128 totalUnits, uint128 lossIndex, uint128 withdrawable, uint128 continuousFeeCredit, uint16 fee0, uint16 fee1, uint16 fee2, uint16 fee3, uint16 fee4, uint16 fee5, uint16 fee6, uint32 continuousFee, bool created);
     function consumed(address user, bytes32 group) external view returns (uint256);
     function session(address user) external view returns (bytes32);
     function isAuthorized(address authorizer, address authorized) external view returns (bool);
@@ -123,36 +96,12 @@ interface IMidnight {
 
     /// ENTRY-POINTS ///
 
-    function take(
-        uint256 units,
-        address taker,
-        address takerCallback,
-        bytes memory takerCallbackData,
-        address receiverIfTakerIsSeller,
-        Offer memory offer,
-        bytes memory ratifierData,
-        bytes32 root,
-        bytes32[] memory proof
-    ) external returns (uint256, uint256, uint256);
+    function take(uint256 units, address taker, address takerCallback, bytes memory takerCallbackData, address receiverIfTakerIsSeller, Offer memory offer, bytes memory ratifierData, bytes32 root, bytes32[] memory proof) external returns (uint256, uint256, uint256);
     function withdraw(Obligation memory obligation, uint256 units, address onBehalf, address receiver) external;
     function repay(Obligation memory obligation, uint256 units, address onBehalf, bytes calldata data) external;
-    function supplyCollateral(Obligation memory obligation, uint256 collateralIndex, uint256 assets, address onBehalf)
-        external;
-    function withdrawCollateral(
-        Obligation memory obligation,
-        uint256 collateralIndex,
-        uint256 assets,
-        address onBehalf,
-        address receiver
-    ) external;
-    function liquidate(
-        Obligation calldata obligation,
-        uint256 collateralIndex,
-        uint256 seizedAssets,
-        uint256 repaidUnits,
-        address borrower,
-        bytes calldata data
-    ) external returns (uint256, uint256);
+    function supplyCollateral(Obligation memory obligation, uint256 collateralIndex, uint256 assets, address onBehalf) external;
+    function withdrawCollateral(Obligation memory obligation, uint256 collateralIndex, uint256 assets, address onBehalf, address receiver) external;
+    function liquidate(Obligation calldata obligation, uint256 collateralIndex, uint256 seizedAssets, uint256 repaidUnits, address borrower, bytes calldata data) external returns (uint256, uint256);
     function setConsumed(bytes32 group, uint256 amount, address onBehalf) external;
     function shuffleSession(address onBehalf) external;
     function setIsAuthorized(address onBehalf, address authorized, bool newIsAuthorized) external;
@@ -161,10 +110,7 @@ interface IMidnight {
 
     /// SLASHING AND CONTINUOUS FEE ACCRUAL ///
 
-    function updatePositionView(Obligation memory obligation, bytes32 id, address user)
-        external
-        view
-        returns (uint128, uint128, uint128);
+    function updatePositionView(Obligation memory obligation, bytes32 id, address user) external view returns (uint128, uint128, uint128);
     function updatePosition(Obligation memory obligation, address user) external;
 
     /// OTHER VIEW FUNCTIONS ///
@@ -191,5 +137,5 @@ interface IMidnight {
     function maxLif(uint256 lltv, uint256 cursor) external pure returns (uint256);
     function maxTradingFee(uint256 index) external pure returns (uint256);
     function tradingFee(bytes32 id, uint256 timeToMaturity) external view returns (uint256);
-    // forge-fmt: disable-end
+    // forgefmt: disable-end
 }
