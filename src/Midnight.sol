@@ -67,12 +67,12 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// @dev Only one of `maxSellerAssets`, `maxBuyerAssets`, or `maxUnits` can be nonzero per offer.
 ///
 /// SESSION
-/// @dev Offers should have the current session to be valid.
 /// @dev The session can be shuffled by the user to cancel all current offers easily and efficiently.
+/// @dev Offers should have the current session to be valid.
 ///
 /// AUTHORIZATIONS
 /// @dev All functions that change the position, session, consumed and authorization are accessible to the user itself
-/// or someone that has been authorized.
+/// and to any account that has been authorized.
 /// @dev updatePosition and liquidate (for liquidatable users) also impact the position and are permissionless.
 /// @dev In particular, authorized accounts can authorize other accounts on behalf of the user.
 ///
