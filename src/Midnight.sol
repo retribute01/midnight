@@ -841,7 +841,7 @@ contract Midnight is IMidnight {
     /// @dev A borrower is liquidatable if they have debt, liquidation is not transiently locked, and they are
     /// past maturity or not healthy.
     function isLiquidatable(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
-        return position[id][borrower].debt > 0 && !liquidationLocked(id,borrower)
+        return position[id][borrower].debt > 0 && !liquidationLocked(id, borrower)
             && (block.timestamp > obligation.maturity || !isHealthy(obligation, id, borrower));
     }
 
