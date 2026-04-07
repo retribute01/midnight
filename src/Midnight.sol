@@ -43,23 +43,40 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// collaterals simultaneously.
 ///
 /// TRADING FEES
+/// @dev A default trading fee is set to new obligations. Then, the fee setter can override it.
 /// @dev The trading fee is computed using piecewise linear interpolation between breakpoints.
 /// @dev Trading fee breakpoint indices: 0=0d, 1=1d, 2=7d, 3=30d, 4=90d, 5=180d, 6=360d.
 /// @dev For TTM > 360d, the trading fee is the fee at the 360d breakpoint.
 /// @dev Post-maturity, the trading fee is the fee at the 0d breakpoint.
 /// @dev Trading fees are stored divided by FEE_STEP (1e12) to fit in 16 bits.
-/// @dev Max trading fee is defined per index (see maxTradingFee function).
+/// @dev Max trading fee is defined per index: 50 bps for ttm=360 days, scaled linearly. For post maturity, 0.14 bps.
+/// @dev When the claimer is set, the old claimer loses the unclaimed trading fees.
 ///
 /// CONTINUOUS FEES
-/// @dev A default continuous fee is set per loan token and applied when obligations are created. Then, the fee setter
-/// can override the continuous fee per obligation.
+/// @dev A default continuous fee is set to new obligations. Then, the fee setter can override it.
 /// @dev The fee is tracked per lender via `pendingFee` in each position. If the obligation's continuous fee changes,
 /// the pending fee of existing lenders is not updated (=> their fee is fixed).
 /// @dev Absent bad debt, the face value of a lender's position is `credit - pendingFee`.
+/// @dev When the claimer is set, the old claimer loses the unclaimed continuous fees.
 ///
 /// SLASHING
 /// @dev When some bad debt is realized, it is socialized among lenders in the obligation.
 /// @dev At each lender's next interaction, their credit is slashed proportionally.
+///
+/// GROUPS
+/// @dev Groups are useful to have a global offered amount shared across multiple offers ("OCO").
+/// @dev To work as expected, all offers in the same group should have the same max values and loan token.
+/// @dev Only one of `maxSellerAssets`, `maxBuyerAssets`, or `maxUnits` should be nonzero per offer.
+///
+/// SESSION
+/// @dev Offers should have the current session to be valid.
+/// @dev The session can be shuffled by the user to cancel all current offers easily and efficiently.
+///
+/// AUTHORIZATIONS
+/// @dev All functions that change the position, session, consumed and authorization are accessible to the user itself
+/// or someone that has been authorized.
+/// @dev updatePosition and liquidate (for liquidatable users) also impact the position and are permissionless.
+/// @dev In particular, authorized accounts can authorize other accounts on behalf of the user.
 ///
 /// ROUNDINGS
 /// @dev Because of roundings, trading and continuous fees might charge less than expected, which can become problematic
@@ -70,16 +87,9 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// afterwards (bad debt can no longer be realized).
 ///
 /// GATES
-/// @dev Gates can restrict increasing exposure in an obligation and who may liquidate positions.
-/// @dev The entry gate can gate entry actions (increasing credit or debt) in the obligation.
-/// @dev In particular, it does not prevent the user from exiting the obligation
-/// @dev even when the entry gate is reverting.
-/// @dev The liquidator gate prevents the user from liquidating the obligation (and realizing bad debt).
-///
-/// MISC
-/// @dev Zero checks are not systematically performed.
-/// @dev No-ops are allowed.
-/// @dev NatSpec comments are included only when they bring clarity.
+/// @dev The entry gate can prevent entry actions (increasing credit or debt) in the obligation.
+/// @dev In particular, it does not prevent the user from exiting the obligation even when the entry gate is reverting.
+/// @dev The liquidator gate can prevent the user from liquidating borrowers in the obligation (and realizing bad debt).
 ///
 /// TOKEN REQUIREMENTS
 /// @dev List of assumptions on tokens that guarantee that Midnight behaves as expected:
@@ -103,6 +113,12 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// that token.
 /// @dev If a callback reverts, or if a buy/sell callback returns something other than `CALLBACK_SUCCESS`,
 /// callback-enabled `take`, `repay`, `liquidate`, and `flashLoan` revert.
+///
+/// MISC
+/// @dev Zero checks are not systematically performed.
+/// @dev No-ops are allowed.
+/// @dev NatSpec comments are included only when they bring clarity.
+///
 contract Midnight is IMidnight {
     using UtilsLib for uint256;
     using UtilsLib for uint128;
@@ -111,30 +127,12 @@ contract Midnight is IMidnight {
 
     mapping(bytes32 id => mapping(address user => Position)) public position;
     mapping(bytes32 id => ObligationState) public obligationState;
-
-    /// @dev Groups are useful to have a global offered amount shared across multiple offers ("OCO").
-    /// @dev To work as expected, all offers in the same group should have the same max values and loan token.
-    /// @dev Only one of `maxSellerAssets`, `maxBuyerAssets`, or `maxUnits` should be nonzero per offer.
     mapping(address user => mapping(bytes32 group => uint256)) public consumed;
-
-    /// @dev Offers should have the current session to be valid.
-    /// @dev The session can be shuffled by the user to cancel all current offers easily and efficiently.
     mapping(address user => bytes32) public session;
-
-    /// @dev Whether an address is authorized to act on behalf of another address.
     mapping(address authorizer => mapping(address authorized => bool)) public isAuthorized;
-
-    /// @dev Default trading fees per loan token. Set when the obligation is created. Can be later overridden by the
-    /// feeSetter.
     mapping(address loanToken => uint16[7]) public defaultTradingFees;
-
-    /// @dev Default continuous fee per loan token. Set when the obligation is created. Can be later overridden by the
-    /// feeSetter.
     mapping(address loanToken => uint32) public defaultContinuousFee;
-
-    /// @dev When the claimer is set, the old claimer loses the unclaimed trading and continuous fees.
     mapping(address token => uint256) public claimableTradingFee;
-
     address public owner;
     address public feeClaimer;
     address public feeSetter;
@@ -534,7 +532,7 @@ contract Midnight is IMidnight {
             "liquidator gated from liquidating"
         );
         Position storage _position = position[id][borrower];
-        require(!UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, borrower), "liquidation locked");
+        require(!liquidationLocked(id, borrower), "liquidation locked");
 
         uint256 maxDebt;
         uint256 liquidatedCollatPrice;
@@ -784,8 +782,8 @@ contract Midnight is IMidnight {
         return IdLib.toId(obligation, block.chainid, address(this));
     }
 
-    /// @dev Returns the obligation corresponding to the given id.
     /// @dev Reverts if the id is not a valid id of a touched obligation.
+    /// @dev Returns the obligation corresponding to the given id.
     function toObligation(bytes32 id) external view returns (Obligation memory) {
         require(obligationState[id].created, "not created");
         address create2Address = address(uint160(uint256(id)));
@@ -851,7 +849,7 @@ contract Midnight is IMidnight {
     /// @dev A borrower is liquidatable if liquidation is not transiently locked, and they are past maturity
     /// or not healthy.
     function isLiquidatable(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
-        return !UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, borrower)
+        return !liquidationLocked(id, borrower)
             && (block.timestamp > obligation.maturity || !isHealthy(obligation, id, borrower));
     }
 
@@ -874,11 +872,12 @@ contract Midnight is IMidnight {
         return maxDebt >= debt;
     }
 
+    /// @dev Returns the max LIF for the given lltv and cursor.
     function maxLif(uint256 lltv, uint256 cursor) public pure returns (uint256) {
         return WAD.mulDivDown(WAD, WAD - cursor.mulDivDown(WAD - lltv, WAD));
     }
 
-    /// @dev 50 bps for ttm=360 days, scaled linearly. For post maturity, 0.14 bps.
+    /// @dev Returns the max trading fee for the given index.
     function maxTradingFee(uint256 index) public pure returns (uint256) {
         return [0.000014e18, 0.000014e18, 0.000098e18, 0.000417e18, 0.00125e18, 0.0025e18, 0.005e18][index];
     }
