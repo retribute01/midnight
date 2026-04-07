@@ -496,7 +496,7 @@ contract Midnight is IMidnight {
     }
 
     /// @dev At least one of `seizedAssets` or `repaidUnits` should be equal to zero.
-    /// @dev Accounts are liquidatable if they are unhealthy or if the maturity has passed.
+    /// @dev Accounts with nonzero debt are liquidatable if they are unhealthy or if the maturity has passed.
     /// @dev Before maturity, the liquidation cannot put the borrower back into health (recovery close factor), unless
     /// the liquidation could leave a collateral with a value that would not be enough to repay rcfThreshold units.
     /// @dev Recovery close factor means that debtOf - repaidUnits >= maxDebt - repaidUnits*LIF*LLTV, which is
@@ -541,7 +541,10 @@ contract Midnight is IMidnight {
             bitmap = bitmap.clearBit(i);
         }
 
-        require(block.timestamp > obligation.maturity || originalDebt > maxDebt, "position is not liquidatable");
+        require(
+            originalDebt > 0 && (block.timestamp > obligation.maturity || originalDebt > maxDebt),
+            "position is not liquidatable"
+        );
 
         if (badDebt > 0) {
             // forge-lint: disable-next-item(unsafe-typecast) as badDebt <= _position.debt
@@ -835,10 +838,10 @@ contract Midnight is IMidnight {
         return UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, user);
     }
 
-    /// @dev A borrower is liquidatable if liquidation is not transiently locked, and they are past maturity
-    /// or not healthy.
+    /// @dev A borrower is liquidatable if they have debt, liquidation is not transiently locked, and they are
+    /// past maturity or not healthy.
     function isLiquidatable(Obligation memory obligation, bytes32 id, address borrower) public view returns (bool) {
-        return !liquidationLocked(id, borrower)
+        return position[id][borrower].debt > 0 && !liquidationLocked(id, borrower)
             && (block.timestamp > obligation.maturity || !isHealthy(obligation, id, borrower));
     }
 
