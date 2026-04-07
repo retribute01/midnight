@@ -4,13 +4,9 @@ pragma solidity >=0.5.0;
 
 struct Obligation {
     address loanToken;
-    // Must be sorted by address.
     CollateralParams[] collateralParams;
     uint256 maturity;
-    // The recovery close factor is deactivated for a collateral if the liquidation could leave a collateral value that
-    // would not be enough to repay rcfThreshold units.
     uint256 rcfThreshold;
-    // Optional gates (address(0) = unrestricted).
     address enterGate;
     address liquidatorGate;
 }
@@ -69,9 +65,7 @@ struct Position {
 
 interface IMidnight {
     // forgefmt: disable-start
-
     /// STORAGE GETTERS ///
-
     function position(bytes32 id, address user) external view returns (uint128 credit, uint128 pendingFee, uint128 lossIndex, uint128 lastAccrual, uint128 debt, uint128 activatedCollaterals);
     function obligationState(bytes32 id) external view returns (uint128 totalUnits, uint128 lossIndex, uint128 withdrawable, uint128 continuousFeeCredit, uint16 fee0, uint16 fee1, uint16 fee2, uint16 fee3, uint16 fee4, uint16 fee5, uint16 fee6, uint32 continuousFee, bool created);
     function consumed(address user, bytes32 group) external view returns (uint256);
@@ -143,6 +137,5 @@ interface IMidnight {
     function maxLif(uint256 lltv, uint256 cursor) external pure returns (uint256);
     function maxTradingFee(uint256 index) external pure returns (uint256);
     function tradingFee(bytes32 id, uint256 timeToMaturity) external view returns (uint256);
-
     // forgefmt: disable-end
 }
