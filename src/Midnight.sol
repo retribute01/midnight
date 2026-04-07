@@ -844,7 +844,7 @@ contract Midnight is IMidnight {
         return position[id][user].lastAccrual;
     }
 
-    function liquidationLocked(bytes32 id, address user) external view returns (bool) {
+    function liquidationLocked(bytes32 id, address user) public view returns (bool) {
         return UtilsLib.tGet(LIQUIDATION_LOCK_SLOT, id, user);
     }
 
