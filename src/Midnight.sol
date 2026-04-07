@@ -50,14 +50,12 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// @dev Post-maturity, the trading fee is the fee at the 0d breakpoint.
 /// @dev Trading fees are stored divided by FEE_STEP (1e12) to fit in 16 bits.
 /// @dev Max trading fee is defined per index: 50 bps for ttm=360 days, scaled linearly. For post maturity, 0.14 bps.
-/// @dev When the claimer is set, the old claimer loses the unclaimed trading fees.
 ///
 /// CONTINUOUS FEES
 /// @dev A default continuous fee is set to new obligations. Then, the fee setter can override it.
 /// @dev The fee is tracked per lender via `pendingFee` in each position. If the obligation's continuous fee changes,
 /// the pending fee of existing lenders is not updated (=> their fee is fixed).
 /// @dev Absent bad debt, the face value of a lender's position is `credit - pendingFee`.
-/// @dev When the claimer is set, the old claimer loses the unclaimed continuous fees.
 ///
 /// SLASHING
 /// @dev When some bad debt is realized, it is socialized among lenders in the obligation.
@@ -113,6 +111,12 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// that token.
 /// @dev If a callback reverts, or if a buy/sell callback returns something other than `CALLBACK_SUCCESS`,
 /// callback-enabled `take`, `repay`, `liquidate`, and `flashLoan` revert.
+///
+/// ROLES
+/// @dev The owner can set the owner, fee setter, and fee claimer.
+/// @dev The fee setter can set the default and per-obligation trading fee and continuous fee.
+/// @dev The fee claimer can claim the trading fee and continuous fee.
+/// @dev When the claimer is set, the old claimer loses the unclaimed fees.
 ///
 /// MISC
 /// @dev Zero checks are not systematically performed.
