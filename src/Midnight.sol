@@ -10,29 +10,21 @@ import {
     WAD,
     ORACLE_PRICE_SCALE,
     FEE_STEP,
+    CALLBACK_SUCCESS,
     MAX_CONTINUOUS_FEE,
     TIME_TO_MAX_LIF,
     MAX_COLLATERALS,
     MAX_COLLATERALS_PER_BORROWER,
     LIQUIDATION_CURSOR_LOW,
     LIQUIDATION_CURSOR_HIGH,
-    EIP712_DOMAIN_TYPEHASH,
-    ROOT_TYPEHASH,
     LIQUIDATION_LOCK_SLOT,
     CALLBACK_SUCCESS,
     isLltvAllowed
 } from "./libraries/ConstantsLib.sol";
 import {IOracle} from "./interfaces/IOracle.sol";
-import {
-    IMidnight,
-    Obligation,
-    Offer,
-    Signature,
-    CollateralParams,
-    ObligationState,
-    Position
-} from "./interfaces/IMidnight.sol";
+import {IMidnight, Obligation, Offer, CollateralParams, ObligationState, Position} from "./interfaces/IMidnight.sol";
 import {ICallbacks, IFlashLoanCallback} from "./interfaces/ICallbacks.sol";
+import {IRatifier} from "./interfaces/IRatifier.sol";
 import {IEnterGate, ILiquidatorGate} from "./interfaces/IGate.sol";
 import {EventsLib} from "./libraries/EventsLib.sol";
 
@@ -281,7 +273,7 @@ contract Midnight is IMidnight {
         bytes memory takerCallbackData,
         address receiverIfTakerIsSeller,
         Offer memory offer,
-        Signature memory sig,
+        bytes memory ratifierData,
         bytes32 root,
         bytes32[] memory proof
     ) external returns (uint256, uint256, uint256) {
@@ -290,9 +282,13 @@ contract Midnight is IMidnight {
         require(block.timestamp >= offer.start, "offer not started");
         require(block.timestamp <= offer.expiry, "offer expired");
         require(offer.maker != taker, "buyer and seller cannot be the same");
-        require(signer(root, sig) == offer.maker, "invalid signature");
         require(UtilsLib.isLeaf(root, keccak256(abi.encode(offer)), proof), "invalid proof");
         require(offer.session == session[offer.maker], "invalid session");
+        require(isAuthorized[offer.maker][offer.ratifier], "ratifier not authorized");
+        require(
+            IRatifier(offer.ratifier).onRatify(offer, root, ratifierData) == CALLBACK_SUCCESS, "ratification failed"
+        );
+
         bytes32 id = touchObligation(offer.obligation);
         ObligationState storage _obligationState = obligationState[id];
 
@@ -882,18 +878,6 @@ contract Midnight is IMidnight {
             bitmap = bitmap.clearBit(i);
         }
         return maxDebt >= debt;
-    }
-
-    function domainSeparator() internal view returns (bytes32) {
-        return keccak256(abi.encode(EIP712_DOMAIN_TYPEHASH, block.chainid, address(this)));
-    }
-
-    function signer(bytes32 root, Signature memory signature) internal view returns (address) {
-        bytes32 structHash = keccak256(abi.encode(ROOT_TYPEHASH, root));
-        bytes32 digest = keccak256(bytes.concat("\x19\x01", domainSeparator(), structHash));
-        address tentativeSigner = ecrecover(digest, signature.v, signature.r, signature.s);
-        require(tentativeSigner != address(0), "invalid signature");
-        return tentativeSigner;
     }
 
     function maxLif(uint256 lltv, uint256 cursor) public pure returns (uint256) {
