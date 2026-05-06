@@ -104,9 +104,9 @@ import {EventsLib} from "./libraries/EventsLib.sol";
 /// for chains where the gas is cheaper than 1 asset of the loan token.
 /// @dev lossFactor is rounded up so lenders collectively lose a bit more on each bad debt realization.
 /// @dev slash rounds the credit down, so lenders lose a bit at each interaction.
-/// @dev If an obligation loses more than 99%+ of its value to bad debt over its lifetime, it won't function properly
-/// afterwards (bad debt can no longer be realized).
-///
+/// @dev If an obligation loses almost all of its value to bad debt over its lifetime, then the accounting of the loss
+/// may become extremely imprecise (against the user), potentially leading to a total loss. In those cases the
+/// obligation doesn't function properly, and notably the take function reverts when the loss factor is maxed out.
 /// GATES
 /// @dev Gates are optional (address(0) = unrestricted).
 /// @dev The entry gate can prevent entry actions (increasing credit or debt) in the obligation.
@@ -323,6 +323,7 @@ contract Midnight is IMidnight {
         require(taker == msg.sender || isAuthorized[taker][msg.sender], TakerUnauthorized());
         bytes32 id = touchObligation(offer.obligation);
         ObligationState storage _obligationState = obligationState[id];
+        require(_obligationState.lossFactor < type(uint128).max, ObligationLossFactorMaxedOut());
         require(
             UtilsLib.atMostOneNonZero(offer.maxSellerAssets, offer.maxBuyerAssets, offer.maxUnits), MultipleNonZero()
         );

@@ -70,7 +70,7 @@ rule updatePositionSyncsLossFactor(env e, Midnight.Obligation obligation, addres
     assert userLossFactor(id, user) == currentContract.obligationState[id].lossFactor;
 }
 
-/// Under valid state, the loss factor slash computation in updatePosition does not revert.
+/// Assuming that the obligation is created, the loss factor computation in updatePosition does not revert.
 rule updatePositionDoesNotRevert(env e, Midnight.Obligation obligation, address user) {
     bytes32 id = summaryToId(obligation);
 
@@ -78,10 +78,10 @@ rule updatePositionDoesNotRevert(env e, Midnight.Obligation obligation, address 
     require userLossFactor(id, user) <= currentContract.obligationState[id].lossFactor, "user lossFactor bounded by obligation lossFactor, already proved in Midnight.spec";
     require pendingFee(id, user) <= creditOf(id, user), "pending fee bounded by credit, already proved in Midnight.spec";
     require currentContract.position[id][user].lastAccrual <= e.block.timestamp, "lastAccrual <= block.timestamp by timestamp monotonicity";
-    require to_mathint(e.block.timestamp) < 2 ^ 128, "reasonable timestamp";
-    require to_mathint(currentContract.obligationState[id].continuousFeeCredit) + to_mathint(pendingFee(id, user)) <= to_mathint(max_uint128), "continuousFeeCredit + accruable fee does not overflow (accruedFee <= pendingFee)";
-    require e.msg.value == 0, "Midnight is not payable";
+    require e.block.timestamp < 2 ^ 128, "reasonable timestamp";
+    require currentContract.obligationState[id].continuousFeeCredit + pendingFee(id, user) <= max_uint128, "Total credit should be bounded by 2^128 and an increase of continuous fee credit should corresponds to a similar decrease of credit";
 
+    require e.msg.value == 0, "setup the call";
     updatePosition@withrevert(e, obligation, user);
 
     assert !lastReverted, "updatePosition should not revert under valid state";
