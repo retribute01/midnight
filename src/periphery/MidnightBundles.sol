@@ -52,9 +52,7 @@ contract MidnightBundles is IMidnightBundles {
                     "",
                     address(0),
                     takes[i].offer,
-                    takes[i].ratifierData,
-                    takes[i].root,
-                    takes[i].proof
+                    takes[i].ratifierData
                 ) returns (
                 uint256 resBuyerAssets, uint256, uint256 resUnits
             ) {
@@ -130,9 +128,7 @@ contract MidnightBundles is IMidnightBundles {
                     "",
                     address(this),
                     takes[i].offer,
-                    takes[i].ratifierData,
-                    takes[i].root,
-                    takes[i].proof
+                    takes[i].ratifierData
                 ) returns (
                 uint256, uint256 resSellerAssets, uint256 resUnits
             ) {
@@ -198,9 +194,7 @@ contract MidnightBundles is IMidnightBundles {
                     "",
                     address(0),
                     takes[i].offer,
-                    takes[i].ratifierData,
-                    takes[i].root,
-                    takes[i].proof
+                    takes[i].ratifierData
                 ) returns (
                 uint256 resBuyerAssets, uint256, uint256 resUnits
             ) {
@@ -283,9 +277,7 @@ contract MidnightBundles is IMidnightBundles {
                     "",
                     address(this),
                     takes[i].offer,
-                    takes[i].ratifierData,
-                    takes[i].root,
-                    takes[i].proof
+                    takes[i].ratifierData
                 ) returns (
                 uint256, uint256 resSellerAssets, uint256 resUnits
             ) {
