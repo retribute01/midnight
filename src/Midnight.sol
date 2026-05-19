@@ -341,15 +341,12 @@ contract Midnight is IMidnight {
         MarketState storage _marketState = marketState[id];
         require(_marketState.lossFactor < type(uint128).max, MarketLossFactorMaxedOut());
         require(UtilsLib.atMostOneNonZero(offer.maxAssets, offer.maxUnits), MultipleNonZero());
+        require(offer.tick % _marketState.tickSpacing == 0, TickNotAccessible());
         require(block.timestamp >= offer.start, OfferNotStarted());
         require(block.timestamp <= offer.expiry, OfferExpired());
         require(offer.maker != taker, SelfTake());
         require(isAuthorized[offer.maker][offer.ratifier], RatifierUnauthorized());
         require(IRatifier(offer.ratifier).isRatified(offer, ratifierData) == CALLBACK_SUCCESS, RatifierFail());
-
-        require(offer.tick % _marketState.tickSpacing == 0, TickNotAccessible());
-
-        (address buyer, address seller) = offer.buy ? (offer.maker, taker) : (taker, offer.maker);
 
         uint256 offerPrice = TickLib.tickToPrice(offer.tick);
         uint256 timeToMaturity = UtilsLib.zeroFloorSub(offer.market.maturity, block.timestamp);
@@ -368,6 +365,7 @@ contract Midnight is IMidnight {
             require(newConsumed <= offer.maxUnits, ConsumedUnits());
         }
 
+        (address buyer, address seller) = offer.buy ? (offer.maker, taker) : (taker, offer.maker);
         Position storage buyerPos = position[id][buyer];
         Position storage sellerPos = position[id][seller];
 
@@ -383,20 +381,10 @@ contract Midnight is IMidnight {
             ? UtilsLib.toUint128(sellerPos.pendingFee.mulDivUp(sellerCreditDecrease, sellerPos.credit))
             : 0;
 
-        buyerPos.debt -= UtilsLib.toUint128(units - buyerCreditIncrease);
-        buyerPos.pendingFee += buyerPendingFeeIncrease;
-        buyerPos.credit += UtilsLib.toUint128(buyerCreditIncrease);
-
-        sellerPos.pendingFee -= sellerPendingFeeDecrease;
-        sellerPos.credit -= UtilsLib.toUint128(sellerCreditDecrease);
-        sellerPos.debt += UtilsLib.toUint128(sellerDebtIncrease);
-
-        _marketState.totalUnits =
-            UtilsLib.toUint128(_marketState.totalUnits + buyerCreditIncrease - sellerCreditDecrease);
-
-        if (offer.reduceOnly) {
-            require(offer.buy ? buyerCreditIncrease == 0 : sellerDebtIncrease == 0, MakerCreditOrDebtIncreased());
-        }
+        require(
+            !offer.reduceOnly || (offer.buy ? buyerCreditIncrease == 0 : sellerDebtIncrease == 0),
+            MakerCreditOrDebtIncreased()
+        );
 
         require(
             offer.market.enterGate == address(0) || buyerCreditIncrease == 0
@@ -408,6 +396,17 @@ contract Midnight is IMidnight {
                 || IEnterGate(offer.market.enterGate).canIncreaseDebt(seller),
             SellerGatedFromIncreasingDebt()
         );
+
+        buyerPos.debt -= UtilsLib.toUint128(units - buyerCreditIncrease);
+        buyerPos.pendingFee += buyerPendingFeeIncrease;
+        buyerPos.credit += UtilsLib.toUint128(buyerCreditIncrease);
+
+        sellerPos.pendingFee -= sellerPendingFeeDecrease;
+        sellerPos.credit -= UtilsLib.toUint128(sellerCreditDecrease);
+        sellerPos.debt += UtilsLib.toUint128(sellerDebtIncrease);
+
+        _marketState.totalUnits =
+            UtilsLib.toUint128(_marketState.totalUnits + buyerCreditIncrease - sellerCreditDecrease);
 
         address buyerCallback = offer.buy ? offer.callback : takerCallback;
         address sellerCallback = offer.buy ? takerCallback : offer.callback;
