@@ -437,8 +437,9 @@ contract Midnight is IMidnight {
         if (buyerCallback != address(0)) {
             bytes memory buyerCallbackData = offer.buy ? offer.callbackData : takerCallbackData;
             require(
-                IBuyCallback(buyerCallback).onBuy(id, offer.market, buyer, buyerAssets, units, buyerCallbackData)
-                    == CALLBACK_SUCCESS,
+                IBuyCallback(buyerCallback)
+                    .onBuy(id, offer.market, buyer, buyerAssets, units, buyerPendingFeeIncrease, buyerCallbackData)
+                == CALLBACK_SUCCESS,
                 WrongBuyCallbackReturnValue()
             );
         }
@@ -450,8 +451,16 @@ contract Midnight is IMidnight {
             bytes memory sellerCallbackData = offer.buy ? takerCallbackData : offer.callbackData;
             require(
                 ISellCallback(sellerCallback)
-                    .onSell(id, offer.market, seller, receiver, sellerAssets, units, sellerCallbackData)
-                == CALLBACK_SUCCESS,
+                    .onSell(
+                        id,
+                        offer.market,
+                        seller,
+                        receiver,
+                        sellerAssets,
+                        units,
+                        sellerPendingFeeDecrease,
+                        sellerCallbackData
+                    ) == CALLBACK_SUCCESS,
                 WrongSellCallbackReturnValue()
             );
         }
@@ -681,7 +690,16 @@ contract Midnight is IMidnight {
             require(
                 ILiquidateCallback(callback)
                     .onLiquidate(
-                        id, market, msg.sender, borrower, receiver, collateralIndex, seizedAssets, repaidUnits, data
+                        id,
+                        market,
+                        msg.sender,
+                        borrower,
+                        receiver,
+                        collateralIndex,
+                        seizedAssets,
+                        repaidUnits,
+                        badDebt,
+                        data
                     ) == CALLBACK_SUCCESS,
                 WrongLiquidateCallbackReturnValue()
             );
