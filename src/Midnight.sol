@@ -882,15 +882,15 @@ contract Midnight is IMidnight {
         return abi.decode(create2Address.code, (Market));
     }
 
-    function creditOf(bytes32 id, address user) external view returns (uint256) {
+    function creditOf(bytes32 id, address user) external view returns (uint128) {
         return position[id][user].credit;
     }
 
-    function debtOf(bytes32 id, address user) external view returns (uint256) {
+    function debtOf(bytes32 id, address user) external view returns (uint128) {
         return position[id][user].debt;
     }
 
-    function totalUnits(bytes32 id) external view returns (uint256) {
+    function totalUnits(bytes32 id) external view returns (uint128) {
         return marketState[id].totalUnits;
     }
 
@@ -902,7 +902,7 @@ contract Midnight is IMidnight {
         return marketState[id].tickSpacing;
     }
 
-    function withdrawable(bytes32 id) external view returns (uint256) {
+    function withdrawable(bytes32 id) external view returns (uint128) {
         return marketState[id].withdrawable;
     }
 
@@ -924,7 +924,7 @@ contract Midnight is IMidnight {
         return marketState[id].continuousFee;
     }
 
-    function continuousFeeCredit(bytes32 id) external view returns (uint256) {
+    function continuousFeeCredit(bytes32 id) external view returns (uint128) {
         return marketState[id].continuousFeeCredit;
     }
 

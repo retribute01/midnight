@@ -371,7 +371,7 @@ contract LiquidationTest is BaseTest {
         Oracle(market.collateralParams[0].oracle).setPrice(badDebtPriceDown(units));
 
         uint256 expectedBadDebt = _badDebt();
-        uint128 oldTotalUnits = midnight.totalUnits(id).toUint128();
+        uint128 oldTotalUnits = midnight.totalUnits(id);
         uint256 previousLossFactor = midnight.lossFactor(id);
         uint256 previousContinuousFeeCredit = midnight.continuousFeeCredit(id);
         uint256 expectedLossFactor = expectedBadDebt == 0

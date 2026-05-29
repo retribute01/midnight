@@ -7,8 +7,8 @@ using Utils as Utils;
 methods {
     function multicall(bytes[]) external => HAVOC_ALL DELETE;
 
-    function debtOf(bytes32 id, address user) external returns (uint256) envfree;
-    function creditOf(bytes32 id, address user) external returns (uint256) envfree;
+    function debtOf(bytes32 id, address user) external returns (uint128) envfree;
+    function creditOf(bytes32 id, address user) external returns (uint128) envfree;
     function collateral(bytes32 id, address user, uint256) external returns (uint128) envfree;
     function collateralBitmap(bytes32 id, address user) external returns (uint128) envfree;
     function liquidationLocked(bytes32 id, address user) external returns (bool) envfree;
