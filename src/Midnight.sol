@@ -59,10 +59,10 @@ import {IMidnight, Market, Offer, CollateralParams, MarketState, Position} from 
 /// shouldn't be locked either.
 /// @dev Liquidations are locked for the seller during the callbacks of take.
 /// @dev Liquidations can revert for other reasons, see LIVENESS.
-/// @dev There are two liquidation paths: The "healthy path", available after the market's maturity and the "normal
-/// path", available if the borrower is unhealthy. For an unhealthy borrower after the maturity, the liquidator can
-/// choose between both paths.
-/// @dev In the "normal path", the liquidation incentive factor (LIF) is maxLif and the liquidation amount is capped
+/// @dev There are two liquidation modes: The "post-maturity mode", available after the market's maturity, and the
+/// "normal mode", available if the borrower is unhealthy. After maturity, an unhealthy borrower's liquidator can choose
+/// between both modes.
+/// @dev In the "normal mode", the liquidation incentive factor (LIF) is maxLif and the liquidation amount is capped
 /// by what is needed to put back the position into health ("recovery close factor", or "RCF").
 /// @dev The RCF condition is (omitting scaling and roundings):
 ///   newDebt >= newMaxDebt <=> debtOf - repaidUnits >= maxDebt - repaidUnits*LIF*LLTV
@@ -73,7 +73,7 @@ import {IMidnight, Market, Offer, CollateralParams, MarketState, Position} from 
 ///   minNewCollateral * liquidatedCollatPrice / LIF < rcfThreshold
 ///     <=> (collateral - maxRepaid * LIF / liquidatedCollatPrice) * liquidatedCollatPrice / LIF < rcfThreshold
 ///     <=> collateral * liquidatedCollatPrice / LIF - maxRepaid < rcfThreshold
-/// @dev In the "healthy path", the LIF (liquidation incentive factor) grows linearly from 1 at maturity to maxLif
+/// @dev In the "post-maturity mode", the LIF (liquidation incentive factor) grows linearly from 1 at maturity to maxLif
 /// at maturity + TIME_TO_MAX_LIF, and the RCF is deactivated.
 ///
 /// SLASHING
@@ -121,7 +121,7 @@ import {IMidnight, Market, Offer, CollateralParams, MarketState, Position} from 
 /// realization.
 /// @dev repaidUnits/seizedAssets computations round against the liquidator.
 /// @dev maxRepaid is rounded up to avoid consecutive max liquidations, so the liquidated position could be slightly
-/// healthy after a liquidation on the unhealthy path.
+/// healthy after a liquidation in the normal mode.
 ///
 /// GATES
 /// @dev Gates are optional (address(0) = unrestricted).
@@ -586,7 +586,7 @@ contract Midnight is IMidnight {
         uint256 seizedAssets,
         uint256 repaidUnits,
         address borrower,
-        bool healthyPath,
+        bool postMaturityMode,
         address receiver,
         address callback,
         bytes calldata data
@@ -621,7 +621,7 @@ contract Midnight is IMidnight {
 
         require(
             !liquidationLocked(id, borrower)
-                && (healthyPath ? block.timestamp > market.maturity : originalDebt > maxDebt),
+                && (postMaturityMode ? block.timestamp > market.maturity : originalDebt > maxDebt),
             NotLiquidatable()
         );
 
@@ -644,7 +644,7 @@ contract Midnight is IMidnight {
 
         if (repaidUnits > 0 || seizedAssets > 0) {
             uint256 _maxLif = market.collateralParams[collateralIndex].maxLif;
-            uint256 lif = healthyPath
+            uint256 lif = postMaturityMode
                 ? UtilsLib.min(_maxLif, WAD + (_maxLif - WAD) * (block.timestamp - market.maturity) / TIME_TO_MAX_LIF)
                 : _maxLif;
 
@@ -654,7 +654,7 @@ contract Midnight is IMidnight {
                 seizedAssets = repaidUnits.mulDivDown(lif, WAD).mulDivDown(ORACLE_PRICE_SCALE, liquidatedCollatPrice);
             }
 
-            if (!healthyPath) {
+            if (!postMaturityMode) {
                 uint256 lltv = market.collateralParams[collateralIndex].lltv;
                 // Note that debt >= maxDebt in this branch.
                 uint256 maxRepaid = lltv < WAD
@@ -686,7 +686,7 @@ contract Midnight is IMidnight {
             seizedAssets,
             repaidUnits,
             borrower,
-            healthyPath,
+            postMaturityMode,
             receiver,
             payer,
             badDebt,
